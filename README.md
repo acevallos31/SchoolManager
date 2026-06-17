@@ -1,4 +1,5 @@
 # SchoolManager
+<<<<<<< HEAD
 
 Sistema de gestión escolar (alumnos, matrículas, mensualidades y pagos) con:
 
@@ -84,3 +85,6 @@ La aplicación queda disponible en `http://localhost:4200`.
 ## Licencia
 
 Uso libre para fines educativos.
+=======
+Sistema de Control de Matricula
+>>>>>>> 41f935b8fd1d8b58a8af05747ff3e6d199d2e83b
