@@ -28,12 +28,12 @@ jobs:
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Validar Frontend (Angular)
         run: |
           cd frontend/schoolmanager-frontend
-          npm ci
+          npm install
           npx ng build --configuration production
 
   # ETAPA 2: DESPLIEGUE (Solo se ejecuta si la etapa anterior pasa Y estamos en la rama main)

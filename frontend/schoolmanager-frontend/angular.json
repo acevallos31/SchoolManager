@@ -2,25 +2,26 @@
   "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
   "version": 1,
   "cli": {
+    "analytics": false,
     "packageManager": "npm"
   },
-
   "newProjectRoot": "projects",
   "projects": {
     "schoolmanager-frontend": {
       "projectType": "application",
-
       "schematics": {},
-
       "root": "",
       "sourceRoot": "src",
       "prefix": "app",
       "architect": {
         "build": {
-
           "builder": "@angular/build:application",
           "options": {
+            "outputPath": "dist/schoolmanager-frontend",
             "browser": "src/main.ts",
+            "polyfills": [
+              "src/polyfills.ts"
+            ],
             "tsConfig": "tsconfig.app.json",
             "assets": [
               {
@@ -34,6 +35,12 @@
           },
           "configurations": {
             "production": {
+              "fileReplacements": [
+                {
+                  "replace": "src/app/environments/environment.ts",
+                  "with": "src/app/environments/environment.prod.ts"
+                }
+              ],
               "budgets": [
                 {
                   "type": "initial",
@@ -73,52 +80,5 @@
         }
       }
     }
-          "builder": "@angular-devkit/build-angular:browser",
-          "options": {
-            "outputPath": "dist/schoolmanager-frontend",
-            "index": "src/index.html",
-            "main": "src/main.ts",
-            "polyfills": "src/polyfills.ts",
-            "tsConfig": "tsconfig.app.json",
-            "assets": [],
-            "styles": ["src/styles.css"],
-            "scripts": []
-          },
-          "configurations": {
-            "production": {
-              "fileReplacements": [
-                {
-                  "replace": "src/app/environments/environment.ts",
-                  "with": "src/app/environments/environment.prod.ts"
-                }
-              ],
-              "optimization": true,
-              "outputHashing": "all",
-              "sourceMap": false,
-              "extractCss": true,
-              "namedChunks": false,
-              "extractLicenses": true,
-              "vendorChunk": false,
-              "buildOptimizer": true
-            }
-          }
-        },
-        "serve": {
-          "builder": "@angular-devkit/build-angular:dev-server",
-          "options": {
-            "browserTarget": "schoolmanager-frontend:build"
-          },
-          "configurations": {
-            "production": {
-              "browserTarget": "schoolmanager-frontend:build:production"
-            }
-          }
-        }
-      }
-    }
-  },
-  "defaultProject": "schoolmanager-frontend",
-  "cli": {
-    "analytics": false
   }
 }
