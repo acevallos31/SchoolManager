@@ -1,32 +1,67 @@
-<div class="login-container">
-  <div class="login-card">
-    <h1>🏫 SchoolManager</h1>
-    <p class="subtitulo">Sistema de Gestión Escolar</p>
+<div class="login-shell">
+  <section class="login-hero">
+    <span class="badge">Plataforma escolar</span>
+    <h1>Administra matrículas, mensualidades y alumnos desde un solo lugar.</h1>
+    <p>
+      SchoolManager centraliza la operación académica diaria con un acceso rápido,
+      claro y listo para producción.
+    </p>
 
-    <div class="form-group">
-      <label>Correo electrónico</label>
-      <input
-        type="email"
-        [(ngModel)]="correo"
-        placeholder="admin@schoolmanager.com"
-      />
+    <div class="hero-points">
+      <div class="hero-point">
+        <strong>Control académico</strong>
+        <span>Seguimiento de alumnos, pagos y estado administrativo.</span>
+      </div>
+      <div class="hero-point">
+        <strong>Acceso seguro</strong>
+        <span>Autenticación centralizada con sesiones persistentes.</span>
+      </div>
+      <div class="hero-point">
+        <strong>Operación diaria</strong>
+        <span>Diseñado para secretaría, coordinación y administración.</span>
+      </div>
     </div>
+  </section>
 
-    <div class="form-group">
-      <label>Contraseña</label>
-      <input
-        type="password"
-        [(ngModel)]="password"
-        placeholder="••••••••"
-      />
+  <section class="login-panel">
+    <div class="login-card">
+      <p class="eyebrow">Bienvenido</p>
+      <h2>Inicia sesión</h2>
+      <p class="subtitulo">Ingresa tus credenciales para acceder al panel escolar.</p>
+
+      <form class="login-form" (ngSubmit)="login()">
+        <div class="form-group">
+          <label for="correo">Correo electrónico</label>
+          <input
+            id="correo"
+            name="correo"
+            type="email"
+            [(ngModel)]="correo"
+            placeholder="admin@schoolmanager.com"
+            autocomplete="email"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="password">Contraseña</label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            [(ngModel)]="password"
+            placeholder="••••••••"
+            autocomplete="current-password"
+          />
+        </div>
+
+        @if (error) {
+          <div class="error">{{ error }}</div>
+        }
+
+        <button type="submit" [disabled]="cargando">
+          {{ cargando ? 'Validando acceso...' : 'Entrar al sistema' }}
+        </button>
+      </form>
     </div>
-
-    @if (error) {
-      <div class="error">{{ error }}</div>
-    }
-
-    <button (click)="login()" [disabled]="cargando">
-      {{ cargando ? 'Iniciando sesión...' : 'Iniciar sesión' }}
-    </button>
-  </div>
+  </section>
 </div>

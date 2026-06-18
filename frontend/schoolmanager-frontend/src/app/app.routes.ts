@@ -7,9 +7,11 @@ import { Mensualidades } from './pages/mensualidades/mensualidades';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'login', pathMatch: 'full' },
+  { path: 'home', redirectTo: 'login', pathMatch: 'full' },
   { path: 'login', component: Login },
   { path: 'dashboard', component: Dashboard },
   { path: 'alumnos', component: Alumnos },
   { path: 'matriculas', component: Matriculas },
   { path: 'mensualidades', component: Mensualidades },
+  { path: '**', redirectTo: 'login' },
 ];
