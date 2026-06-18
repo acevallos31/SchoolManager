@@ -1,0 +1,103 @@
+<div class="page-container">
+  <div class="page-header">
+    <button class="btn-volver" (click)="volver()">← Volver</button>
+    <h1>📋 Gestión de Alumnos</h1>
+    <button class="btn-nuevo" (click)="mostrarFormulario = !mostrarFormulario">
+      + Nuevo Alumno
+    </button>
+  </div>
+
+  @if (mensaje) {
+    <div class="mensaje">{{ mensaje }}</div>
+  }
+
+  @if (mostrarFormulario) {
+    <div class="formulario">
+      <h3>Registrar nuevo alumno</h3>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Nombre completo *</label>
+          <input type="text" [(ngModel)]="nuevoAlumno.nombre" placeholder="Ej: Juan Pérez" />
+        </div>
+        <div class="form-group">
+          <label>Número de identidad *</label>
+          <input type="text" [(ngModel)]="nuevoAlumno.identidad" placeholder="Ej: 0801-2010-12345" />
+        </div>
+        <div class="form-group">
+          <label>Grado *</label>
+          <select [(ngModel)]="nuevoAlumno.grado">
+            <option value="">Seleccionar grado</option>
+            @for (g of grados; track g) {
+              <option [value]="g">{{ g }}</option>
+            }
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Sección</label>
+          <input type="text" [(ngModel)]="nuevoAlumno.seccion" placeholder="Ej: A" />
+        </div>
+        <div class="form-group">
+          <label>Fecha de nacimiento</label>
+          <input type="date" [(ngModel)]="nuevoAlumno.fecha_nacimiento" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn-cancelar" (click)="mostrarFormulario = false">Cancelar</button>
+        <button class="btn-guardar" (click)="guardarAlumno()" [disabled]="cargando">
+          {{ cargando ? 'Guardando...' : 'Guardar alumno' }}
+        </button>
+      </div>
+    </div>
+  }
+
+  <div class="buscador">
+    <input type="text" [(ngModel)]="busqueda" placeholder="🔍 Buscar por nombre, identidad o grado..." />
+  </div>
+
+  @if (cargando && !mostrarFormulario) {
+    <p class="cargando">Cargando alumnos...</p>
+  } @else {
+    <table class="tabla">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Identidad</th>
+          <th>Grado</th>
+          <th>Sección</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (alumno of alumnosFiltrados; track alumno.id) {
+          <tr>
+            <td>{{ alumno.nombre }}</td>
+            <td>{{ alumno.identidad }}</td>
+            <td>{{ alumno.grado }}</td>
+            <td>{{ alumno.seccion || '-' }}</td>
+            <td>
+              <span [class]="alumno.estado === 'activo' ? 'badge-activo' : 'badge-inactivo'">
+                {{ alumno.estado }}
+              </span>
+            </td>
+            <td>
+              @if (alumno.estado === 'activo') {
+                <button class="btn-desactivar" (click)="desactivarAlumno(alumno.id)">
+                  Desactivar
+                </button>
+              } @else {
+                <button class="btn-activar" (click)="activarAlumno(alumno.id)">
+                  Activar
+                </button>
+              }
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="6" class="sin-datos">No hay alumnos registrados</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>
