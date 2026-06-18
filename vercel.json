@@ -1,9 +1,6 @@
 {
-  "buildCommand": "npm install && npm run build",
-  "outputDirectory": "dist/schoolmanager-frontend/browser",
-  "installCommand": "npm install",
-  "framework": "angular",
-  "rootDirectory": "frontend/schoolmanager-frontend",
+  "buildCommand": "cd frontend/schoolmanager-frontend && npm install && npm run build",
+  "outputDirectory": "frontend/schoolmanager-frontend/dist/schoolmanager-frontend/browser",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
