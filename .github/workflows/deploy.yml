@@ -1,0 +1,64 @@
+name: CI/CD SchoolManager
+
+on:
+  push:
+    branches: [ "main", "AxeellCevallos" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  # ETAPA 1: VALIDACIÓN (Compilar código para asegurar que no tenga errores)
+  validate-code:
+    name: Validar Compilación del Proyecto
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Configurar .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Validar Backend (.NET)
+        run: |
+          dotnet restore backend/SchoolManager.API/SchoolManager.API.csproj
+          dotnet build backend/SchoolManager.API/SchoolManager.API.csproj --configuration Release
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Validar Frontend (Angular)
+        run: |
+          cd frontend/schoolmanager-frontend
+          npm ci
+          npx ng build --configuration production
+
+  # ETAPA 2: DESPLIEGUE (Solo se ejecuta si la etapa anterior pasa Y estamos en la rama main)
+  deploy:
+    name: Desplegar a Producción
+    needs: validate-code
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Desplegar Backend a Render
+        run: |
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+
+      - name: Instalar Vercel CLI
+        run: npm install -g vercel
+
+      - name: Desplegar Frontend a Vercel
+        run: |
+          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+          vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: ./frontend/schoolmanager-frontend
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
