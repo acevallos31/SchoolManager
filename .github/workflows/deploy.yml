@@ -47,7 +47,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Desplegar Backend a Render
-        if: ${{ secrets.RENDER_DEPLOY_HOOK_URL != '' }}
+        continue-on-error: true
         run: |
           curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
 
