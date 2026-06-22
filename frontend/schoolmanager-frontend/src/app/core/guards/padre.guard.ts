@@ -2,13 +2,14 @@ import { Injectable } from '@angular/core';
 import { CanActivate, Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 
-// Protege rutas que solo el rol "padre" puede visitar
+// Protege rutas que solo el rol de portal puede visitar.
 @Injectable({ providedIn: 'root' })
 export class PadreGuard implements CanActivate {
   constructor(private authService: AuthService, private router: Router) {}
 
   canActivate(): boolean {
-    if (this.authService.estaAutenticado() && this.authService.getRol() === 'padre') {
+    const rol = this.authService.getRol();
+    if (this.authService.estaAutenticado() && (rol === 'usuario' || rol === 'padre')) {
       return true;
     }
     this.router.navigate(['/login']);

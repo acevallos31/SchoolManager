@@ -52,9 +52,17 @@ export class PortalPadre implements OnInit {
     try {
       const usuario = await this.auth.getUsuarioActual();
       this.nombrePadre = usuario.nombre;
-      this.hijos = [];
+      this.hijos = await this.auth.apiRequest<any[]>('/alumnos/mis-alumnos');
       this.mensualidadesPorHijo = {};
       this.pagosPorHijo = {};
+
+      await Promise.all(this.hijos.map(async hijo => {
+        const mensualidades = await this.auth.apiRequest<any[]>(`/mensualidades?alumnoId=${hijo.id}`);
+        this.mensualidadesPorHijo[hijo.id] = mensualidades;
+        this.pagosPorHijo[hijo.id] = [];
+      }));
+
+      this.hijoSeleccionadoId = this.hijos[0]?.id ?? '';
     } catch (error) {
       console.error('Error cargando portal de padre:', error);
       await this.router.navigate(['/login']);

@@ -157,7 +157,7 @@ public class AuthController : ControllerBase
             });
         }
 
-        if (usuario.Rol is not ("admin" or "operador" or "padre"))
+        if (usuario.Rol is not ("admin" or "operador" or "usuario"))
         {
             return StatusCode(StatusCodes.Status403Forbidden, new
             {
@@ -313,7 +313,7 @@ public class AuthController : ControllerBase
     {
         var role = usuario.Rol?.Trim().ToLowerInvariant() switch
         {
-            "alumno" or "alumno_padre" or "padre_familia" => "padre",
+            "alumno" or "alumno_padre" or "padre" or "padre_familia" => "usuario",
             "operador" or "operator" => "operador",
             "admin" or "administrador" => "admin",
             var value => value ?? string.Empty

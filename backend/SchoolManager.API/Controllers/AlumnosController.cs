@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using SchoolManager.API.DTOs;
 using SchoolManager.API.Services;
 
@@ -76,6 +77,37 @@ public class AlumnosController : ControllerBase
         }
     }
 
+    [HttpGet("mis-alumnos")]
+    [Authorize(Policy = "AdminOPadre")]
+    public async Task<IActionResult> GetMisAlumnos(CancellationToken cancellationToken)
+    {
+        var usuarioId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(usuarioId, out var tutorId))
+        {
+            return Unauthorized(new { error = "No se pudo identificar el usuario actual." });
+        }
+
+        try
+        {
+            var alumnos = await _tableService.GetListAsync<AlumnoDto>(
+                TableName,
+                new Dictionary<string, string?>
+                {
+                    ["select"] = "*",
+                    ["tutor_id"] = $"eq.{tutorId}",
+                    ["estado"] = "eq.activo",
+                    ["order"] = "nombres.asc"
+                },
+                cancellationToken);
+
+            return Ok(alumnos);
+        }
+        catch (SupabaseTableException ex)
+        {
+            return StatusCode(ex.StatusCode, new { error = ex.Message });
+        }
+    }
+
     [HttpPost]
     [Authorize(Policy = "AdminOOperador")]
     public async Task<IActionResult> Create([FromBody] AlumnoCreateDto dto, CancellationToken cancellationToken)
@@ -88,7 +120,7 @@ public class AlumnosController : ControllerBase
 
         try
         {
-            var tutorId = await CreateAlumnoAccessUserAsync(dto, cancellationToken);
+            var tutorId = dto.TutorId ?? await CreateAlumnoAccessUserAsync(dto, cancellationToken);
             var payload = ToPayload(dto, useDefaultEstado: true);
 
             if (tutorId.HasValue)
@@ -120,6 +152,10 @@ public class AlumnosController : ControllerBase
         }
 
         var payload = ToPayload(dto, useDefaultEstado: false);
+        if (dto.TutorId.HasValue)
+        {
+            payload["tutor_id"] = dto.TutorId.Value;
+        }
 
         try
         {
@@ -230,16 +266,16 @@ public class AlumnosController : ControllerBase
 
         if (isCreate)
         {
-            if (string.IsNullOrWhiteSpace(dto.CorreoAcceso) || !dto.CorreoAcceso.Contains('@'))
+            if (!dto.TutorId.HasValue && (string.IsNullOrWhiteSpace(dto.CorreoAcceso) || !dto.CorreoAcceso.Contains('@')))
             {
-                errors.Add("El correo de acceso del alumno no es valido.");
+                errors.Add("Selecciona un usuario existente o registra un correo para crear el usuario de acceso.");
             }
 
             var passwordInicial = string.IsNullOrWhiteSpace(dto.PasswordAcceso)
                 ? dni
                 : dto.PasswordAcceso.Trim();
 
-            if (string.IsNullOrWhiteSpace(passwordInicial) || passwordInicial.Length < 8)
+            if (!dto.TutorId.HasValue && (string.IsNullOrWhiteSpace(passwordInicial) || passwordInicial.Length < 8))
             {
                 errors.Add("La contrasena de acceso debe tener al menos 8 caracteres. Si la dejas vacia se usara el DNI.");
             }
@@ -272,7 +308,7 @@ public class AlumnosController : ControllerBase
             dto.CorreoAcceso,
             passwordAcceso,
             nombreUsuario,
-            "padre",
+            "usuario",
             cancellationToken);
 
         var usuario = await _tableService.InsertAsync<UsuarioDto>(
@@ -284,7 +320,7 @@ public class AlumnosController : ControllerBase
                 nombre = nombreUsuario,
                 nombre_completo = nombreUsuario,
                 correo = dto.CorreoAcceso.Trim().ToLowerInvariant(),
-                rol = "padre",
+                rol = "usuario",
                 supabase_uid = Guid.Parse(authUserId),
                 created_at = DateTimeOffset.UtcNow,
                 updated_at = DateTimeOffset.UtcNow

@@ -75,6 +75,7 @@ public class AlumnoCreateDto
     public string? NombreUsuarioAcceso { get; set; }
     public string? CorreoAcceso { get; set; }
     public string? PasswordAcceso { get; set; }
+    public Guid? TutorId { get; set; }
 
     public string? Estado { get; set; }
 

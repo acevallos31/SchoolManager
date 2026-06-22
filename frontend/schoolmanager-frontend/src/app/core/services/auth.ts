@@ -4,7 +4,7 @@ import { environment } from '../../environments/environment';
 
 const REQUEST_TIMEOUT_MS = 12000;
 
-export type RolUsuario = 'admin' | 'padre';
+export type RolUsuario = 'admin' | 'operador' | 'usuario' | 'padre';
 
 export interface UsuarioActual {
   id: string;

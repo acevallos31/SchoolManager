@@ -62,8 +62,8 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("SoloAdmin", policy => policy.RequireRole("admin"));
     options.AddPolicy("AdminOOperador", policy => policy.RequireRole("admin", "operador"));
-    options.AddPolicy("AdminOperadorOPadre", policy => policy.RequireRole("admin", "operador", "padre"));
-    options.AddPolicy("AdminOPadre", policy => policy.RequireRole("admin", "padre"));
+    options.AddPolicy("AdminOperadorOPadre", policy => policy.RequireRole("admin", "operador", "usuario", "padre"));
+    options.AddPolicy("AdminOPadre", policy => policy.RequireRole("admin", "usuario", "padre"));
 });
 
 var app = builder.Build();

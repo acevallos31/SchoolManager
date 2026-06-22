@@ -18,7 +18,7 @@ alter table if exists public.usuarios add column if not exists supabase_uid uuid
 alter table if exists public.usuarios add column if not exists activo boolean not null default true;
 alter table if exists public.usuarios add column if not exists updated_at timestamptz;
 alter table if exists public.usuarios
-  add constraint usuarios_rol_check check (rol in ('admin', 'operador', 'padre'));
+  add constraint usuarios_rol_check check (rol in ('admin', 'operador', 'usuario', 'padre'));
 
 create unique index if not exists ux_usuarios_usuario
   on public.usuarios (lower(usuario))

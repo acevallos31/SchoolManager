@@ -7,7 +7,7 @@ namespace SchoolManager.API.Controllers;
 
 [ApiController]
 [Route("api/usuarios")]
-[Authorize(Policy = "SoloAdmin")]
+[Authorize]
 public sealed class UsuariosController : ControllerBase
 {
     private readonly SupabaseTableService _tableService;
@@ -20,6 +20,7 @@ public sealed class UsuariosController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Policy = "AdminOOperador")]
     public async Task<IActionResult> GetAll(
         [FromQuery] string? rol,
         [FromQuery] bool incluirInactivos = true,
@@ -53,6 +54,7 @@ public sealed class UsuariosController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = "AdminOOperador")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
     {
         try
@@ -75,6 +77,7 @@ public sealed class UsuariosController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = "SoloAdmin")]
     public async Task<IActionResult> Create([FromBody] UsuarioCreateDto dto, CancellationToken cancellationToken)
     {
         var errors = Validate(dto, isCreate: true);
@@ -104,7 +107,7 @@ public sealed class UsuariosController : ControllerBase
             {
                 usuario,
                 mensaje = role == "padre"
-                    ? "Usuario de padre/encargado creado correctamente."
+                    ? "Usuario de acceso creado correctamente."
                     : "Usuario administrativo creado correctamente."
             });
         }
@@ -119,6 +122,7 @@ public sealed class UsuariosController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = "SoloAdmin")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UsuarioCreateDto dto, CancellationToken cancellationToken)
     {
         var errors = Validate(dto, isCreate: false);
@@ -176,6 +180,7 @@ public sealed class UsuariosController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Policy = "SoloAdmin")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
         try
@@ -199,6 +204,7 @@ public sealed class UsuariosController : ControllerBase
     }
 
     [HttpPut("{id:guid}/activar")]
+    [Authorize(Policy = "SoloAdmin")]
     public async Task<IActionResult> Activar(Guid id, CancellationToken cancellationToken)
     {
         try
@@ -278,9 +284,9 @@ public sealed class UsuariosController : ControllerBase
             errors.Add("La nueva contrasena debe tener al menos 8 caracteres.");
         }
 
-        if (role is not ("admin" or "operador" or "padre"))
+        if (role is not ("admin" or "operador" or "usuario" or "padre"))
         {
-            errors.Add("El rol debe ser admin, operador o padre.");
+            errors.Add("El rol debe ser admin, operador o usuario.");
         }
 
         return errors;
@@ -299,7 +305,7 @@ public sealed class UsuariosController : ControllerBase
         {
             "administrador" => "admin",
             "operator" => "operador",
-            "alumno" or "alumno_padre" or "padre_familia" => "padre",
+            "alumno" or "alumno_padre" or "padre" or "padre_familia" => "usuario",
             var value => value ?? string.Empty
         };
     }

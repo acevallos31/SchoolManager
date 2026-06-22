@@ -41,9 +41,9 @@ export class Login {
     try {
       const usuario = await this.auth.login(correo, password);
 
-      if (usuario.rol === 'admin') {
+      if (usuario.rol === 'admin' || usuario.rol === 'operador') {
         await this.router.navigate(['/dashboard']);
-      } else if (usuario.rol === 'padre') {
+      } else if (usuario.rol === 'usuario' || usuario.rol === 'padre') {
         await this.router.navigate(['/portal-padre']);
       } else {
         this.error = 'Rol de usuario no reconocido.';

@@ -13,6 +13,7 @@ import { AuthService } from '../../core/services/auth';
 })
 export class Alumnos implements OnInit {
   alumnos: any[] = [];
+  usuariosAcceso: any[] = [];
   mostrarFormulario = false;
   busqueda = '';
   cargando = false;
@@ -37,8 +38,12 @@ export class Alumnos implements OnInit {
     this.cdr.detectChanges();
 
     try {
-      const data = await this.auth.apiRequest<any[]>('/alumnos');
+      const [data, usuarios] = await Promise.all([
+        this.auth.apiRequest<any[]>('/alumnos'),
+        this.auth.apiRequest<any[]>('/usuarios?rol=usuario&incluirInactivos=false')
+      ]);
       this.alumnos = Array.isArray(data) ? [...data] : [];
+      this.usuariosAcceso = Array.isArray(usuarios) ? [...usuarios] : [];
     } catch (error) {
       console.error('Error cargando alumnos:', error);
       this.mostrarMensaje('No se pudieron cargar los alumnos.', 'error');
@@ -76,12 +81,12 @@ export class Alumnos implements OnInit {
       return;
     }
 
-    if (!this.alumnoEditandoId && !this.nuevoAlumno.correoAcceso) {
-      this.mostrarMensaje('El correo de acceso es obligatorio al crear un alumno', 'error');
+    if (!this.alumnoEditandoId && !this.nuevoAlumno.tutorId && !this.nuevoAlumno.correoAcceso) {
+      this.mostrarMensaje('Selecciona un usuario existente o registra un correo de acceso', 'error');
       return;
     }
 
-    if (!this.alumnoEditandoId) {
+    if (!this.alumnoEditandoId && !this.nuevoAlumno.tutorId) {
       this.rellenarAccesoConDni();
       this.rellenarNombreUsuarioAcceso();
     }
@@ -142,7 +147,8 @@ export class Alumnos implements OnInit {
       usuarioAcceso: alumno.usuarioAcceso || alumno.usuario_acceso || '',
       nombreUsuarioAcceso: '',
       correoAcceso: alumno.correoAcceso || alumno.correo_acceso || '',
-      passwordAcceso: ''
+      passwordAcceso: '',
+      tutorId: alumno.tutorId || alumno.tutor_id || ''
     };
     this.mostrarFormulario = true;
     this.cdr.detectChanges();
@@ -202,7 +208,8 @@ export class Alumnos implements OnInit {
       usuarioAcceso: '',
       nombreUsuarioAcceso: '',
       correoAcceso: '',
-      passwordAcceso: ''
+      passwordAcceso: '',
+      tutorId: ''
     };
   }
 

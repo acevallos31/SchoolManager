@@ -51,20 +51,29 @@
           <input type="text" [(ngModel)]="nuevoAlumno.direccion" placeholder="Ej: Colonia Centro, casa 12" />
         </div>
         <div class="form-group">
+          <label>Usuario existente</label>
+          <select [(ngModel)]="nuevoAlumno.tutorId">
+            <option value="">Crear nuevo usuario de acceso</option>
+            @for (usuario of usuariosAcceso; track usuario.id) {
+              <option [value]="usuario.id">{{ usuario.nombreCompleto || usuario.nombre_completo || usuario.nombre }} - {{ usuario.usuario }}</option>
+            }
+          </select>
+        </div>
+        <div class="form-group">
           <label>Usuario de acceso</label>
-          <input type="text" [(ngModel)]="nuevoAlumno.usuarioAcceso" placeholder="Se puede usar el DNI" />
+          <input type="text" [(ngModel)]="nuevoAlumno.usuarioAcceso" placeholder="Se puede usar el DNI" [disabled]="!!nuevoAlumno.tutorId || !!alumnoEditandoId" />
         </div>
         <div class="form-group">
           <label>Nombre del usuario de acceso</label>
-          <input type="text" [(ngModel)]="nuevoAlumno.nombreUsuarioAcceso" placeholder="Ej: Padre de Edgar" [disabled]="!!alumnoEditandoId" />
+          <input type="text" [(ngModel)]="nuevoAlumno.nombreUsuarioAcceso" placeholder="Ej: Padre de Edgar" [disabled]="!!nuevoAlumno.tutorId || !!alumnoEditandoId" />
         </div>
         <div class="form-group">
           <label>{{ alumnoEditandoId ? 'Correo de acceso' : 'Correo de acceso *' }}</label>
-          <input type="email" [(ngModel)]="nuevoAlumno.correoAcceso" placeholder="Ej: padre@correo.com" [disabled]="!!alumnoEditandoId" />
+          <input type="email" [(ngModel)]="nuevoAlumno.correoAcceso" placeholder="Ej: padre@correo.com" [disabled]="!!nuevoAlumno.tutorId || !!alumnoEditandoId" />
         </div>
         <div class="form-group">
           <label>Contrasena inicial</label>
-          <input type="password" [(ngModel)]="nuevoAlumno.passwordAcceso" placeholder="Si queda vacia se usara el DNI" [disabled]="!!alumnoEditandoId" />
+          <input type="password" [(ngModel)]="nuevoAlumno.passwordAcceso" placeholder="Si queda vacia se usara el DNI" [disabled]="!!nuevoAlumno.tutorId || !!alumnoEditandoId" />
         </div>
       </div>
       <div class="form-actions">
