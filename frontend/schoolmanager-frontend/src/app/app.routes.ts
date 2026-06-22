@@ -4,6 +4,7 @@ import { Dashboard } from './pages/dashboard/dashboard';
 import { Alumnos } from './pages/alumnos/alumnos';
 import { Matriculas } from './pages/matriculas/matriculas';
 import { Mensualidades } from './pages/mensualidades/mensualidades';
+import { PortalPadre } from './pages/portal-padre/portal-padre';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'login', pathMatch: 'full' },
@@ -12,4 +13,8 @@ export const routes: Routes = [
   { path: 'alumnos', component: Alumnos },
   { path: 'matriculas', component: Matriculas },
   { path: 'mensualidades', component: Mensualidades },
+<<<<<<< Updated upstream
+=======
+  { path: 'portal-padre', component: PortalPadre },
+>>>>>>> Stashed changes
 ];
