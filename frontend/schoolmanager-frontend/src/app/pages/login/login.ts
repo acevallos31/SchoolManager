@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { ChangeDetectorRef, Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -17,7 +17,11 @@ export class Login {
   error = '';
   cargando = false;
 
-  constructor(private auth: AuthService, private router: Router) {}
+  constructor(
+    private auth: AuthService,
+    private router: Router,
+    private cdr: ChangeDetectorRef
+  ) {}
 
   async login() {
     this.error = '';
@@ -27,10 +31,12 @@ export class Login {
 
     if (!correo || !password) {
       this.error = 'Ingresa tu correo y contrasena para continuar.';
+      this.cdr.detectChanges();
       return;
     }
 
     this.cargando = true;
+    this.cdr.detectChanges();
 
     try {
       const usuario = await this.auth.login(correo, password);
@@ -46,13 +52,12 @@ export class Login {
     } catch (error: unknown) {
       this.error = this.obtenerMensajeError(error);
 
-      try {
-        await this.auth.logout();
-      } catch (logoutError) {
+      this.auth.logout().catch(logoutError => {
         console.error('No se pudo cerrar la sesion despues del error:', logoutError);
-      }
+      });
     } finally {
       this.cargando = false;
+      this.cdr.detectChanges();
     }
   }
 
