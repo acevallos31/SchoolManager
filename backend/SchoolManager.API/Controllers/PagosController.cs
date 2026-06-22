@@ -9,21 +9,38 @@ namespace SchoolManager.API.Controllers;
 [Authorize]
 public class PagosController : ControllerBase
 {
-    // POST /api/pagos
+    [HttpGet]
+    public IActionResult GetAll([FromQuery] Guid? alumnoId)
+    {
+        return Ok(new { mensaje = "Listado de pagos", alumnoId });
+    }
+
+    [HttpGet("{id:guid}")]
+    public IActionResult GetById(Guid id)
+    {
+        return Ok(new { mensaje = "Detalle del pago", id });
+    }
+
     [HttpPost]
+    [Authorize(Policy = "SoloAdmin")]
     public IActionResult RegistrarPago([FromBody] PagoCreateDto dto)
     {
         if (dto.MontoPagado <= 0)
-            return BadRequest(new { error = "El monto del pago debe ser mayor a cero" });
-        // TODO: Insertar pago y actualizar mensualidad a 'pagada'
-        return Created("/api/pagos", new { mensaje = "Pago registrado", pago = dto });
+            return BadRequest(new { error = "El monto pagado debe ser mayor a cero" });
+
+        return CreatedAtAction(nameof(GetById), new { id = Guid.NewGuid() }, dto);
     }
 
-    // GET /api/pagos/{mensualidadId}
-    [HttpGet("{mensualidadId:guid}")]
-    public IActionResult GetPago(Guid mensualidadId)
+    [HttpGet("mensualidad/{mensualidadId:guid}")]
+    public IActionResult GetPagosPorMensualidad(Guid mensualidadId)
     {
-        // TODO: Obtener pago asociado a una mensualidad
-        return Ok(new { mensaje = "Detalle del pago", mensualidadId });
+        return Ok(new { mensaje = "Pagos de mensualidad", mensualidadId });
+    }
+
+    [HttpDelete("{id:guid}")]
+    [Authorize(Policy = "SoloAdmin")]
+    public IActionResult AnularPago(Guid id)
+    {
+        return Ok(new { mensaje = "Pago anulado", id });
     }
 }

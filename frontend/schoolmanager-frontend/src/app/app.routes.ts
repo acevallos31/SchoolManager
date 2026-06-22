@@ -8,6 +8,7 @@ import { PortalPadre } from './pages/portal-padre/portal-padre';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'login', pathMatch: 'full' },
+  { path: 'home', redirectTo: 'login', pathMatch: 'full' },
   { path: 'login', component: Login },
   { path: 'dashboard', component: Dashboard },
   { path: 'alumnos', component: Alumnos },
