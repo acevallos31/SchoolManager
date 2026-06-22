@@ -17,7 +17,8 @@ var allowedOrigins = builder.Configuration
     ?? new[]
     {
         "http://localhost:4200",
-        "https://schoolmanager.vercel.app"
+        "https://schoolmanager.vercel.app",
+        "https://school-manager-self.vercel.app"
     };
 
 builder.Services.AddCors(options =>
