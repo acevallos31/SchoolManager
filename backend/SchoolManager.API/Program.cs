@@ -73,6 +73,13 @@ app.UseCors("FrontendPolicy");
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapGet("/health", () => Results.Ok(new
+{
+    status = "ok",
+    service = "SchoolManager.API",
+    timestamp = DateTimeOffset.UtcNow
+}));
+
 app.MapControllers();
 
 app.Run();
