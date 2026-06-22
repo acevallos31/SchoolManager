@@ -15,16 +15,13 @@ export class Matriculas implements OnInit {
   matriculas: any[] = [];
   alumnos: any[] = [];
   ciclos: any[] = [];
+  grados: any[] = [];
+  secciones: any[] = [];
   mostrarFormulario = false;
   cargando = false;
   mensaje = '';
 
-  nuevaMatricula = {
-    alumno_id: '',
-    ciclo_id: '',
-    monto: 0,
-    estado: 'pendiente'
-  };
+  nuevaMatricula = this.crearFormularioVacio();
 
   constructor(
     private router: Router,
@@ -41,14 +38,19 @@ export class Matriculas implements OnInit {
     this.cdr.detectChanges();
 
     try {
-      const [matriculasData, alumnosData] = await Promise.all([
+      const [matriculasData, alumnosData, ciclosData, gradosData, seccionesData] = await Promise.all([
         this.auth.apiRequest<any[]>('/matriculas'),
-        this.auth.apiRequest<any[]>('/alumnos')
+        this.auth.apiRequest<any[]>('/alumnos'),
+        this.auth.apiRequest<any[]>('/catalogos/ciclos'),
+        this.auth.apiRequest<any[]>('/catalogos/grados'),
+        this.auth.apiRequest<any[]>('/catalogos/secciones')
       ]);
 
       this.matriculas = Array.isArray(matriculasData) ? [...matriculasData] : [];
       this.alumnos = Array.isArray(alumnosData) ? [...alumnosData] : [];
-      this.ciclos = [];
+      this.ciclos = Array.isArray(ciclosData) ? [...ciclosData] : [];
+      this.grados = Array.isArray(gradosData) ? [...gradosData] : [];
+      this.secciones = Array.isArray(seccionesData) ? [...seccionesData] : [];
     } catch (error) {
       console.error('Error cargando matriculas:', error);
       this.mensaje = 'No se pudieron cargar los datos.';
@@ -59,8 +61,14 @@ export class Matriculas implements OnInit {
   }
 
   async guardarMatricula() {
-    if (!this.nuevaMatricula.alumno_id || !this.nuevaMatricula.ciclo_id || !this.nuevaMatricula.monto) {
-      this.mensaje = 'Todos los campos son obligatorios';
+    if (
+      !this.nuevaMatricula.alumnoId ||
+      !this.nuevaMatricula.cicloId ||
+      !this.nuevaMatricula.gradoId ||
+      !this.nuevaMatricula.seccionId ||
+      !this.nuevaMatricula.monto
+    ) {
+      this.mensaje = 'Alumno, ciclo, grado, seccion y monto son obligatorios';
       return;
     }
 
@@ -78,7 +86,7 @@ export class Matriculas implements OnInit {
       });
 
       this.mensaje = 'Matricula registrada correctamente';
-      this.nuevaMatricula = { alumno_id: '', ciclo_id: '', monto: 0, estado: 'pendiente' };
+      this.nuevaMatricula = this.crearFormularioVacio();
       this.mostrarFormulario = false;
       await this.cargarDatos();
     } catch (error) {
@@ -101,7 +109,26 @@ export class Matriculas implements OnInit {
     await this.cargarDatos();
   }
 
+  nombreAlumno(id: string) {
+    return this.alumnos.find(a => a.id === id)?.nombre ?? '-';
+  }
+
+  nombreCatalogo(items: any[], id: string) {
+    return items.find(item => item.id === id)?.nombre ?? '-';
+  }
+
   volver() {
     this.router.navigate(['/dashboard']);
+  }
+
+  private crearFormularioVacio() {
+    return {
+      alumnoId: '',
+      cicloId: '',
+      gradoId: '',
+      seccionId: '',
+      monto: 0,
+      estado: 'pendiente'
+    };
   }
 }

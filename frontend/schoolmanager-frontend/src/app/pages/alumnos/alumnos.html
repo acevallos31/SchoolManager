@@ -13,7 +13,7 @@
 
   @if (mostrarFormulario) {
     <div class="formulario">
-      <h3>Registrar nuevo alumno</h3>
+      <h3>Datos personales del alumno</h3>
       <div class="form-grid">
         <div class="form-group">
           <label>Nombres *</label>
@@ -24,8 +24,8 @@
           <input type="text" [(ngModel)]="nuevoAlumno.apellidos" placeholder="Ej: Perez Lopez" />
         </div>
         <div class="form-group">
-          <label>Edad *</label>
-          <input type="number" [(ngModel)]="nuevoAlumno.edad" min="0" max="120" placeholder="Ej: 10" />
+          <label>Fecha de nacimiento *</label>
+          <input type="date" [(ngModel)]="nuevoAlumno.fechaNacimiento" />
         </div>
         <div class="form-group">
           <label>Sexo *</label>
@@ -48,19 +48,6 @@
           <label>Direccion *</label>
           <input type="text" [(ngModel)]="nuevoAlumno.direccion" placeholder="Ej: Colonia Centro, casa 12" />
         </div>
-        <div class="form-group">
-          <label>Grado</label>
-          <select [(ngModel)]="nuevoAlumno.grado">
-            <option value="">Seleccionar grado</option>
-            @for (g of grados; track g) {
-              <option [value]="g">{{ g }}</option>
-            }
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Seccion</label>
-          <input type="text" [(ngModel)]="nuevoAlumno.seccion" placeholder="Ej: A" />
-        </div>
       </div>
       <div class="form-actions">
         <button class="btn-cancelar" (click)="mostrarFormulario = false">Cancelar</button>
@@ -72,7 +59,7 @@
   }
 
   <div class="buscador">
-    <input type="text" [(ngModel)]="busqueda" placeholder="Buscar por nombre, DNI o grado..." />
+    <input type="text" [(ngModel)]="busqueda" placeholder="Buscar por nombre o DNI..." />
   </div>
 
   @if (cargando && !mostrarFormulario) {
@@ -83,10 +70,9 @@
         <tr>
           <th>Nombre</th>
           <th>DNI</th>
+          <th>Nacimiento</th>
           <th>Edad</th>
           <th>Sexo</th>
-          <th>Grado</th>
-          <th>Seccion</th>
           <th>Encargados</th>
           <th>Direccion</th>
           <th>Estado</th>
@@ -98,10 +84,9 @@
           <tr>
             <td>{{ alumno.nombre }}</td>
             <td>{{ alumno.identidad || alumno.dni }}</td>
-            <td>{{ alumno.edad }}</td>
+            <td>{{ alumno.fechaNacimiento || alumno.fecha_nacimiento }}</td>
+            <td>{{ alumno.edad || '-' }}</td>
             <td>{{ alumno.sexo }}</td>
-            <td>{{ alumno.grado || '-' }}</td>
-            <td>{{ alumno.seccion || '-' }}</td>
             <td>{{ alumno.padresEncargados || '-' }}</td>
             <td>{{ alumno.direccion || '-' }}</td>
             <td>
@@ -123,7 +108,7 @@
           </tr>
         } @empty {
           <tr>
-            <td colspan="10" class="sin-datos">No hay alumnos registrados</td>
+            <td colspan="9" class="sin-datos">No hay alumnos registrados</td>
           </tr>
         }
       </tbody>

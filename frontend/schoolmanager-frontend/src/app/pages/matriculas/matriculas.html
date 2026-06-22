@@ -1,9 +1,9 @@
 <div class="page-container">
   <div class="page-header">
-    <button class="btn-volver" (click)="volver()">← Volver</button>
-    <h1>🎓 Gestión de Matrículas</h1>
+    <button class="btn-volver" (click)="volver()">Volver</button>
+    <h1>Gestion de Matriculas</h1>
     <button class="btn-nuevo" (click)="mostrarFormulario = !mostrarFormulario">
-      + Nueva Matrícula
+      + Nueva Matricula
     </button>
   </div>
 
@@ -13,11 +13,11 @@
 
   @if (mostrarFormulario) {
     <div class="formulario">
-      <h3>Registrar nueva matrícula</h3>
+      <h3>Registrar matricula</h3>
       <div class="form-grid">
         <div class="form-group">
           <label>Alumno *</label>
-          <select [(ngModel)]="nuevaMatricula.alumno_id">
+          <select [(ngModel)]="nuevaMatricula.alumnoId">
             <option value="">Seleccionar alumno</option>
             @for (a of alumnos; track a.id) {
               <option [value]="a.id">{{ a.nombre }}</option>
@@ -26,7 +26,7 @@
         </div>
         <div class="form-group">
           <label>Ciclo escolar *</label>
-          <select [(ngModel)]="nuevaMatricula.ciclo_id">
+          <select [(ngModel)]="nuevaMatricula.cicloId">
             <option value="">Seleccionar ciclo</option>
             @for (c of ciclos; track c.id) {
               <option [value]="c.id">{{ c.nombre }}</option>
@@ -34,7 +34,25 @@
           </select>
         </div>
         <div class="form-group">
-          <label>Monto de matrícula *</label>
+          <label>Grado *</label>
+          <select [(ngModel)]="nuevaMatricula.gradoId">
+            <option value="">Seleccionar grado</option>
+            @for (g of grados; track g.id) {
+              <option [value]="g.id">{{ g.nombre }}</option>
+            }
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Seccion *</label>
+          <select [(ngModel)]="nuevaMatricula.seccionId">
+            <option value="">Seleccionar seccion</option>
+            @for (s of secciones; track s.id) {
+              <option [value]="s.id">{{ s.nombre }}</option>
+            }
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Monto de matricula *</label>
           <input type="number" [(ngModel)]="nuevaMatricula.monto" placeholder="Ej: 1500" />
         </div>
         <div class="form-group">
@@ -48,20 +66,22 @@
       <div class="form-actions">
         <button class="btn-cancelar" (click)="mostrarFormulario = false">Cancelar</button>
         <button class="btn-guardar" (click)="guardarMatricula()" [disabled]="cargando">
-          {{ cargando ? 'Guardando...' : 'Guardar matrícula' }}
+          {{ cargando ? 'Guardando...' : 'Guardar matricula' }}
         </button>
       </div>
     </div>
   }
 
   @if (cargando && !mostrarFormulario) {
-    <p class="cargando">Cargando matrículas...</p>
+    <p class="cargando">Cargando matriculas...</p>
   } @else {
     <table class="tabla">
       <thead>
         <tr>
           <th>Alumno</th>
           <th>Ciclo escolar</th>
+          <th>Grado</th>
+          <th>Seccion</th>
           <th>Monto</th>
           <th>Estado</th>
           <th>Acciones</th>
@@ -70,8 +90,10 @@
       <tbody>
         @for (m of matriculas; track m.id) {
           <tr>
-            <td>{{ m.alumnos?.nombre }}</td>
-            <td>{{ m.ciclos_escolares?.nombre }}</td>
+            <td>{{ nombreAlumno(m.alumnoId || m.alumno_id) }}</td>
+            <td>{{ nombreCatalogo(ciclos, m.cicloId || m.ciclo_id) }}</td>
+            <td>{{ nombreCatalogo(grados, m.gradoId || m.grado_id) }}</td>
+            <td>{{ nombreCatalogo(secciones, m.seccionId || m.seccion_id) }}</td>
             <td>L. {{ m.monto | number:'1.2-2' }}</td>
             <td>
               <span [class]="m.estado === 'pagada' ? 'badge-pagada' : 'badge-pendiente'">
@@ -84,13 +106,13 @@
                   Marcar pagada
                 </button>
               } @else {
-                <span class="pagado-texto">✅ Pagada</span>
+                <span class="pagado-texto">Pagada</span>
               }
             </td>
           </tr>
         } @empty {
           <tr>
-            <td colspan="5" class="sin-datos">No hay matrículas registradas</td>
+            <td colspan="7" class="sin-datos">No hay matriculas registradas</td>
           </tr>
         }
       </tbody>

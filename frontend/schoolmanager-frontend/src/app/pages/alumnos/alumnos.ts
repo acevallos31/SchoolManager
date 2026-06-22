@@ -20,18 +20,6 @@ export class Alumnos implements OnInit {
 
   nuevoAlumno = this.crearFormularioVacio();
 
-  grados = [
-    '1er Grado',
-    '2do Grado',
-    '3er Grado',
-    '4to Grado',
-    '5to Grado',
-    '6to Grado',
-    '7mo Grado',
-    '8vo Grado',
-    '9no Grado'
-  ];
-
   constructor(
     private router: Router,
     private auth: AuthService,
@@ -68,8 +56,7 @@ export class Alumnos implements OnInit {
     return this.alumnos.filter(a =>
       String(a.nombre ?? '').toLowerCase().includes(busqueda) ||
       String(a.identidad ?? '').toLowerCase().includes(busqueda) ||
-      String(a.dni ?? '').toLowerCase().includes(busqueda) ||
-      String(a.grado ?? '').toLowerCase().includes(busqueda)
+      String(a.dni ?? '').toLowerCase().includes(busqueda)
     );
   }
 
@@ -77,13 +64,13 @@ export class Alumnos implements OnInit {
     if (
       !this.nuevoAlumno.nombres ||
       !this.nuevoAlumno.apellidos ||
-      this.nuevoAlumno.edad === null ||
+      !this.nuevoAlumno.fechaNacimiento ||
       !this.nuevoAlumno.sexo ||
       !this.nuevoAlumno.dni ||
       !this.nuevoAlumno.padresEncargados ||
       !this.nuevoAlumno.direccion
     ) {
-      this.mensaje = 'Nombres, apellidos, edad, sexo, DNI, encargados y direccion son obligatorios';
+      this.mensaje = 'Nombres, apellidos, nacimiento, sexo, DNI, encargados y direccion son obligatorios';
       return;
     }
 
@@ -142,13 +129,11 @@ export class Alumnos implements OnInit {
     return {
       nombres: '',
       apellidos: '',
-      edad: null as number | null,
+      fechaNacimiento: '',
       sexo: '',
       dni: '',
       padresEncargados: '',
-      direccion: '',
-      grado: '',
-      seccion: ''
+      direccion: ''
     };
   }
 }

@@ -20,7 +20,6 @@ public class AlumnosController : ControllerBase
 
     [HttpGet]
     public async Task<IActionResult> GetAll(
-        [FromQuery] string? grado,
         [FromQuery] string? buscar,
         [FromQuery] string? estado,
         CancellationToken cancellationToken)
@@ -30,11 +29,6 @@ public class AlumnosController : ControllerBase
             ["select"] = "*",
             ["order"] = "nombres.asc"
         };
-
-        if (!string.IsNullOrWhiteSpace(grado))
-        {
-            query["grado"] = $"eq.{grado.Trim()}";
-        }
 
         if (!string.IsNullOrWhiteSpace(estado))
         {
@@ -185,15 +179,17 @@ public class AlumnosController : ControllerBase
             }
         }
 
-        if (isCreate || dto.Edad.HasValue)
+        var fechaNacimiento = dto.FechaNacimiento ?? dto.FechaNacimientoSnake;
+
+        if (isCreate || fechaNacimiento.HasValue)
         {
-            if (!dto.Edad.HasValue)
+            if (!fechaNacimiento.HasValue)
             {
-                errors.Add("La edad del alumno es obligatoria.");
+                errors.Add("La fecha de nacimiento del alumno es obligatoria.");
             }
-            else if (dto.Edad is < 0 or > 120)
+            else if (fechaNacimiento.Value > DateOnly.FromDateTime(DateTime.UtcNow))
             {
-                errors.Add("La edad debe estar entre 0 y 120.");
+                errors.Add("La fecha de nacimiento no puede estar en el futuro.");
             }
         }
 
@@ -236,12 +232,11 @@ public class AlumnosController : ControllerBase
         AddIfHasValue(payload, "sexo", dto.Sexo?.Trim().ToUpperInvariant());
         AddIfHasValue(payload, "padres_encargados", dto.PadresEncargados);
         AddIfHasValue(payload, "direccion", dto.Direccion);
-        AddIfHasValue(payload, "grado", dto.Grado);
-        AddIfHasValue(payload, "seccion", dto.Seccion);
 
-        if (dto.Edad.HasValue)
+        var fechaNacimiento = dto.FechaNacimiento ?? dto.FechaNacimientoSnake;
+        if (fechaNacimiento.HasValue)
         {
-            payload["edad"] = dto.Edad.Value;
+            payload["fecha_nacimiento"] = fechaNacimiento.Value;
         }
 
         if (useDefaultEstado || !string.IsNullOrWhiteSpace(dto.Estado))

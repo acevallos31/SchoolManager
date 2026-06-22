@@ -54,5 +54,41 @@ public class MatriculaCreateDto
 {
     public Guid AlumnoId { get; set; }
     public Guid CicloId { get; set; }
+    public Guid GradoId { get; set; }
+    public Guid SeccionId { get; set; }
     public decimal Monto { get; set; }
+    public string Estado { get; set; } = "pendiente";
+}
+
+public class MatriculaDto
+{
+    public Guid Id { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("alumno_id")]
+    public Guid AlumnoId { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("ciclo_id")]
+    public Guid CicloId { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("grado_id")]
+    public Guid GradoId { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("seccion_id")]
+    public Guid SeccionId { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("fecha_matricula")]
+    public DateOnly FechaMatricula { get; set; }
+
+    public decimal Monto { get; set; }
+    public string Estado { get; set; } = "pendiente";
+
+    [System.Text.Json.Serialization.JsonPropertyName("created_at")]
+    public DateTimeOffset CreatedAt { get; set; }
+}
+
+public class CatalogoDto
+{
+    public Guid Id { get; set; }
+    public string Nombre { get; set; } = string.Empty;
+    public bool Activo { get; set; } = true;
 }
