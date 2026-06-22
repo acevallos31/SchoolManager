@@ -1,7 +1,7 @@
 <div class="page-container">
   <div class="page-header">
-    <button class="btn-volver" (click)="volver()">← Volver</button>
-    <h1>📋 Gestión de Alumnos</h1>
+    <button class="btn-volver" (click)="volver()">Volver</button>
+    <h1>Gestion de Alumnos</h1>
     <button class="btn-nuevo" (click)="mostrarFormulario = !mostrarFormulario">
       + Nuevo Alumno
     </button>
@@ -16,15 +16,40 @@
       <h3>Registrar nuevo alumno</h3>
       <div class="form-grid">
         <div class="form-group">
-          <label>Nombre completo *</label>
-          <input type="text" [(ngModel)]="nuevoAlumno.nombre" placeholder="Ej: Juan Pérez" />
+          <label>Nombres *</label>
+          <input type="text" [(ngModel)]="nuevoAlumno.nombres" placeholder="Ej: Juan Carlos" />
         </div>
         <div class="form-group">
-          <label>Número de identidad *</label>
-          <input type="text" [(ngModel)]="nuevoAlumno.identidad" placeholder="Ej: 0801-2010-12345" />
+          <label>Apellidos *</label>
+          <input type="text" [(ngModel)]="nuevoAlumno.apellidos" placeholder="Ej: Perez Lopez" />
         </div>
         <div class="form-group">
-          <label>Grado *</label>
+          <label>Edad *</label>
+          <input type="number" [(ngModel)]="nuevoAlumno.edad" min="0" max="120" placeholder="Ej: 10" />
+        </div>
+        <div class="form-group">
+          <label>Sexo *</label>
+          <select [(ngModel)]="nuevoAlumno.sexo">
+            <option value="">Seleccionar sexo</option>
+            <option value="M">Masculino</option>
+            <option value="F">Femenino</option>
+            <option value="O">Otro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>DNI *</label>
+          <input type="text" [(ngModel)]="nuevoAlumno.dni" placeholder="Ej: 0801-2010-12345" />
+        </div>
+        <div class="form-group">
+          <label>Padres o encargados *</label>
+          <input type="text" [(ngModel)]="nuevoAlumno.padresEncargados" placeholder="Ej: Maria Lopez / Jose Perez" />
+        </div>
+        <div class="form-group">
+          <label>Direccion *</label>
+          <input type="text" [(ngModel)]="nuevoAlumno.direccion" placeholder="Ej: Colonia Centro, casa 12" />
+        </div>
+        <div class="form-group">
+          <label>Grado</label>
           <select [(ngModel)]="nuevoAlumno.grado">
             <option value="">Seleccionar grado</option>
             @for (g of grados; track g) {
@@ -33,12 +58,8 @@
           </select>
         </div>
         <div class="form-group">
-          <label>Sección</label>
+          <label>Seccion</label>
           <input type="text" [(ngModel)]="nuevoAlumno.seccion" placeholder="Ej: A" />
-        </div>
-        <div class="form-group">
-          <label>Fecha de nacimiento</label>
-          <input type="date" [(ngModel)]="nuevoAlumno.fecha_nacimiento" />
         </div>
       </div>
       <div class="form-actions">
@@ -51,7 +72,7 @@
   }
 
   <div class="buscador">
-    <input type="text" [(ngModel)]="busqueda" placeholder="🔍 Buscar por nombre, identidad o grado..." />
+    <input type="text" [(ngModel)]="busqueda" placeholder="Buscar por nombre, DNI o grado..." />
   </div>
 
   @if (cargando && !mostrarFormulario) {
@@ -61,9 +82,13 @@
       <thead>
         <tr>
           <th>Nombre</th>
-          <th>Identidad</th>
+          <th>DNI</th>
+          <th>Edad</th>
+          <th>Sexo</th>
           <th>Grado</th>
-          <th>Sección</th>
+          <th>Seccion</th>
+          <th>Encargados</th>
+          <th>Direccion</th>
           <th>Estado</th>
           <th>Acciones</th>
         </tr>
@@ -72,9 +97,13 @@
         @for (alumno of alumnosFiltrados; track alumno.id) {
           <tr>
             <td>{{ alumno.nombre }}</td>
-            <td>{{ alumno.identidad }}</td>
-            <td>{{ alumno.grado }}</td>
+            <td>{{ alumno.identidad || alumno.dni }}</td>
+            <td>{{ alumno.edad }}</td>
+            <td>{{ alumno.sexo }}</td>
+            <td>{{ alumno.grado || '-' }}</td>
             <td>{{ alumno.seccion || '-' }}</td>
+            <td>{{ alumno.padresEncargados || '-' }}</td>
+            <td>{{ alumno.direccion || '-' }}</td>
             <td>
               <span [class]="alumno.estado === 'activo' ? 'badge-activo' : 'badge-inactivo'">
                 {{ alumno.estado }}
@@ -94,7 +123,7 @@
           </tr>
         } @empty {
           <tr>
-            <td colspan="6" class="sin-datos">No hay alumnos registrados</td>
+            <td colspan="10" class="sin-datos">No hay alumnos registrados</td>
           </tr>
         }
       </tbody>

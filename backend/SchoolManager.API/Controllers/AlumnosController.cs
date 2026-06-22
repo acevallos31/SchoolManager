@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SchoolManager.API.DTOs;
+using SchoolManager.API.Services;
 
 namespace SchoolManager.API.Controllers;
 
@@ -9,61 +10,260 @@ namespace SchoolManager.API.Controllers;
 [Authorize]
 public class AlumnosController : ControllerBase
 {
-    // GET api/alumnos
+    private const string TableName = "alumnos";
+    private readonly SupabaseTableService _tableService;
+
+    public AlumnosController(SupabaseTableService tableService)
+    {
+        _tableService = tableService;
+    }
+
     [HttpGet]
-    public IActionResult GetAll([FromQuery] string? grado, [FromQuery] string? buscar)
+    public async Task<IActionResult> GetAll(
+        [FromQuery] string? grado,
+        [FromQuery] string? buscar,
+        [FromQuery] string? estado,
+        CancellationToken cancellationToken)
     {
-        return Ok(new
+        var query = new Dictionary<string, string?>
         {
-            mensaje = "Listado de alumnos",
-            grado,
-            buscar
-        });
+            ["select"] = "*",
+            ["order"] = "nombres.asc"
+        };
+
+        if (!string.IsNullOrWhiteSpace(grado))
+        {
+            query["grado"] = $"eq.{grado.Trim()}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(estado))
+        {
+            query["estado"] = $"eq.{estado.Trim().ToLowerInvariant()}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(buscar))
+        {
+            var value = buscar.Trim();
+            query["or"] = $"(nombres.ilike.*{value}*,apellidos.ilike.*{value}*,dni.ilike.*{value}*)";
+        }
+
+        try
+        {
+            var alumnos = await _tableService.GetListAsync<AlumnoDto>(TableName, query, cancellationToken);
+            return Ok(alumnos);
+        }
+        catch (SupabaseTableException ex)
+        {
+            return StatusCode(ex.StatusCode, new { error = ex.Message });
+        }
     }
 
-    // GET api/alumnos/{id}
     [HttpGet("{id:guid}")]
-    public IActionResult GetById(Guid id)
+    public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
     {
-        return Ok(new
+        try
         {
-            mensaje = "Detalle del alumno",
-            id
-        });
+            var alumno = await _tableService.GetSingleAsync<AlumnoDto>(
+                TableName,
+                new Dictionary<string, string?>
+                {
+                    ["select"] = "*",
+                    ["id"] = $"eq.{id}"
+                },
+                cancellationToken);
+
+            return alumno is null ? NotFound(new { error = "Alumno no encontrado." }) : Ok(alumno);
+        }
+        catch (SupabaseTableException ex)
+        {
+            return StatusCode(ex.StatusCode, new { error = ex.Message });
+        }
     }
 
-    // POST api/alumnos
     [HttpPost]
     [Authorize(Policy = "SoloAdmin")]
-    public IActionResult Create([FromBody] AlumnoCreateDto dto)
+    public async Task<IActionResult> Create([FromBody] AlumnoCreateDto dto, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(dto.Nombre) || string.IsNullOrWhiteSpace(dto.Identidad))
-            return BadRequest(new { error = "Nombre e identidad son obligatorios" });
+        var validationErrors = Validate(dto, isCreate: true);
+        if (validationErrors.Count > 0)
+        {
+            return BadRequest(new { errors = validationErrors });
+        }
 
-        return CreatedAtAction(nameof(GetById), new { id = Guid.NewGuid() }, dto);
+        var payload = ToPayload(dto, useDefaultEstado: true);
+
+        try
+        {
+            var alumno = await _tableService.InsertAsync<AlumnoDto>(TableName, payload, cancellationToken);
+            return CreatedAtAction(nameof(GetById), new { id = alumno.Id }, alumno);
+        }
+        catch (SupabaseTableException ex)
+        {
+            return StatusCode(ex.StatusCode, new { error = ex.Message });
+        }
     }
 
-    // PUT api/alumnos/{id}
     [HttpPut("{id:guid}")]
     [Authorize(Policy = "SoloAdmin")]
-    public IActionResult Update(Guid id, [FromBody] AlumnoCreateDto dto)
+    public async Task<IActionResult> Update(Guid id, [FromBody] AlumnoUpdateDto dto, CancellationToken cancellationToken)
     {
-        return Ok(new
+        var validationErrors = Validate(dto, isCreate: false);
+        if (validationErrors.Count > 0)
         {
-            mensaje = "Alumno actualizado",
-            id
-        });
+            return BadRequest(new { errors = validationErrors });
+        }
+
+        var payload = ToPayload(dto, useDefaultEstado: false);
+
+        try
+        {
+            var alumno = await _tableService.UpdateAsync<AlumnoDto>(TableName, id, payload, cancellationToken);
+            return alumno is null ? NotFound(new { error = "Alumno no encontrado." }) : Ok(alumno);
+        }
+        catch (SupabaseTableException ex)
+        {
+            return StatusCode(ex.StatusCode, new { error = ex.Message });
+        }
     }
 
-    // DELETE api/alumnos/{id}
     [HttpDelete("{id:guid}")]
     [Authorize(Policy = "SoloAdmin")]
-    public IActionResult Delete(Guid id)
+    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
-        return Ok(new
+        try
         {
-            mensaje = "Alumno desactivado",
-            id
-        });
+            var alumno = await _tableService.UpdateAsync<AlumnoDto>(
+                TableName,
+                id,
+                new
+                {
+                    estado = "inactivo",
+                    updated_at = DateTimeOffset.UtcNow
+                },
+                cancellationToken);
+
+            return alumno is null ? NotFound(new { error = "Alumno no encontrado." }) : Ok(alumno);
+        }
+        catch (SupabaseTableException ex)
+        {
+            return StatusCode(ex.StatusCode, new { error = ex.Message });
+        }
+    }
+
+    private static List<string> Validate(AlumnoCreateDto dto, bool isCreate)
+    {
+        var errors = new List<string>();
+        var nombres = FirstValue(dto.Nombres, dto.Nombre);
+        var apellidos = FirstValue(dto.Apellidos, dto.Apellido);
+        var dni = FirstValue(dto.Dni, dto.Identidad);
+
+        if (isCreate || !string.IsNullOrWhiteSpace(nombres))
+        {
+            if (string.IsNullOrWhiteSpace(nombres))
+            {
+                errors.Add("Los nombres del alumno son obligatorios.");
+            }
+        }
+
+        if (isCreate || !string.IsNullOrWhiteSpace(apellidos))
+        {
+            if (string.IsNullOrWhiteSpace(apellidos))
+            {
+                errors.Add("Los apellidos del alumno son obligatorios.");
+            }
+        }
+
+        if (isCreate || !string.IsNullOrWhiteSpace(dni))
+        {
+            if (string.IsNullOrWhiteSpace(dni))
+            {
+                errors.Add("El DNI del alumno es obligatorio.");
+            }
+            else if (dni.Trim().Length < 8)
+            {
+                errors.Add("El DNI debe tener al menos 8 caracteres.");
+            }
+        }
+
+        if (isCreate || dto.Edad.HasValue)
+        {
+            if (!dto.Edad.HasValue)
+            {
+                errors.Add("La edad del alumno es obligatoria.");
+            }
+            else if (dto.Edad is < 0 or > 120)
+            {
+                errors.Add("La edad debe estar entre 0 y 120.");
+            }
+        }
+
+        if (isCreate || !string.IsNullOrWhiteSpace(dto.Sexo))
+        {
+            var sexo = dto.Sexo?.Trim().ToUpperInvariant();
+            if (string.IsNullOrWhiteSpace(sexo))
+            {
+                errors.Add("El sexo del alumno es obligatorio.");
+            }
+            else if (sexo is not ("M" or "F" or "O"))
+            {
+                errors.Add("El sexo debe ser M, F u O.");
+            }
+        }
+
+        if (isCreate && string.IsNullOrWhiteSpace(dto.PadresEncargados))
+        {
+            errors.Add("Debes registrar padres o encargados.");
+        }
+
+        if (isCreate && string.IsNullOrWhiteSpace(dto.Direccion))
+        {
+            errors.Add("La direccion del alumno es obligatoria.");
+        }
+
+        return errors;
+    }
+
+    private static Dictionary<string, object?> ToPayload(AlumnoCreateDto dto, bool useDefaultEstado)
+    {
+        var payload = new Dictionary<string, object?>
+        {
+            ["updated_at"] = DateTimeOffset.UtcNow
+        };
+
+        AddIfHasValue(payload, "nombres", FirstValue(dto.Nombres, dto.Nombre));
+        AddIfHasValue(payload, "apellidos", FirstValue(dto.Apellidos, dto.Apellido));
+        AddIfHasValue(payload, "dni", FirstValue(dto.Dni, dto.Identidad));
+        AddIfHasValue(payload, "sexo", dto.Sexo?.Trim().ToUpperInvariant());
+        AddIfHasValue(payload, "padres_encargados", dto.PadresEncargados);
+        AddIfHasValue(payload, "direccion", dto.Direccion);
+        AddIfHasValue(payload, "grado", dto.Grado);
+        AddIfHasValue(payload, "seccion", dto.Seccion);
+
+        if (dto.Edad.HasValue)
+        {
+            payload["edad"] = dto.Edad.Value;
+        }
+
+        if (useDefaultEstado || !string.IsNullOrWhiteSpace(dto.Estado))
+        {
+            payload["estado"] = string.IsNullOrWhiteSpace(dto.Estado)
+                ? "activo"
+                : dto.Estado.Trim().ToLowerInvariant();
+        }
+
+        return payload;
+    }
+
+    private static void AddIfHasValue(Dictionary<string, object?> payload, string key, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            payload[key] = value.Trim();
+        }
+    }
+
+    private static string? FirstValue(params string?[] values)
+    {
+        return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
     }
 }

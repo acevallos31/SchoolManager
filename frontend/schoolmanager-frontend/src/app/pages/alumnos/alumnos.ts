@@ -18,13 +18,7 @@ export class Alumnos implements OnInit {
   cargando = false;
   mensaje = '';
 
-  nuevoAlumno = {
-    nombre: '',
-    identidad: '',
-    grado: '',
-    seccion: '',
-    fecha_nacimiento: ''
-  };
+  nuevoAlumno = this.crearFormularioVacio();
 
   grados = [
     '1er Grado',
@@ -74,13 +68,22 @@ export class Alumnos implements OnInit {
     return this.alumnos.filter(a =>
       String(a.nombre ?? '').toLowerCase().includes(busqueda) ||
       String(a.identidad ?? '').toLowerCase().includes(busqueda) ||
+      String(a.dni ?? '').toLowerCase().includes(busqueda) ||
       String(a.grado ?? '').toLowerCase().includes(busqueda)
     );
   }
 
   async guardarAlumno() {
-    if (!this.nuevoAlumno.nombre || !this.nuevoAlumno.identidad || !this.nuevoAlumno.grado) {
-      this.mensaje = 'Nombre, identidad y grado son obligatorios';
+    if (
+      !this.nuevoAlumno.nombres ||
+      !this.nuevoAlumno.apellidos ||
+      this.nuevoAlumno.edad === null ||
+      !this.nuevoAlumno.sexo ||
+      !this.nuevoAlumno.dni ||
+      !this.nuevoAlumno.padresEncargados ||
+      !this.nuevoAlumno.direccion
+    ) {
+      this.mensaje = 'Nombres, apellidos, edad, sexo, DNI, encargados y direccion son obligatorios';
       return;
     }
 
@@ -93,7 +96,7 @@ export class Alumnos implements OnInit {
       });
 
       this.mensaje = 'Alumno registrado correctamente';
-      this.nuevoAlumno = { nombre: '', identidad: '', grado: '', seccion: '', fecha_nacimiento: '' };
+      this.nuevoAlumno = this.crearFormularioVacio();
       this.mostrarFormulario = false;
       await this.cargarAlumnos();
     } catch (error) {
@@ -114,8 +117,7 @@ export class Alumnos implements OnInit {
     }
 
     await this.auth.apiRequest(`/alumnos/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ estado: 'inactivo' })
+      method: 'DELETE'
     });
     await this.cargarAlumnos();
   }
@@ -134,5 +136,19 @@ export class Alumnos implements OnInit {
 
   volver() {
     this.router.navigate(['/dashboard']);
+  }
+
+  private crearFormularioVacio() {
+    return {
+      nombres: '',
+      apellidos: '',
+      edad: null as number | null,
+      sexo: '',
+      dni: '',
+      padresEncargados: '',
+      direccion: '',
+      grado: '',
+      seccion: ''
+    };
   }
 }
