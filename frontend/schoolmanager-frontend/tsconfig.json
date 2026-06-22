@@ -4,43 +4,23 @@
     "baseUrl": "./",
     "outDir": "./dist/out-tsc",
     "ignoreDeprecations": "6.0",
-
     "sourceMap": true,
     "declaration": false,
-    "downlevelIteration": true,
     "experimentalDecorators": true,
-    "module": "es2020",
-
-    "moduleResolution": "node",
-    "importHelpers": true,
-    "target": "es2020",
-
+    "module": "es2022",
     "moduleResolution": "bundler",
     "importHelpers": true,
     "target": "es2022",
     "skipLibCheck": true,
-
     "typeRoots": [
       "node_modules/@types"
     ],
     "lib": [
-      "es2020",
+      "es2022",
       "dom"
     ]
   },
   "angularCompilerOptions": {
-    "enableIvy": true
-  },
-  "files": [
-    "src/main.ts",
-    "src/polyfills.ts"
-  ],
-  "include": [
-    "src/**/*.d.ts",
-    "src/**/*.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist"
-  ]
+    "strictTemplates": true
+  }
 }

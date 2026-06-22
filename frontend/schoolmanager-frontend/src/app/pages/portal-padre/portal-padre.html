@@ -1,0 +1,230 @@
+<div class="portal-container">
+  <div class="portal-header">
+    <div>
+      <h1>🏫 SchoolManager</h1>
+      <p class="bienvenida">Bienvenido, {{ nombrePadre }}</p>
+    </div>
+    <button class="btn-logout" (click)="logout()">🚪 Cerrar sesión</button>
+  </div>
+
+  @if (mensaje) {
+    <div class="mensaje-flotante">{{ mensaje }}</div>
+  }
+
+  @if (cargando) {
+    <p class="cargando">Cargando información...</p>
+  } @else if (hijos.length === 0) {
+    <div class="sin-hijos">
+      <p>No tenés alumnos vinculados a tu cuenta. Contacta a la administración.</p>
+    </div>
+  } @else {
+
+    @if (hijos.length > 1) {
+      <div class="selector-hijos">
+        @for (hijo of hijos; track hijo.id) {
+          <button
+            class="chip-hijo"
+            [class.activo]="hijo.id === hijoSeleccionadoId"
+            (click)="seleccionarHijo(hijo.id)">
+            👤 {{ hijo.nombre }}
+          </button>
+        }
+      </div>
+    }
+
+    @if (hijoSeleccionado) {
+      <div class="hijo-info-bar">
+        <div>
+          <h2>{{ hijoSeleccionado.nombre }}</h2>
+          <p>{{ hijoSeleccionado.grado }} - Sección {{ hijoSeleccionado.seccion }} · {{ hijoSeleccionado.identidad }}</p>
+        </div>
+      </div>
+
+      <div class="resumen-cards">
+        <div class="card card-pendiente">
+          <span class="card-label">Total Pendiente</span>
+          <span class="card-valor">L. {{ totalPendiente | number:'1.2-2' }}</span>
+        </div>
+        <div class="card card-pagado">
+          <span class="card-label">Total Pagado</span>
+          <span class="card-valor">L. {{ totalPagado | number:'1.2-2' }}</span>
+        </div>
+        <div class="card card-vencido">
+          <span class="card-label">Mensualidades Vencidas</span>
+          <span class="card-valor">{{ cantidadVencidas }}</span>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <button [class.tab-activo]="vistaActual === 'resumen'" (click)="cambiarVista('resumen')">
+          📊 Estado de cuenta
+        </button>
+        <button [class.tab-activo]="vistaActual === 'pendientes'" (click)="cambiarVista('pendientes')">
+          🧾 Facturas pendientes ({{ pendientesHijoActual.length }})
+        </button>
+        <button [class.tab-activo]="vistaActual === 'historial'" (click)="cambiarVista('historial')">
+          📜 Historial de pagos
+        </button>
+      </div>
+
+      <!-- VISTA RESUMEN -->
+      @if (vistaActual === 'resumen') {
+        <div class="panel">
+          <table class="tabla-estado">
+            <thead>
+              <tr>
+                <th>Mes</th>
+                <th>Monto</th>
+                <th>Estado</th>
+                <th>Fecha límite</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (m of mensualidadesHijoActual; track m.id) {
+                <tr [class.fila-vencida]="m.estado === 'vencida'">
+                  <td>{{ meses[m.mes] }}</td>
+                  <td>L. {{ m.monto_final | number:'1.2-2' }}</td>
+                  <td><span [class]="'badge-' + m.estado">{{ m.estado }}</span></td>
+                  <td>
+                    {{ m.fecha_limite }}
+                    @if (m.estado === 'vencida') {
+                      <span class="mora">({{ diasDeMora(m.fecha_limite) }}d mora)</span>
+                    }
+                  </td>
+                  <td>
+                    @if (m.estado === 'pagada') {
+                      <button class="btn-mini" (click)="descargarFactura(m)">📄 Factura</button>
+                    } @else {
+                      <button class="btn-mini btn-pagar-mini" (click)="abrirPago(m)">💳 Pagar</button>
+                    }
+                  </td>
+                </tr>
+              } @empty {
+                <tr><td colspan="5" class="sin-datos">Aún no hay mensualidades registradas</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+
+      <!-- VISTA PENDIENTES -->
+      @if (vistaActual === 'pendientes') {
+        <div class="panel">
+          @if (pendientesHijoActual.length === 0) {
+            <div class="todo-al-dia">
+              <p>🎉 ¡No tenés facturas pendientes! Estás completamente al día.</p>
+            </div>
+          } @else {
+            <div class="lista-facturas">
+              @for (m of pendientesHijoActual; track m.id) {
+                <div class="factura-card" [class.factura-vencida]="m.estado === 'vencida'">
+                  <div class="factura-info">
+                    <h3>Mensualidad de {{ meses[m.mes] }}</h3>
+                    <p class="factura-fecha">Vence: {{ m.fecha_limite }}</p>
+                    @if (m.estado === 'vencida') {
+                      <p class="factura-mora">⚠️ {{ diasDeMora(m.fecha_limite) }} días de mora</p>
+                    }
+                  </div>
+                  <div class="factura-monto">
+                    <span class="monto-grande">L. {{ m.monto_final | number:'1.2-2' }}</span>
+                    <button class="btn-pagar-grande" (click)="abrirPago(m)">💳 Pagar ahora</button>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+
+      <!-- VISTA HISTORIAL -->
+      @if (vistaActual === 'historial') {
+        <div class="panel">
+          <table class="tabla-estado">
+            <thead>
+              <tr>
+                <th>Fecha de pago</th>
+                <th>Monto pagado</th>
+                <th>Método</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (p of pagosHijoActual; track p.id) {
+                <tr>
+                  <td>{{ p.fecha_pago }}</td>
+                  <td>L. {{ p.monto_pagado | number:'1.2-2' }}</td>
+                  <td>{{ p.metodo_pago }}</td>
+                  <td>
+                    <button class="btn-mini" (click)="descargarFactura({mes: 0, monto_final: p.monto_pagado, estado: 'pagada'}, p)">
+                      📄 Comprobante
+                    </button>
+                  </td>
+                </tr>
+              } @empty {
+                <tr><td colspan="4" class="sin-datos">Aún no se han registrado pagos</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    }
+  }
+
+  <!-- MODAL DE PAGO -->
+  @if (mostrarPago && mensualidadAPagar) {
+    <div class="modal-overlay" (click)="cerrarPago()">
+      <div class="modal-pago" (click)="$event.stopPropagation()">
+        <div class="modal-pago-header">
+          <h3>💳 Pagar mensualidad</h3>
+          <button class="btn-cerrar" (click)="cerrarPago()">✕</button>
+        </div>
+
+        <div class="resumen-pago">
+          <span>Mes: <strong>{{ meses[mensualidadAPagar.mes] }}</strong></span>
+          <span class="monto-pago">L. {{ mensualidadAPagar.monto_final | number:'1.2-2' }}</span>
+        </div>
+
+        <div class="form-tarjeta">
+          <div class="form-group">
+            <label>Número de tarjeta</label>
+            <input
+              type="text"
+              [(ngModel)]="tarjeta.numero"
+              (input)="formatearNumeroTarjeta()"
+              placeholder="1234 5678 9012 3456"
+              maxlength="19" />
+          </div>
+          <div class="form-group">
+            <label>Nombre del titular</label>
+            <input type="text" [(ngModel)]="tarjeta.nombre" placeholder="Como aparece en la tarjeta" />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Vencimiento</label>
+              <input
+                type="text"
+                [(ngModel)]="tarjeta.vencimiento"
+                (input)="formatearVencimiento()"
+                placeholder="MM/AA"
+                maxlength="5" />
+            </div>
+            <div class="form-group">
+              <label>CVV</label>
+              <input type="text" [(ngModel)]="tarjeta.cvv" placeholder="123" maxlength="4" />
+            </div>
+          </div>
+        </div>
+
+        <p class="nota-simulacion">🔒 Esto es un entorno de prueba. No se procesan pagos reales.</p>
+
+        <div class="modal-pago-actions">
+          <button class="btn-cancelar" (click)="cerrarPago()">Cancelar</button>
+          <button class="btn-confirmar-pago" (click)="confirmarPago()" [disabled]="procesandoPago">
+            {{ procesandoPago ? 'Procesando...' : 'Confirmar pago' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

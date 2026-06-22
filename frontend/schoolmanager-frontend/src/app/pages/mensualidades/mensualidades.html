@@ -42,6 +42,33 @@
     </div>
   }
 
+  @if (mostrarDescuento && mensualidadDescuento) {
+    <div class="modal-overlay">
+      <div class="modal">
+        <h3>🏷️ Aplicar descuento o beca</h3>
+        <p><strong>Alumno:</strong> {{ mensualidadDescuento.alumnos?.nombre }}</p>
+        <p><strong>Mes:</strong> {{ meses[mensualidadDescuento.mes] }}</p>
+        <p><strong>Monto original:</strong> L. {{ mensualidadDescuento.monto_original | number:'1.2-2' }}</p>
+
+        <div class="form-group">
+          <label>Monto del descuento (L.) *</label>
+          <input type="number" [(ngModel)]="montoDescuento" placeholder="Ej: 300" />
+        </div>
+
+        <p class="preview-descuento">
+          Monto final: <strong>L. {{ (mensualidadDescuento.monto_original - montoDescuento) | number:'1.2-2' }}</strong>
+        </p>
+
+        <div class="modal-actions">
+          <button class="btn-cancelar" (click)="mostrarDescuento = false">Cancelar</button>
+          <button class="btn-guardar" (click)="aplicarDescuento()" [disabled]="cargando">
+            {{ cargando ? 'Aplicando...' : 'Aplicar descuento' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
   <div class="filtros">
     <select [(ngModel)]="filtroEstado">
       <option value="">Todos los estados</option>
@@ -89,6 +116,9 @@
               @if (m.estado === 'pendiente' || m.estado === 'vencida') {
                 <button class="btn-pagar" (click)="abrirPago(m)">
                   💳 Registrar pago
+                </button>
+                <button class="btn-descuento" (click)="abrirDescuento(m)">
+                  🏷️ Descuento
                 </button>
               } @else {
                 <span class="pagado-texto">✅ Pagada</span>
