@@ -1,0 +1,192 @@
+.page-container {
+  min-height: 100vh;
+  padding: 2rem;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.page-header h1 {
+  flex: 1;
+  margin: 0;
+  font-size: clamp(1.8rem, 3vw, 2.7rem);
+  color: var(--sm-text);
+  letter-spacing: -0.04em;
+}
+
+.btn-volver,
+.btn-cancelar {
+  border: 1px solid var(--sm-border);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--sm-text);
+}
+
+.btn-volver,
+.btn-generar,
+.btn-cancelar,
+.btn-guardar,
+.btn-pagar {
+  padding: 0.8rem 1rem;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 700;
+  border: none;
+}
+
+.btn-generar,
+.btn-guardar {
+  background: linear-gradient(135deg, var(--sm-accent), #8e521c);
+  color: #fffef9;
+}
+
+.mensaje,
+.tabla,
+.modal {
+  border: 1px solid var(--sm-border);
+  box-shadow: var(--sm-shadow);
+}
+
+.mensaje {
+  margin-bottom: 1rem;
+  padding: 0.95rem 1rem;
+  border-radius: 1rem;
+  background: #edf8f1;
+  color: var(--sm-success);
+}
+
+.filtros {
+  display: flex;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.filtros select,
+.form-group input,
+.form-group select {
+  width: 100%;
+  min-width: 0;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(19, 43, 71, 0.12);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  overflow: hidden;
+  border-radius: 1.5rem;
+  background: rgba(255, 255, 255, 0.84);
+}
+
+.tabla thead {
+  background: #163455;
+  color: #fffef9;
+}
+
+.tabla th,
+.tabla td {
+  padding: 1rem;
+  text-align: left;
+}
+
+.tabla td {
+  border-bottom: 1px solid rgba(19, 43, 71, 0.08);
+}
+
+.tabla tbody tr:hover {
+  background: rgba(15, 95, 168, 0.05);
+}
+
+.badge-pendiente,
+.badge-pagada,
+.badge-vencida {
+  display: inline-flex;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.badge-pendiente { background: #fff5e9; color: var(--sm-warning); }
+.badge-pagada { background: #edf8f1; color: var(--sm-success); }
+.badge-vencida { background: #fff0ed; color: var(--sm-danger); }
+
+.btn-pagar {
+  background: linear-gradient(135deg, var(--sm-primary), var(--sm-primary-strong));
+  color: #fffef9;
+}
+
+.pagado-texto,
+.sin-datos,
+.cargando {
+  color: var(--sm-text-soft);
+}
+
+.sin-datos,
+.cargando {
+  padding: 2rem;
+  text-align: center;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(11, 24, 39, 0.45);
+  backdrop-filter: blur(6px);
+}
+
+.modal {
+  width: min(100%, 28rem);
+  padding: 1.8rem;
+  border-radius: 1.6rem;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.modal h3 {
+  margin: 0 0 1rem;
+}
+
+.modal p {
+  color: var(--sm-text-soft);
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-top: 1rem;
+}
+
+.form-group label {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--sm-text);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+@media (max-width: 900px) {
+  .page-container {
+    padding: 1rem;
+  }
+
+  .page-header,
+  .filtros {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}

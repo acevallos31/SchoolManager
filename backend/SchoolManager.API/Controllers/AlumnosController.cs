@@ -9,6 +9,7 @@ namespace SchoolManager.API.Controllers;
 [Authorize]
 public class AlumnosController : ControllerBase
 {
+
     // GET api/alumnos
     // Admin: lista todos los alumnos. Padre: lista solo a sus hijos (filtrar por padre_id = sub del token).
     [HttpGet]
@@ -51,5 +52,50 @@ public class AlumnosController : ControllerBase
     {
         // TODO: marcar alumno como inactivo (soft delete) o eliminar
         return NoContent();
+
+    private readonly IConfiguration _config;
+    public AlumnosController(IConfiguration config) => _config = config;
+
+    // GET /api/alumnos
+    [HttpGet]
+    public IActionResult GetAlumnos([FromQuery] string? grado, [FromQuery] string? buscar)
+    {
+        // TODO: Consultar Supabase con filtros opcionales
+        return Ok(new { mensaje = "Listado de alumnos", grado, buscar });
+    }
+
+    // GET /api/alumnos/{id}
+    [HttpGet("{id:guid}")]
+    public IActionResult GetAlumno(Guid id)
+    {
+        // TODO: Obtener alumno por ID desde Supabase
+        return Ok(new { mensaje = "Detalle del alumno", id });
+    }
+
+    // POST /api/alumnos
+    [HttpPost]
+    public IActionResult CrearAlumno([FromBody] AlumnoCreateDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Nombre) || string.IsNullOrWhiteSpace(dto.Identidad))
+            return BadRequest(new { error = "Nombre e identidad son obligatorios" });
+        // TODO: Insertar alumno en Supabase
+        return Created("/api/alumnos", new { mensaje = "Alumno creado", alumno = dto });
+    }
+
+    // PUT /api/alumnos/{id}
+    [HttpPut("{id:guid}")]
+    public IActionResult ActualizarAlumno(Guid id, [FromBody] AlumnoCreateDto dto)
+    {
+        // TODO: Actualizar alumno en Supabase
+        return Ok(new { mensaje = "Alumno actualizado", id });
+    }
+
+    // DELETE /api/alumnos/{id}
+    [HttpDelete("{id:guid}")]
+    public IActionResult DesactivarAlumno(Guid id)
+    {
+        // TODO: Cambiar estado a 'inactivo' (nunca eliminar físicamente)
+        return Ok(new { mensaje = "Alumno desactivado", id });
+
     }
 }

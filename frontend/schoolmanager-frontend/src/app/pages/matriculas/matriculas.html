@@ -1,0 +1,99 @@
+<div class="page-container">
+  <div class="page-header">
+    <button class="btn-volver" (click)="volver()">← Volver</button>
+    <h1>🎓 Gestión de Matrículas</h1>
+    <button class="btn-nuevo" (click)="mostrarFormulario = !mostrarFormulario">
+      + Nueva Matrícula
+    </button>
+  </div>
+
+  @if (mensaje) {
+    <div class="mensaje">{{ mensaje }}</div>
+  }
+
+  @if (mostrarFormulario) {
+    <div class="formulario">
+      <h3>Registrar nueva matrícula</h3>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Alumno *</label>
+          <select [(ngModel)]="nuevaMatricula.alumno_id">
+            <option value="">Seleccionar alumno</option>
+            @for (a of alumnos; track a.id) {
+              <option [value]="a.id">{{ a.nombre }}</option>
+            }
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Ciclo escolar *</label>
+          <select [(ngModel)]="nuevaMatricula.ciclo_id">
+            <option value="">Seleccionar ciclo</option>
+            @for (c of ciclos; track c.id) {
+              <option [value]="c.id">{{ c.nombre }}</option>
+            }
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Monto de matrícula *</label>
+          <input type="number" [(ngModel)]="nuevaMatricula.monto" placeholder="Ej: 1500" />
+        </div>
+        <div class="form-group">
+          <label>Estado</label>
+          <select [(ngModel)]="nuevaMatricula.estado">
+            <option value="pendiente">Pendiente</option>
+            <option value="pagada">Pagada</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn-cancelar" (click)="mostrarFormulario = false">Cancelar</button>
+        <button class="btn-guardar" (click)="guardarMatricula()" [disabled]="cargando">
+          {{ cargando ? 'Guardando...' : 'Guardar matrícula' }}
+        </button>
+      </div>
+    </div>
+  }
+
+  @if (cargando && !mostrarFormulario) {
+    <p class="cargando">Cargando matrículas...</p>
+  } @else {
+    <table class="tabla">
+      <thead>
+        <tr>
+          <th>Alumno</th>
+          <th>Ciclo escolar</th>
+          <th>Monto</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (m of matriculas; track m.id) {
+          <tr>
+            <td>{{ m.alumnos?.nombre }}</td>
+            <td>{{ m.ciclos_escolares?.nombre }}</td>
+            <td>L. {{ m.monto | number:'1.2-2' }}</td>
+            <td>
+              <span [class]="m.estado === 'pagada' ? 'badge-pagada' : 'badge-pendiente'">
+                {{ m.estado }}
+              </span>
+            </td>
+            <td>
+              @if (m.estado === 'pendiente') {
+                <button class="btn-pagar" (click)="marcarPagada(m.id)">
+                  Marcar pagada
+                </button>
+              } @else {
+                <span class="pagado-texto">✅ Pagada</span>
+              }
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="5" class="sin-datos">No hay matrículas registradas</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

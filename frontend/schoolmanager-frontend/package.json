@@ -1,11 +1,16 @@
 {
   "name": "schoolmanager-frontend",
+
   "version": "1.0.0",
   "private": true,
+
+  "version": "0.0.0",
+
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
+
     "watch": "ng build --watch --configuration development"
   },
   "dependencies": {
@@ -26,5 +31,37 @@
     "@angular/cli": "^18.0.0",
     "@angular/compiler-cli": "^18.0.0",
     "typescript": "~5.4.0"
+
+    "watch": "ng build --watch --configuration development",
+    "test": "ng test"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=22.22.3 <23 || >=24.15.0"
+  },
+  "packageManager": "npm@11.13.0",
+  "dependencies": {
+    "@angular/common": "^22.0.0",
+    "@angular/compiler": "^22.0.0",
+    "@angular/core": "^22.0.0",
+    "@angular/forms": "^22.0.0",
+    "@angular/platform-browser": "^22.0.0",
+    "@angular/platform-browser-dynamic": "^22.0.0",
+    "@angular/router": "^22.0.0",
+    "@supabase/supabase-js": "^2.108.2",
+    "rxjs": "~7.8.0",
+    "zone.js": "~0.16.0",
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@angular/build": "^22.0.2",
+    "@angular/cli": "^22.0.2",
+    "@angular/compiler-cli": "^22.0.0",
+    "jsdom": "^28.0.0",
+    "prettier": "^3.8.1",
+    "typescript": "~6.0.2",
+    "vitest": "^4.0.8"
+
   }
 }

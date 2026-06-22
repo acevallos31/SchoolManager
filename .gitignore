@@ -1,3 +1,4 @@
+
 ## ===== .NET / Backend =====
 backend/SchoolManager.API/bin/
 backend/SchoolManager.API/obj/
@@ -29,3 +30,16 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+bin/
+obj/
+node_modules/
+dist/
+.angular/
+*.env
+appsettings.Development.json
+.DS_Store
+.vscode/settings.json
+.env
+s
+

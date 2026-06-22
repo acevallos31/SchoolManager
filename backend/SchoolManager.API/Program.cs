@@ -1,3 +1,4 @@
+
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -8,9 +9,18 @@ var builder = WebApplication.CreateBuilder(args);
 // ---------------------------------------------------------------------
 // 1. Servicios base
 // ---------------------------------------------------------------------
+
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+
+var builder = WebApplication.CreateBuilder(args);
+
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
 
 // ---------------------------------------------------------------------
 // 2. CORS — permite que el frontend Angular consuma la API
@@ -36,11 +46,25 @@ var jwtSecret = builder.Configuration["Jwt:Secret"]
                  ?? throw new InvalidOperationException("Falta configurar Jwt:Secret en appsettings.json");
 var jwtIssuer = builder.Configuration["Jwt:Issuer"];
 
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAngular", policy =>
+    {
+        policy.WithOrigins("http://localhost:4200", "https://schoolmanager.vercel.app")
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
+var jwtSecret = builder.Configuration["Supabase:JwtSecret"];
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
         options.TokenValidationParameters = new TokenValidationParameters
         {
+
             ValidateIssuer = !string.IsNullOrEmpty(jwtIssuer),
             ValidIssuer = jwtIssuer,
             ValidateAudience = false,
@@ -65,16 +89,36 @@ var app = builder.Build();
 // ---------------------------------------------------------------------
 // 5. Pipeline HTTP
 // ---------------------------------------------------------------------
+
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret!)),
+            ValidateIssuer = false,
+            ValidateAudience = false,
+            ValidateLifetime = true
+        };
+    });
+
+builder.Services.AddAuthorization();
+
+var app = builder.Build();
+
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
+
 app.UseHttpsRedirection();
 
 app.UseCors("FrontendPolicy");
 
+app.UseAuthentication();
+app.UseAuthorization();
+
+
+app.UseCors("AllowAngular");
 app.UseAuthentication();
 app.UseAuthorization();
 

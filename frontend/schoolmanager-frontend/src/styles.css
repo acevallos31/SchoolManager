@@ -1,5 +1,44 @@
+
 /* Estilos globales del proyecto */
 html, body {
   margin: 0;
   font-family: Arial, sans-serif;
+
+:root {
+  --sm-bg: #f4efe7;
+  --sm-bg-soft: #fbf8f3;
+  --sm-surface: rgba(255, 255, 255, 0.78);
+  --sm-surface-strong: #ffffff;
+  --sm-border: rgba(19, 43, 71, 0.1);
+  --sm-text: #132b47;
+  --sm-text-soft: #5e7388;
+  --sm-primary: #0f5fa8;
+  --sm-primary-strong: #143e68;
+  --sm-accent: #b76f2a;
+  --sm-success: #24774c;
+  --sm-warning: #a56a16;
+  --sm-danger: #a33a2a;
+  --sm-shadow: 0 24px 60px rgba(20, 40, 64, 0.12);
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  font-family: "Segoe UI", "Inter", sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(183, 111, 42, 0.12), transparent 20%),
+    linear-gradient(180deg, #f7f2ea 0%, #edf3f8 100%);
+  color: var(--sm-text);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button,
+input,
+select {
+  font: inherit;
+
 }

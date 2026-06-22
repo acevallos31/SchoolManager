@@ -1,0 +1,222 @@
+.dashboard-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 2rem 1.4rem;
+  color: #f5f0e7;
+  background: linear-gradient(180deg, #153554 0%, #10263e 100%);
+}
+
+.brand-kicker {
+  margin: 0 0 0.35rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #d7a86d;
+  font-weight: 700;
+}
+
+.brand-block h2 {
+  margin: 0;
+  font-size: 1.8rem;
+}
+
+.brand-block span {
+  display: block;
+  margin-top: 0.55rem;
+  color: rgba(245, 240, 231, 0.72);
+}
+
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.sidebar nav a,
+.sidebar button {
+  border: 0;
+  width: 100%;
+  text-align: left;
+  text-decoration: none;
+  color: #f8f4ed;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.95rem 1rem;
+  border-radius: 1rem;
+  font-size: 0.96rem;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.sidebar nav a.active,
+.sidebar nav a:hover,
+.sidebar button:hover {
+  background: rgba(255, 255, 255, 0.14);
+  transform: translateX(2px);
+}
+
+.sidebar-footer p {
+  margin: 0 0 0.8rem;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: rgba(245, 240, 231, 0.7);
+}
+
+.main-content {
+  padding: 2rem;
+}
+
+.hero-card,
+.panel-card {
+  border: 1px solid var(--sm-border);
+  border-radius: 1.8rem;
+  background: var(--sm-surface);
+  box-shadow: var(--sm-shadow);
+  backdrop-filter: blur(14px);
+}
+
+.hero-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.6rem;
+  color: var(--sm-accent);
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.hero-card h1 {
+  margin: 0;
+  max-width: 12ch;
+  font-size: clamp(2.4rem, 4vw, 4rem);
+  line-height: 0.98;
+  letter-spacing: -0.06em;
+}
+
+.hero-copy {
+  max-width: 42rem;
+  margin: 1rem 0 0;
+  color: var(--sm-text-soft);
+  line-height: 1.7;
+}
+
+.hero-actions {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.9rem;
+  min-width: 220px;
+}
+
+.hero-actions a {
+  text-decoration: none;
+  text-align: center;
+  padding: 0.95rem 1.1rem;
+  border-radius: 999px;
+  font-weight: 700;
+  color: #fffef9;
+  background: linear-gradient(135deg, var(--sm-primary), var(--sm-primary-strong));
+  box-shadow: 0 18px 32px rgba(15, 95, 168, 0.2);
+}
+
+.hero-actions a.secondary {
+  color: var(--sm-primary-strong);
+  background: rgba(15, 95, 168, 0.08);
+  box-shadow: none;
+}
+
+.stats-grid,
+.dashboard-grid {
+  display: grid;
+  gap: 1.2rem;
+}
+
+.stats-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 1.5rem;
+}
+
+.stat-card {
+  padding: 1.5rem;
+  border-radius: 1.5rem;
+  color: #fffdf8;
+  box-shadow: var(--sm-shadow);
+}
+
+.stat-card.primary { background: linear-gradient(135deg, #14589c 0%, #153554 100%); }
+.stat-card.success { background: linear-gradient(135deg, #2d7d56 0%, #1e5d42 100%); }
+.stat-card.warning { background: linear-gradient(135deg, #c17a2b 0%, #93551b 100%); }
+
+.stat-label {
+  display: block;
+  margin-bottom: 0.6rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  opacity: 0.8;
+}
+
+.stat-card strong {
+  display: block;
+  font-size: 1.5rem;
+  margin-bottom: 0.45rem;
+}
+
+.stat-card p,
+.panel-card p,
+.panel-card li {
+  margin: 0;
+  line-height: 1.65;
+}
+
+.dashboard-grid {
+  grid-template-columns: 1.3fr 0.9fr;
+}
+
+.panel-card {
+  padding: 1.5rem;
+}
+
+.panel-card h3 {
+  margin: 0 0 1rem;
+  font-size: 1.25rem;
+}
+
+.panel-card ul {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: var(--sm-text-soft);
+}
+
+.panel-card.emphasis {
+  background: linear-gradient(180deg, rgba(183, 111, 42, 0.1), rgba(255, 255, 255, 0.88));
+}
+
+@media (max-width: 1100px) {
+  .dashboard-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-card,
+  .dashboard-grid,
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-actions {
+    min-width: 0;
+  }
+}
