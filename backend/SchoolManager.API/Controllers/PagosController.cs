@@ -1,9 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-=======
 using SchoolManager.API.DTOs;
-
 
 namespace SchoolManager.API.Controllers;
 
