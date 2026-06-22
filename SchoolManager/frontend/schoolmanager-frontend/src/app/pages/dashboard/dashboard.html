@@ -1,40 +1,74 @@
-<div class="dashboard-container">
-  <div class="sidebar">
-    <h2>🏫 SchoolManager</h2>
+<div class="dashboard-shell">
+  <aside class="sidebar">
+    <div class="brand-block">
+      <p class="brand-kicker">SchoolManager</p>
+      <h2>Panel escolar</h2>
+      <span>Control administrativo diario</span>
+    </div>
+
     <nav>
-      <a routerLink="/alumnos" routerLinkActive="active">📋 Alumnos</a>
-      <a routerLink="/matriculas" routerLinkActive="active">🎓 Matrículas</a>
-      <a routerLink="/mensualidades" routerLinkActive="active">💰 Mensualidades</a>
-      <a href="#">💳 Pagos</a>
+      <a routerLink="/alumnos" routerLinkActive="active">Alumnos</a>
+      <a routerLink="/matriculas" routerLinkActive="active">Matrículas</a>
+      <a routerLink="/mensualidades" routerLinkActive="active">Mensualidades</a>
     </nav>
-    <button (click)="logout()">🚪 Cerrar sesión</button>
-  </div>
 
-  <div class="main-content">
-    <h1>Panel de Administración</h1>
-
-    <div class="cards">
-      <div class="card azul">
-        <h3>Total Alumnos</h3>
-        <p class="numero">0</p>
-      </div>
-      <div class="card verde">
-        <h3>Pagos al día</h3>
-        <p class="numero">0</p>
-      </div>
-      <div class="card naranja">
-        <h3>Pendientes</h3>
-        <p class="numero">0</p>
-      </div>
-      <div class="card rojo">
-        <h3>Vencidos</h3>
-        <p class="numero">0</p>
-      </div>
+    <div class="sidebar-footer">
+      <p>Acceso conectado con Supabase</p>
+      <button (click)="logout()">Cerrar sesión</button>
     </div>
+  </aside>
 
-    <div class="bienvenida">
-      <h2>✅ Sistema funcionando correctamente</h2>
-      <p>Bienvenido al panel de administración de SchoolManager.</p>
-    </div>
-  </div>
+  <main class="main-content">
+    <section class="hero-card">
+      <div>
+        <p class="eyebrow">Resumen operativo</p>
+        <h1>Gestiona la operación escolar con una vista clara y rápida.</h1>
+        <p class="hero-copy">
+          Consulta estudiantes, registra matrículas y administra mensualidades desde una sola interfaz.
+        </p>
+      </div>
+
+      <div class="hero-actions">
+        <a routerLink="/alumnos">Ver alumnos</a>
+        <a routerLink="/mensualidades" class="secondary">Revisar mensualidades</a>
+      </div>
+    </section>
+
+    <section class="stats-grid">
+      <article class="stat-card primary">
+        <span class="stat-label">Estudiantes activos</span>
+        <strong>Control</strong>
+        <p>Consulta y administra expedientes académicos.</p>
+      </article>
+      <article class="stat-card success">
+        <span class="stat-label">Matrículas</span>
+        <strong>Proceso</strong>
+        <p>Registro por ciclo escolar con seguimiento de estado.</p>
+      </article>
+      <article class="stat-card warning">
+        <span class="stat-label">Cobranza</span>
+        <strong>Mensualidades</strong>
+        <p>Pagos pendientes, vencidos y registrados en una sola vista.</p>
+      </article>
+    </section>
+
+    <section class="dashboard-grid">
+      <article class="panel-card">
+        <h3>Qué puedes hacer hoy</h3>
+        <ul>
+          <li>Registrar nuevos alumnos y gestionar su estado.</li>
+          <li>Crear matrículas por ciclo y marcar pagos de inscripción.</li>
+          <li>Generar mensualidades y registrar pagos del mes.</li>
+        </ul>
+      </article>
+
+      <article class="panel-card emphasis">
+        <h3>Sistema en línea</h3>
+        <p>
+          El frontend productivo ya está desplegado y listo para seguir iterando sobre autenticación,
+          métricas y experiencia de usuario.
+        </p>
+      </article>
+    </section>
+  </main>
 </div>

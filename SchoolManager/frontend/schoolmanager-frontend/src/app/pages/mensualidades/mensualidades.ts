@@ -22,6 +22,10 @@ export class Mensualidades implements OnInit {
   mostrarPago = false;
   mensualidadSeleccionada: any = null;
 
+  mostrarDescuento = false;
+  mensualidadDescuento: any = null;
+  montoDescuento = 0;
+
   pago = {
     monto_pagado: 0,
     metodo_pago: 'efectivo'
@@ -102,6 +106,43 @@ export class Mensualidades implements OnInit {
       this.mensaje = '✅ Pago registrado correctamente';
       this.mostrarPago = false;
       this.mensualidadSeleccionada = null;
+      await this.cargarDatos();
+    } else {
+      this.mensaje = '❌ Error: ' + error.message;
+    }
+
+    this.cargando = false;
+    this.cdr.detectChanges();
+    setTimeout(() => { this.mensaje = ''; this.cdr.detectChanges(); }, 3000);
+  }
+
+  abrirDescuento(m: any) {
+    this.mensualidadDescuento = m;
+    this.montoDescuento = m.descuento || 0;
+    this.mostrarDescuento = true;
+    this.cdr.detectChanges();
+  }
+
+  async aplicarDescuento() {
+    if (this.montoDescuento < 0) {
+      this.mensaje = '❌ El descuento no puede ser negativo';
+      return;
+    }
+    if (this.montoDescuento > this.mensualidadDescuento.monto_original) {
+      this.mensaje = '❌ El descuento no puede superar el monto original';
+      return;
+    }
+
+    this.cargando = true;
+    const { error } = await this.auth.supabase
+      .from('mensualidades')
+      .update({ descuento: this.montoDescuento })
+      .eq('id', this.mensualidadDescuento.id);
+
+    if (!error) {
+      this.mensaje = '✅ Descuento aplicado correctamente';
+      this.mostrarDescuento = false;
+      this.mensualidadDescuento = null;
       await this.cargarDatos();
     } else {
       this.mensaje = '❌ Error: ' + error.message;

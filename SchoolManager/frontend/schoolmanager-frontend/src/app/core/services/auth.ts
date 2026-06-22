@@ -20,7 +20,6 @@ export class AuthService {
       }
     });
 
-    // Recuperar sesión existente al iniciar
     this.supabase.auth.getSession().then(({ data }) => {
       this.sessionSubject.next(data.session);
     });
@@ -49,5 +48,22 @@ export class AuthService {
 
   getToken(): string | null {
     return this.sessionSubject.value?.access_token ?? null;
+  }
+
+  async getUsuarioActual() {
+    const session = this.sessionSubject.value;
+    if (!session) return null;
+
+    const { data, error } = await this.supabase
+      .from('usuarios')
+      .select('*')
+      .eq('supabase_uid', session.user.id)
+      .single();
+
+    if (error) {
+      console.error('Error obteniendo usuario:', error);
+      return null;
+    }
+    return data;
   }
 }
