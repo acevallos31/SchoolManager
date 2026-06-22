@@ -149,6 +149,14 @@ public class AuthController : ControllerBase
 
         usuario = NormalizeUsuarioRole(usuario);
 
+        if (!usuario.Activo)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new
+            {
+                error = "Tu usuario esta inactivo. Contacta al administrador."
+            });
+        }
+
         if (usuario.Rol is not ("admin" or "operador" or "padre"))
         {
             return StatusCode(StatusCodes.Status403Forbidden, new
@@ -230,7 +238,7 @@ public class AuthController : ControllerBase
         var serviceRoleKey = GetConfiguredValue("Supabase:ServiceRoleKey", "Supabase:SecretKey");
         var bearerToken = serviceRoleKey ?? accessToken;
         var requestUrl =
-            $"{supabaseUrl}/rest/v1/usuarios?select=id,supabase_uid,nombre_completo,nombre,correo,rol&supabase_uid=eq.{Uri.EscapeDataString(supabaseUid)}&limit=1";
+            $"{supabaseUrl}/rest/v1/usuarios?select=id,supabase_uid,nombre_completo,nombre,correo,rol,activo&supabase_uid=eq.{Uri.EscapeDataString(supabaseUid)}&limit=1";
 
         using var request = new HttpRequestMessage(HttpMethod.Get, requestUrl);
         request.Headers.Add("apikey", serviceRoleKey ?? publishableKey);
@@ -262,7 +270,8 @@ public class AuthController : ControllerBase
             usuario.NombreCompleto ?? usuario.Nombre ?? usuario.Correo ?? "Usuario",
             usuario.NombreCompleto,
             usuario.Correo,
-            usuario.Rol);
+            usuario.Rol,
+            usuario.Activo);
     }
 
     private async Task<string?> ResolveLoginEmailAsync(
@@ -353,7 +362,8 @@ public class AuthController : ControllerBase
         [property: JsonPropertyName("nombre_completo")] string? NombreCompleto,
         string? Nombre,
         string? Correo,
-        string Rol);
+        string Rol,
+        bool Activo = true);
 
     private sealed record UsuarioLoginLookup(string? Correo);
 }

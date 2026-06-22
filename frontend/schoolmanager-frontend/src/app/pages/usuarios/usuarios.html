@@ -2,7 +2,7 @@
   <div class="page-header">
     <button class="btn-volver" (click)="volver()">Volver</button>
     <h1>Gestion de Usuarios</h1>
-    <button class="btn-nuevo" (click)="mostrarFormulario = !mostrarFormulario">
+    <button class="btn-nuevo" (click)="abrirNuevo()">
       + Nuevo Usuario
     </button>
   </div>
@@ -15,7 +15,7 @@
 
   @if (mostrarFormulario) {
     <div class="formulario">
-      <h3>Usuario administrativo</h3>
+      <h3>{{ usuarioEditandoId ? 'Editar usuario' : 'Usuario administrativo' }}</h3>
       <div class="form-grid">
         <div class="form-group">
           <label>Usuario</label>
@@ -30,8 +30,8 @@
           <input type="email" [(ngModel)]="nuevoUsuario.correo" placeholder="Ej: maria@colegio.com" />
         </div>
         <div class="form-group">
-          <label>Contrasena inicial *</label>
-          <input type="password" [(ngModel)]="nuevoUsuario.password" placeholder="Minimo 8 caracteres" />
+          <label>{{ usuarioEditandoId ? 'Nueva contrasena' : 'Contrasena inicial *' }}</label>
+          <input type="password" [(ngModel)]="nuevoUsuario.password" [placeholder]="usuarioEditandoId ? 'Dejar vacia para no cambiar' : 'Minimo 8 caracteres'" />
         </div>
         <div class="form-group">
           <label>Rol *</label>
@@ -42,9 +42,9 @@
         </div>
       </div>
       <div class="form-actions">
-        <button class="btn-cancelar" (click)="mostrarFormulario = false">Cancelar</button>
+        <button class="btn-cancelar" (click)="cancelarEdicion()">Cancelar</button>
         <button class="btn-guardar" (click)="guardarUsuario()" [disabled]="cargando">
-          {{ cargando ? 'Creando...' : 'Crear usuario' }}
+          {{ cargando ? 'Guardando...' : (usuarioEditandoId ? 'Guardar cambios' : 'Crear usuario') }}
         </button>
       </div>
     </div>
@@ -60,6 +60,8 @@
           <th>Nombre</th>
           <th>Correo</th>
           <th>Rol</th>
+          <th>Estado</th>
+          <th>Acciones</th>
         </tr>
       </thead>
       <tbody>
@@ -73,10 +75,19 @@
                 {{ usuario.rol }}
               </span>
             </td>
+            <td>{{ usuario.activo === false ? 'Inactivo' : 'Activo' }}</td>
+            <td>
+              <button class="btn-editar" (click)="editarUsuario(usuario)">Editar</button>
+              @if (usuario.activo === false) {
+                <button class="btn-activar" (click)="activarUsuario(usuario.id)">Activar</button>
+              } @else {
+                <button class="btn-desactivar" (click)="desactivarUsuario(usuario.id)">Desactivar</button>
+              }
+            </td>
           </tr>
         } @empty {
           <tr>
-            <td colspan="4" class="sin-datos">No hay usuarios registrados</td>
+            <td colspan="6" class="sin-datos">No hay usuarios registrados</td>
           </tr>
         }
       </tbody>

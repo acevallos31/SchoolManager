@@ -18,6 +18,7 @@ export class Alumnos implements OnInit {
   cargando = false;
   mensaje = '';
   mensajeTipo: 'success' | 'error' = 'success';
+  alumnoEditandoId = '';
 
   nuevoAlumno = this.crearFormularioVacio();
 
@@ -69,29 +70,36 @@ export class Alumnos implements OnInit {
       !this.nuevoAlumno.sexo ||
       !this.nuevoAlumno.dni ||
       !this.nuevoAlumno.padresEncargados ||
-      !this.nuevoAlumno.direccion ||
-      !this.nuevoAlumno.correoAcceso
+      !this.nuevoAlumno.direccion
     ) {
-      this.mostrarMensaje('Nombres, apellidos, nacimiento, sexo, DNI, encargados, direccion y correo de acceso son obligatorios', 'error');
+      this.mostrarMensaje('Nombres, apellidos, nacimiento, sexo, DNI, encargados y direccion son obligatorios', 'error');
       return;
     }
 
-    this.rellenarAccesoConDni();
+    if (!this.alumnoEditandoId && !this.nuevoAlumno.correoAcceso) {
+      this.mostrarMensaje('El correo de acceso es obligatorio al crear un alumno', 'error');
+      return;
+    }
+
+    if (!this.alumnoEditandoId) {
+      this.rellenarAccesoConDni();
+      this.rellenarNombreUsuarioAcceso();
+    }
 
     this.cargando = true;
 
     try {
-      await this.auth.apiRequest('/alumnos', {
-        method: 'POST',
+      const url = this.alumnoEditandoId ? `/alumnos/${this.alumnoEditandoId}` : '/alumnos';
+      await this.auth.apiRequest(url, {
+        method: this.alumnoEditandoId ? 'PUT' : 'POST',
         body: JSON.stringify({ ...this.nuevoAlumno, estado: 'activo' })
       });
 
-      this.mostrarMensaje('Alumno registrado correctamente', 'success');
-      this.nuevoAlumno = this.crearFormularioVacio();
-      this.mostrarFormulario = false;
+      this.mostrarMensaje(this.alumnoEditandoId ? 'Alumno actualizado correctamente' : 'Alumno registrado correctamente', 'success');
+      this.cancelarEdicion();
       await this.cargarAlumnos();
     } catch (error) {
-      this.mostrarMensaje(error instanceof Error ? error.message : 'Error registrando alumno', 'error');
+      this.mostrarMensaje(error instanceof Error ? error.message : 'Error guardando alumno', 'error');
     } finally {
       this.cargando = false;
       this.cdr.detectChanges();
@@ -121,6 +129,39 @@ export class Alumnos implements OnInit {
     await this.cargarAlumnos();
   }
 
+  editarAlumno(alumno: any) {
+    this.alumnoEditandoId = alumno.id;
+    this.nuevoAlumno = {
+      nombres: alumno.nombres || '',
+      apellidos: alumno.apellidos || '',
+      fechaNacimiento: alumno.fechaNacimiento || alumno.fecha_nacimiento || '',
+      sexo: alumno.sexo || '',
+      dni: alumno.dni || alumno.identidad || '',
+      padresEncargados: alumno.padresEncargados || alumno.padres_encargados || '',
+      direccion: alumno.direccion || '',
+      usuarioAcceso: alumno.usuarioAcceso || alumno.usuario_acceso || '',
+      nombreUsuarioAcceso: '',
+      correoAcceso: alumno.correoAcceso || alumno.correo_acceso || '',
+      passwordAcceso: ''
+    };
+    this.mostrarFormulario = true;
+    this.cdr.detectChanges();
+  }
+
+  abrirNuevo() {
+    this.nuevoAlumno = this.crearFormularioVacio();
+    this.alumnoEditandoId = '';
+    this.mostrarFormulario = true;
+    this.cdr.detectChanges();
+  }
+
+  cancelarEdicion() {
+    this.nuevoAlumno = this.crearFormularioVacio();
+    this.alumnoEditandoId = '';
+    this.mostrarFormulario = false;
+    this.cdr.detectChanges();
+  }
+
   volver() {
     this.router.navigate(['/dashboard']);
   }
@@ -140,6 +181,15 @@ export class Alumnos implements OnInit {
     }
   }
 
+  rellenarNombreUsuarioAcceso() {
+    if (this.nuevoAlumno.nombreUsuarioAcceso || !this.nuevoAlumno.nombres) {
+      return;
+    }
+
+    const primerNombre = this.nuevoAlumno.nombres.trim().split(/\s+/)[0];
+    this.nuevoAlumno.nombreUsuarioAcceso = primerNombre ? `Padre de ${primerNombre}` : '';
+  }
+
   private crearFormularioVacio() {
     return {
       nombres: '',
@@ -150,6 +200,7 @@ export class Alumnos implements OnInit {
       padresEncargados: '',
       direccion: '',
       usuarioAcceso: '',
+      nombreUsuarioAcceso: '',
       correoAcceso: '',
       passwordAcceso: ''
     };

@@ -258,9 +258,7 @@ public class AlumnosController : ControllerBase
         var nombres = FirstValue(dto.Nombres, dto.Nombre) ?? string.Empty;
         var apellidos = FirstValue(dto.Apellidos, dto.Apellido) ?? string.Empty;
         var nombreAlumno = $"{nombres} {apellidos}".Trim();
-        var nombreUsuario = string.IsNullOrWhiteSpace(dto.PadresEncargados)
-            ? nombreAlumno
-            : dto.PadresEncargados.Trim();
+        var nombreUsuario = BuildNombreUsuarioAcceso(dto, nombres, nombreAlumno);
 
         var dni = FirstValue(dto.Dni, dto.Identidad) ?? string.Empty;
         var usuarioAcceso = string.IsNullOrWhiteSpace(dto.UsuarioAcceso)
@@ -348,5 +346,26 @@ public class AlumnosController : ControllerBase
     private static string? FirstValue(params string?[] values)
     {
         return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+    }
+
+    private static string BuildNombreUsuarioAcceso(AlumnoCreateDto dto, string nombres, string nombreAlumno)
+    {
+        if (!string.IsNullOrWhiteSpace(dto.NombreUsuarioAcceso))
+        {
+            return dto.NombreUsuarioAcceso.Trim();
+        }
+
+        var primerNombre = nombres
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .FirstOrDefault();
+
+        if (!string.IsNullOrWhiteSpace(primerNombre))
+        {
+            return $"Padre de {primerNombre}";
+        }
+
+        return string.IsNullOrWhiteSpace(dto.PadresEncargados)
+            ? $"Padre de {nombreAlumno}".Trim()
+            : dto.PadresEncargados.Trim();
     }
 }

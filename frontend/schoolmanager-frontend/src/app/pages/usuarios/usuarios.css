@@ -35,9 +35,31 @@
 }
 
 .btn-nuevo,
-.btn-guardar {
+.btn-guardar,
+.btn-editar {
   background: linear-gradient(135deg, var(--sm-primary), var(--sm-primary-strong));
   color: #fffef9;
+}
+
+.btn-editar,
+.btn-desactivar,
+.btn-activar {
+  margin-right: 0.45rem;
+  padding: 0.55rem 0.8rem;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.btn-desactivar {
+  background: #fff0ed;
+  color: var(--sm-danger);
+}
+
+.btn-activar {
+  background: #edf8f1;
+  color: var(--sm-success);
 }
 
 .mensaje,

@@ -20,7 +20,10 @@ public sealed class UsuariosController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] string? rol, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetAll(
+        [FromQuery] string? rol,
+        [FromQuery] bool incluirInactivos = true,
+        CancellationToken cancellationToken = default)
     {
         var query = new Dictionary<string, string?>
         {
@@ -31,6 +34,11 @@ public sealed class UsuariosController : ControllerBase
         if (!string.IsNullOrWhiteSpace(rol))
         {
             query["rol"] = $"eq.{NormalizeRole(rol)}";
+        }
+
+        if (!incluirInactivos)
+        {
+            query["activo"] = "eq.true";
         }
 
         try
@@ -44,48 +52,59 @@ public sealed class UsuariosController : ControllerBase
         }
     }
 
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var usuario = await _tableService.GetSingleAsync<UsuarioDto>(
+                "usuarios",
+                new Dictionary<string, string?>
+                {
+                    ["select"] = "*",
+                    ["id"] = $"eq.{id}"
+                },
+                cancellationToken);
+
+            return usuario is null ? NotFound(new { error = "Usuario no encontrado." }) : Ok(usuario);
+        }
+        catch (SupabaseTableException ex)
+        {
+            return StatusCode(ex.StatusCode, new { error = ex.Message });
+        }
+    }
+
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] UsuarioCreateDto dto, CancellationToken cancellationToken)
     {
-        var errors = Validate(dto);
+        var errors = Validate(dto, isCreate: true);
         if (errors.Count > 0)
         {
             return BadRequest(new { errors });
         }
 
         var role = NormalizeRole(dto.Rol);
+        var usuarioLogin = BuildUsuario(dto.Usuario, dto.Correo);
+
         try
         {
             var authUserId = await _authAdminService.CreateUserAsync(
                 dto.Correo,
-                dto.Password,
+                dto.Password!,
                 dto.Nombre,
                 role,
                 cancellationToken);
 
             var usuario = await _tableService.InsertAsync<UsuarioDto>(
                 "usuarios",
-                new
-                {
-                    id = Guid.Parse(authUserId),
-                    usuario = string.IsNullOrWhiteSpace(dto.Usuario)
-                        ? dto.Correo.Split('@')[0].Trim().ToLowerInvariant()
-                        : dto.Usuario.Trim().ToLowerInvariant(),
-                    nombre = dto.Nombre.Trim(),
-                    nombre_completo = dto.Nombre.Trim(),
-                    correo = dto.Correo.Trim().ToLowerInvariant(),
-                    rol = role,
-                    supabase_uid = Guid.Parse(authUserId),
-                    created_at = DateTimeOffset.UtcNow,
-                    updated_at = DateTimeOffset.UtcNow
-                },
+                BuildPayload(Guid.Parse(authUserId), usuarioLogin, dto, role, includeCreatedAt: true),
                 cancellationToken);
 
             return Ok(new
             {
                 usuario,
                 mensaje = role == "padre"
-                    ? "Usuario de alumno/padre creado correctamente."
+                    ? "Usuario de padre/encargado creado correctamente."
                     : "Usuario administrativo creado correctamente."
             });
         }
@@ -99,7 +118,142 @@ public sealed class UsuariosController : ControllerBase
         }
     }
 
-    private static List<string> Validate(UsuarioCreateDto dto)
+    [HttpPut("{id:guid}")]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UsuarioCreateDto dto, CancellationToken cancellationToken)
+    {
+        var errors = Validate(dto, isCreate: false);
+        if (errors.Count > 0)
+        {
+            return BadRequest(new { errors });
+        }
+
+        try
+        {
+            var actual = await _tableService.GetSingleAsync<UsuarioDto>(
+                "usuarios",
+                new Dictionary<string, string?>
+                {
+                    ["select"] = "*",
+                    ["id"] = $"eq.{id}"
+                },
+                cancellationToken);
+
+            if (actual is null)
+            {
+                return NotFound(new { error = "Usuario no encontrado." });
+            }
+
+            var role = NormalizeRole(dto.Rol);
+            var usuarioLogin = BuildUsuario(dto.Usuario, dto.Correo);
+
+            if (actual.SupabaseUid.HasValue)
+            {
+                await _authAdminService.UpdateUserAsync(
+                    actual.SupabaseUid.Value.ToString(),
+                    dto.Correo,
+                    dto.Password,
+                    dto.Nombre,
+                    role,
+                    cancellationToken);
+            }
+
+            var usuario = await _tableService.UpdateAsync<UsuarioDto>(
+                "usuarios",
+                id,
+                BuildPayload(null, usuarioLogin, dto, role, includeCreatedAt: false),
+                cancellationToken);
+
+            return usuario is null ? NotFound(new { error = "Usuario no encontrado." }) : Ok(usuario);
+        }
+        catch (SupabaseAuthAdminException ex)
+        {
+            return StatusCode(ex.StatusCode, new { error = ex.Message });
+        }
+        catch (SupabaseTableException ex)
+        {
+            return StatusCode(ex.StatusCode, new { error = ex.Message });
+        }
+    }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var usuario = await _tableService.UpdateAsync<UsuarioDto>(
+                "usuarios",
+                id,
+                new
+                {
+                    activo = false,
+                    updated_at = DateTimeOffset.UtcNow
+                },
+                cancellationToken);
+
+            return usuario is null ? NotFound(new { error = "Usuario no encontrado." }) : Ok(usuario);
+        }
+        catch (SupabaseTableException ex)
+        {
+            return StatusCode(ex.StatusCode, new { error = ex.Message });
+        }
+    }
+
+    [HttpPut("{id:guid}/activar")]
+    public async Task<IActionResult> Activar(Guid id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var usuario = await _tableService.UpdateAsync<UsuarioDto>(
+                "usuarios",
+                id,
+                new
+                {
+                    activo = true,
+                    updated_at = DateTimeOffset.UtcNow
+                },
+                cancellationToken);
+
+            return usuario is null ? NotFound(new { error = "Usuario no encontrado." }) : Ok(usuario);
+        }
+        catch (SupabaseTableException ex)
+        {
+            return StatusCode(ex.StatusCode, new { error = ex.Message });
+        }
+    }
+
+    private static Dictionary<string, object?> BuildPayload(
+        Guid? authUserId,
+        string usuarioLogin,
+        UsuarioCreateDto dto,
+        string role,
+        bool includeCreatedAt)
+    {
+        var payload = new Dictionary<string, object?>
+        {
+            ["usuario"] = usuarioLogin,
+            ["nombre"] = dto.Nombre.Trim(),
+            ["nombre_completo"] = dto.Nombre.Trim(),
+            ["correo"] = dto.Correo.Trim().ToLowerInvariant(),
+            ["rol"] = role,
+            ["activo"] = dto.Activo,
+            ["updated_at"] = DateTimeOffset.UtcNow
+        };
+
+        if (authUserId.HasValue)
+        {
+            payload["id"] = authUserId.Value;
+            payload["supabase_uid"] = authUserId.Value;
+        }
+
+        if (includeCreatedAt)
+        {
+            payload["created_at"] = DateTimeOffset.UtcNow;
+        }
+
+        return payload;
+    }
+
+    private static List<string> Validate(UsuarioCreateDto dto, bool isCreate)
     {
         var errors = new List<string>();
         var role = NormalizeRole(dto.Rol);
@@ -114,9 +268,14 @@ public sealed class UsuariosController : ControllerBase
             errors.Add("El correo del usuario no es valido.");
         }
 
-        if (string.IsNullOrWhiteSpace(dto.Password) || dto.Password.Length < 8)
+        if (isCreate && (string.IsNullOrWhiteSpace(dto.Password) || dto.Password.Length < 8))
         {
             errors.Add("La contrasena debe tener al menos 8 caracteres.");
+        }
+
+        if (!isCreate && !string.IsNullOrWhiteSpace(dto.Password) && dto.Password.Length < 8)
+        {
+            errors.Add("La nueva contrasena debe tener al menos 8 caracteres.");
         }
 
         if (role is not ("admin" or "operador" or "padre"))
@@ -125,6 +284,13 @@ public sealed class UsuariosController : ControllerBase
         }
 
         return errors;
+    }
+
+    private static string BuildUsuario(string? usuario, string correo)
+    {
+        return string.IsNullOrWhiteSpace(usuario)
+            ? correo.Split('@')[0].Trim().ToLowerInvariant()
+            : usuario.Trim().ToLowerInvariant();
     }
 
     private static string NormalizeRole(string? role)

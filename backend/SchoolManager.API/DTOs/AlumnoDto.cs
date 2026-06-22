@@ -72,6 +72,7 @@ public class AlumnoCreateDto
     public string? PadresEncargados { get; set; }
     public string? Direccion { get; set; }
     public string? UsuarioAcceso { get; set; }
+    public string? NombreUsuarioAcceso { get; set; }
     public string? CorreoAcceso { get; set; }
     public string? PasswordAcceso { get; set; }
 

@@ -2,7 +2,7 @@
   <div class="page-header">
     <button class="btn-volver" (click)="volver()">Volver</button>
     <h1>Gestion de Alumnos</h1>
-    <button class="btn-nuevo" (click)="mostrarFormulario = !mostrarFormulario">
+    <button class="btn-nuevo" (click)="abrirNuevo()">
       + Nuevo Alumno
     </button>
   </div>
@@ -15,11 +15,11 @@
 
   @if (mostrarFormulario) {
     <div class="formulario">
-      <h3>Datos personales del alumno</h3>
+      <h3>{{ alumnoEditandoId ? 'Editar alumno' : 'Datos personales del alumno' }}</h3>
       <div class="form-grid">
         <div class="form-group">
           <label>Nombres *</label>
-          <input type="text" [(ngModel)]="nuevoAlumno.nombres" placeholder="Ej: Juan Carlos" />
+          <input type="text" [(ngModel)]="nuevoAlumno.nombres" (blur)="rellenarNombreUsuarioAcceso()" placeholder="Ej: Juan Carlos" />
         </div>
         <div class="form-group">
           <label>Apellidos *</label>
@@ -55,18 +55,22 @@
           <input type="text" [(ngModel)]="nuevoAlumno.usuarioAcceso" placeholder="Se puede usar el DNI" />
         </div>
         <div class="form-group">
-          <label>Correo de acceso *</label>
-          <input type="email" [(ngModel)]="nuevoAlumno.correoAcceso" placeholder="Ej: padre@correo.com" />
+          <label>Nombre del usuario de acceso</label>
+          <input type="text" [(ngModel)]="nuevoAlumno.nombreUsuarioAcceso" placeholder="Ej: Padre de Edgar" [disabled]="!!alumnoEditandoId" />
+        </div>
+        <div class="form-group">
+          <label>{{ alumnoEditandoId ? 'Correo de acceso' : 'Correo de acceso *' }}</label>
+          <input type="email" [(ngModel)]="nuevoAlumno.correoAcceso" placeholder="Ej: padre@correo.com" [disabled]="!!alumnoEditandoId" />
         </div>
         <div class="form-group">
           <label>Contrasena inicial</label>
-          <input type="password" [(ngModel)]="nuevoAlumno.passwordAcceso" placeholder="Si queda vacia se usara el DNI" />
+          <input type="password" [(ngModel)]="nuevoAlumno.passwordAcceso" placeholder="Si queda vacia se usara el DNI" [disabled]="!!alumnoEditandoId" />
         </div>
       </div>
       <div class="form-actions">
-        <button class="btn-cancelar" (click)="mostrarFormulario = false">Cancelar</button>
+        <button class="btn-cancelar" (click)="cancelarEdicion()">Cancelar</button>
         <button class="btn-guardar" (click)="guardarAlumno()" [disabled]="cargando">
-          {{ cargando ? 'Guardando...' : 'Guardar alumno' }}
+          {{ cargando ? 'Guardando...' : (alumnoEditandoId ? 'Guardar cambios' : 'Guardar alumno') }}
         </button>
       </div>
     </div>
@@ -112,10 +116,16 @@
             <td>{{ alumno.usuarioAcceso || alumno.usuario_acceso || '-' }}</td>
             <td>
               @if (alumno.estado === 'activo') {
+                <button class="btn-activar" (click)="editarAlumno(alumno)">
+                  Editar
+                </button>
                 <button class="btn-desactivar" (click)="desactivarAlumno(alumno.id)">
                   Desactivar
                 </button>
               } @else {
+                <button class="btn-activar" (click)="editarAlumno(alumno)">
+                  Editar
+                </button>
                 <button class="btn-activar" (click)="activarAlumno(alumno.id)">
                   Activar
                 </button>

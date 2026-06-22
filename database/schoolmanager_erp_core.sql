@@ -15,6 +15,7 @@ alter table if exists public.usuarios add column if not exists nombre text;
 alter table if exists public.usuarios add column if not exists nombre_completo text;
 alter table if exists public.usuarios add column if not exists correo text;
 alter table if exists public.usuarios add column if not exists supabase_uid uuid;
+alter table if exists public.usuarios add column if not exists activo boolean not null default true;
 alter table if exists public.usuarios add column if not exists updated_at timestamptz;
 alter table if exists public.usuarios
   add constraint usuarios_rol_check check (rol in ('admin', 'operador', 'padre'));

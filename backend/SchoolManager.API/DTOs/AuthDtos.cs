@@ -8,7 +8,8 @@ public sealed record UsuarioActualDto(
     string Nombre,
     string? NombreCompleto,
     string? Correo,
-    string Rol
+    string Rol,
+    bool Activo = true
 );
 
 public sealed record LoginResponse(

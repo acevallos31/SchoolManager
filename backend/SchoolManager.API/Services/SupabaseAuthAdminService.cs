@@ -78,6 +78,60 @@ public sealed class SupabaseAuthAdminService
         return created.Id;
     }
 
+    public async Task UpdateUserAsync(
+        string supabaseUserId,
+        string? email,
+        string? password,
+        string? fullName,
+        string? role,
+        CancellationToken cancellationToken)
+    {
+        var supabaseUrl = GetConfiguredValue("Supabase:Url")?.TrimEnd('/')
+            ?? throw new SupabaseAuthAdminException("Supabase__Url no esta configurada.", 500);
+        var serviceRoleKey = GetConfiguredValue("Supabase:ServiceRoleKey", "Supabase:SecretKey")
+            ?? throw new SupabaseAuthAdminException("Supabase__ServiceRoleKey no esta configurada.", 500);
+
+        var payload = new Dictionary<string, object?>();
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            payload["email"] = email.Trim().ToLowerInvariant();
+        }
+
+        if (!string.IsNullOrWhiteSpace(password))
+        {
+            payload["password"] = password;
+        }
+
+        if (!string.IsNullOrWhiteSpace(fullName) || !string.IsNullOrWhiteSpace(role))
+        {
+            payload["user_metadata"] = new
+            {
+                nombre_completo = fullName,
+                rol = role
+            };
+        }
+
+        if (payload.Count == 0)
+        {
+            return;
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Put, $"{supabaseUrl}/auth/v1/admin/users/{supabaseUserId}");
+        request.Headers.Add("apikey", serviceRoleKey);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", serviceRoleKey);
+        request.Content = new StringContent(JsonSerializer.Serialize(payload, JsonOptions), Encoding.UTF8, "application/json");
+
+        var client = _httpClientFactory.CreateClient();
+        using var response = await client.SendAsync(request, cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("Supabase auth admin update user failed. Status={StatusCode} Body={Body}", response.StatusCode, body);
+            throw new SupabaseAuthAdminException("No se pudo actualizar el usuario de acceso en Supabase Auth.", (int)response.StatusCode);
+        }
+    }
+
     private string? GetConfiguredValue(params string[] keys)
     {
         foreach (var key in keys)

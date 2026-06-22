@@ -17,6 +17,7 @@ export class Usuarios implements OnInit {
   mensaje = '';
   mensajeTipo: 'success' | 'error' = 'success';
   mostrarFormulario = false;
+  usuarioEditandoId = '';
 
   nuevoUsuario = this.crearFormularioVacio();
 
@@ -46,12 +47,17 @@ export class Usuarios implements OnInit {
   }
 
   async guardarUsuario() {
-    if (!this.nuevoUsuario.nombre || !this.nuevoUsuario.correo || !this.nuevoUsuario.password || !this.nuevoUsuario.rol) {
-      this.mostrarMensaje('Nombre, correo, contrasena y rol son obligatorios.', 'error');
+    if (!this.nuevoUsuario.nombre || !this.nuevoUsuario.correo || !this.nuevoUsuario.rol) {
+      this.mostrarMensaje('Nombre, correo y rol son obligatorios.', 'error');
       return;
     }
 
-    if (this.nuevoUsuario.password.length < 8) {
+    if (!this.usuarioEditandoId && !this.nuevoUsuario.password) {
+      this.mostrarMensaje('La contrasena inicial es obligatoria.', 'error');
+      return;
+    }
+
+    if (this.nuevoUsuario.password && this.nuevoUsuario.password.length < 8) {
       this.mostrarMensaje('La contrasena debe tener al menos 8 caracteres.', 'error');
       return;
     }
@@ -59,21 +65,63 @@ export class Usuarios implements OnInit {
     this.cargando = true;
 
     try {
-      await this.auth.apiRequest('/usuarios', {
-        method: 'POST',
+      const url = this.usuarioEditandoId ? `/usuarios/${this.usuarioEditandoId}` : '/usuarios';
+      await this.auth.apiRequest(url, {
+        method: this.usuarioEditandoId ? 'PUT' : 'POST',
         body: JSON.stringify(this.nuevoUsuario)
       });
 
-      this.mostrarMensaje('Usuario creado correctamente.', 'success');
-      this.nuevoUsuario = this.crearFormularioVacio();
-      this.mostrarFormulario = false;
+      this.mostrarMensaje(this.usuarioEditandoId ? 'Usuario actualizado correctamente.' : 'Usuario creado correctamente.', 'success');
+      this.cancelarEdicion();
       await this.cargarUsuarios();
     } catch (error) {
-      this.mostrarMensaje(error instanceof Error ? error.message : 'No se pudo crear el usuario.', 'error');
+      this.mostrarMensaje(error instanceof Error ? error.message : 'No se pudo guardar el usuario.', 'error');
     } finally {
       this.cargando = false;
       this.cdr.detectChanges();
     }
+  }
+
+  abrirNuevo() {
+    this.nuevoUsuario = this.crearFormularioVacio();
+    this.usuarioEditandoId = '';
+    this.mostrarFormulario = true;
+    this.cdr.detectChanges();
+  }
+
+  editarUsuario(usuario: any) {
+    this.usuarioEditandoId = usuario.id;
+    this.nuevoUsuario = {
+      usuario: usuario.usuario || '',
+      nombre: usuario.nombreCompleto || usuario.nombre_completo || usuario.nombre || '',
+      correo: usuario.correo || '',
+      password: '',
+      rol: usuario.rol || 'operador',
+      activo: usuario.activo !== false
+    };
+    this.mostrarFormulario = true;
+    this.cdr.detectChanges();
+  }
+
+  async desactivarUsuario(id: string) {
+    if (!confirm('Desactivar este usuario?')) {
+      return;
+    }
+
+    await this.auth.apiRequest(`/usuarios/${id}`, { method: 'DELETE' });
+    await this.cargarUsuarios();
+  }
+
+  async activarUsuario(id: string) {
+    await this.auth.apiRequest(`/usuarios/${id}/activar`, { method: 'PUT' });
+    await this.cargarUsuarios();
+  }
+
+  cancelarEdicion() {
+    this.nuevoUsuario = this.crearFormularioVacio();
+    this.usuarioEditandoId = '';
+    this.mostrarFormulario = false;
+    this.cdr.detectChanges();
   }
 
   volver() {
@@ -86,7 +134,8 @@ export class Usuarios implements OnInit {
       nombre: '',
       correo: '',
       password: '',
-      rol: 'operador'
+      rol: 'operador',
+      activo: true
     };
   }
 

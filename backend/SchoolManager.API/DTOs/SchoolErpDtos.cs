@@ -124,6 +124,7 @@ public sealed class UsuarioDto
 
     public string Correo { get; set; } = string.Empty;
     public string Rol { get; set; } = string.Empty;
+    public bool Activo { get; set; } = true;
 
     [JsonPropertyName("supabase_uid")]
     public Guid? SupabaseUid { get; set; }
@@ -134,6 +135,7 @@ public sealed class UsuarioCreateDto
     public string? Usuario { get; set; }
     public string Nombre { get; set; } = string.Empty;
     public string Correo { get; set; } = string.Empty;
-    public string Password { get; set; } = string.Empty;
+    public string? Password { get; set; }
     public string Rol { get; set; } = "operador";
+    public bool Activo { get; set; } = true;
 }
