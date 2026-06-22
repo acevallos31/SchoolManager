@@ -28,11 +28,12 @@ builder.Services.AddCors(options =>
     });
 });
 
-var jwtSecret = builder.Configuration["Jwt:Secret"]
-    ?? builder.Configuration["Supabase:JwtSecret"]
-    ?? "clave-temporal-solo-para-desarrollo-cambiar-en-produccion";
+var jwtSecret = GetConfiguredValue(builder.Configuration, "Supabase:JwtSecret", "Jwt:Secret")
+    ?? throw new InvalidOperationException(
+        "JWT secret is not configured. Set Supabase__JwtSecret or Jwt__Secret in the environment."
+    );
 
-var jwtIssuer = builder.Configuration["Jwt:Issuer"];
+var jwtIssuer = GetConfiguredValue(builder.Configuration, "Jwt:Issuer");
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -75,3 +76,27 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+static string? GetConfiguredValue(IConfiguration configuration, params string[] keys)
+{
+    foreach (var key in keys)
+    {
+        var value = configuration[key];
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            continue;
+        }
+
+        if (value.Contains("REEMPLAZAR", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("TU-", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("TU_", StringComparison.OrdinalIgnoreCase))
+        {
+            continue;
+        }
+
+        return value;
+    }
+
+    return null;
+}
