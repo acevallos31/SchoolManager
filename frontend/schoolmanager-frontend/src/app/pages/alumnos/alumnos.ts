@@ -69,11 +69,14 @@ export class Alumnos implements OnInit {
       !this.nuevoAlumno.sexo ||
       !this.nuevoAlumno.dni ||
       !this.nuevoAlumno.padresEncargados ||
-      !this.nuevoAlumno.direccion
+      !this.nuevoAlumno.direccion ||
+      !this.nuevoAlumno.correoAcceso
     ) {
-      this.mostrarMensaje('Nombres, apellidos, nacimiento, sexo, DNI, encargados y direccion son obligatorios', 'error');
+      this.mostrarMensaje('Nombres, apellidos, nacimiento, sexo, DNI, encargados, direccion y correo de acceso son obligatorios', 'error');
       return;
     }
+
+    this.rellenarAccesoConDni();
 
     this.cargando = true;
 
@@ -122,6 +125,21 @@ export class Alumnos implements OnInit {
     this.router.navigate(['/dashboard']);
   }
 
+  rellenarAccesoConDni() {
+    const dni = this.nuevoAlumno.dni?.trim();
+    if (!dni) {
+      return;
+    }
+
+    if (!this.nuevoAlumno.usuarioAcceso) {
+      this.nuevoAlumno.usuarioAcceso = dni;
+    }
+
+    if (!this.nuevoAlumno.passwordAcceso) {
+      this.nuevoAlumno.passwordAcceso = dni;
+    }
+  }
+
   private crearFormularioVacio() {
     return {
       nombres: '',
@@ -130,7 +148,10 @@ export class Alumnos implements OnInit {
       sexo: '',
       dni: '',
       padresEncargados: '',
-      direccion: ''
+      direccion: '',
+      usuarioAcceso: '',
+      correoAcceso: '',
+      passwordAcceso: ''
     };
   }
 

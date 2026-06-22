@@ -3,9 +3,36 @@ create extension if not exists pgcrypto;
 begin;
 
 -- Roles oficiales del sistema.
+create table if not exists public.usuarios (
+  id uuid primary key default gen_random_uuid(),
+  rol text not null default 'padre',
+  created_at timestamptz not null default now()
+);
+
 alter table if exists public.usuarios drop constraint if exists usuarios_rol_check;
+alter table if exists public.usuarios add column if not exists usuario text;
+alter table if exists public.usuarios add column if not exists nombre text;
+alter table if exists public.usuarios add column if not exists nombre_completo text;
+alter table if exists public.usuarios add column if not exists correo text;
+alter table if exists public.usuarios add column if not exists supabase_uid uuid;
+alter table if exists public.usuarios add column if not exists updated_at timestamptz;
 alter table if exists public.usuarios
   add constraint usuarios_rol_check check (rol in ('admin', 'operador', 'padre'));
+
+create unique index if not exists ux_usuarios_usuario
+  on public.usuarios (lower(usuario))
+  where usuario is not null;
+
+create unique index if not exists ux_usuarios_correo
+  on public.usuarios (lower(correo))
+  where correo is not null;
+
+alter table if exists public.alumnos add column if not exists usuario_acceso text;
+alter table if exists public.alumnos add column if not exists correo_acceso text;
+
+create unique index if not exists ux_alumnos_usuario_acceso
+  on public.alumnos (lower(usuario_acceso))
+  where usuario_acceso is not null;
 
 create table if not exists public.jornadas (
   id uuid primary key default gen_random_uuid(),

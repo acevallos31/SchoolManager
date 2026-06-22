@@ -51,6 +51,13 @@ public class AuthController : ControllerBase
         }
 
         var client = _httpClientFactory.CreateClient();
+        var loginEmail = await ResolveLoginEmailAsync(client, supabaseUrl, publishableKey, request.Correo, cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(loginEmail))
+        {
+            return Unauthorized(new { error = "Correo, usuario o contrasena incorrectos." });
+        }
+
         using var tokenRequest = new HttpRequestMessage(
             HttpMethod.Post,
             $"{supabaseUrl}/auth/v1/token?grant_type=password");
@@ -59,7 +66,7 @@ public class AuthController : ControllerBase
         tokenRequest.Content = new StringContent(
             JsonSerializer.Serialize(new
             {
-                email = request.Correo.Trim().ToLowerInvariant(),
+                email = loginEmail,
                 password = request.Password
             }),
             Encoding.UTF8,
@@ -223,7 +230,7 @@ public class AuthController : ControllerBase
         var serviceRoleKey = GetConfiguredValue("Supabase:ServiceRoleKey", "Supabase:SecretKey");
         var bearerToken = serviceRoleKey ?? accessToken;
         var requestUrl =
-            $"{supabaseUrl}/rest/v1/usuarios?select=id,supabase_uid,nombre_completo,correo,rol&supabase_uid=eq.{Uri.EscapeDataString(supabaseUid)}&limit=1";
+            $"{supabaseUrl}/rest/v1/usuarios?select=id,supabase_uid,nombre_completo,nombre,correo,rol&supabase_uid=eq.{Uri.EscapeDataString(supabaseUid)}&limit=1";
 
         using var request = new HttpRequestMessage(HttpMethod.Get, requestUrl);
         request.Headers.Add("apikey", serviceRoleKey ?? publishableKey);
@@ -252,10 +259,45 @@ public class AuthController : ControllerBase
         return new UsuarioActualDto(
             usuario.Id,
             usuario.SupabaseUid,
-            usuario.NombreCompleto ?? usuario.Correo ?? "Usuario",
+            usuario.NombreCompleto ?? usuario.Nombre ?? usuario.Correo ?? "Usuario",
             usuario.NombreCompleto,
             usuario.Correo,
             usuario.Rol);
+    }
+
+    private async Task<string?> ResolveLoginEmailAsync(
+        HttpClient client,
+        string supabaseUrl,
+        string publishableKey,
+        string login,
+        CancellationToken cancellationToken)
+    {
+        var value = login.Trim().ToLowerInvariant();
+        if (value.Contains('@'))
+        {
+            return value;
+        }
+
+        var serviceRoleKey = GetConfiguredValue("Supabase:ServiceRoleKey", "Supabase:SecretKey");
+        var bearerToken = serviceRoleKey ?? publishableKey;
+        var requestUrl =
+            $"{supabaseUrl}/rest/v1/usuarios?select=correo&usuario=eq.{Uri.EscapeDataString(value)}&limit=1";
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, requestUrl);
+        request.Headers.Add("apikey", serviceRoleKey ?? publishableKey);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
+
+        using var response = await client.SendAsync(request, cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("Could not resolve username login. Status {StatusCode}: {Body}", response.StatusCode, body);
+            return null;
+        }
+
+        var usuarios = JsonSerializer.Deserialize<List<UsuarioLoginLookup>>(body, JsonOptions);
+        return usuarios?.FirstOrDefault()?.Correo;
     }
 
     private static UsuarioActualDto NormalizeUsuarioRole(UsuarioActualDto usuario)
@@ -309,6 +351,9 @@ public class AuthController : ControllerBase
         string Id,
         [property: JsonPropertyName("supabase_uid")] string SupabaseUid,
         [property: JsonPropertyName("nombre_completo")] string? NombreCompleto,
+        string? Nombre,
         string? Correo,
         string Rol);
+
+    private sealed record UsuarioLoginLookup(string? Correo);
 }

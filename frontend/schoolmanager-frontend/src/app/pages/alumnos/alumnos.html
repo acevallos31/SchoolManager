@@ -40,7 +40,7 @@
         </div>
         <div class="form-group">
           <label>DNI *</label>
-          <input type="text" [(ngModel)]="nuevoAlumno.dni" placeholder="Ej: 0801-2010-12345" />
+          <input type="text" [(ngModel)]="nuevoAlumno.dni" (blur)="rellenarAccesoConDni()" placeholder="Ej: 0801-2010-12345" />
         </div>
         <div class="form-group">
           <label>Padres o encargados *</label>
@@ -49,6 +49,18 @@
         <div class="form-group">
           <label>Direccion *</label>
           <input type="text" [(ngModel)]="nuevoAlumno.direccion" placeholder="Ej: Colonia Centro, casa 12" />
+        </div>
+        <div class="form-group">
+          <label>Usuario de acceso</label>
+          <input type="text" [(ngModel)]="nuevoAlumno.usuarioAcceso" placeholder="Se puede usar el DNI" />
+        </div>
+        <div class="form-group">
+          <label>Correo de acceso *</label>
+          <input type="email" [(ngModel)]="nuevoAlumno.correoAcceso" placeholder="Ej: padre@correo.com" />
+        </div>
+        <div class="form-group">
+          <label>Contrasena inicial</label>
+          <input type="password" [(ngModel)]="nuevoAlumno.passwordAcceso" placeholder="Si queda vacia se usara el DNI" />
         </div>
       </div>
       <div class="form-actions">
@@ -78,6 +90,7 @@
           <th>Encargados</th>
           <th>Direccion</th>
           <th>Estado</th>
+          <th>Usuario</th>
           <th>Acciones</th>
         </tr>
       </thead>
@@ -96,6 +109,7 @@
                 {{ alumno.estado }}
               </span>
             </td>
+            <td>{{ alumno.usuarioAcceso || alumno.usuario_acceso || '-' }}</td>
             <td>
               @if (alumno.estado === 'activo') {
                 <button class="btn-desactivar" (click)="desactivarAlumno(alumno.id)">
@@ -110,7 +124,7 @@
           </tr>
         } @empty {
           <tr>
-            <td colspan="9" class="sin-datos">No hay alumnos registrados</td>
+            <td colspan="10" class="sin-datos">No hay alumnos registrados</td>
           </tr>
         }
       </tbody>

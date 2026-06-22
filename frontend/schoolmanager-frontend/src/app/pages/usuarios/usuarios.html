@@ -1,0 +1,85 @@
+<div class="page-container">
+  <div class="page-header">
+    <button class="btn-volver" (click)="volver()">Volver</button>
+    <h1>Gestion de Usuarios</h1>
+    <button class="btn-nuevo" (click)="mostrarFormulario = !mostrarFormulario">
+      + Nuevo Usuario
+    </button>
+  </div>
+
+  @if (mensaje) {
+    <div class="mensaje toast" [class.toast-error]="mensajeTipo === 'error'" [class.toast-success]="mensajeTipo === 'success'">
+      {{ mensaje }}
+    </div>
+  }
+
+  @if (mostrarFormulario) {
+    <div class="formulario">
+      <h3>Usuario administrativo</h3>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Usuario</label>
+          <input type="text" [(ngModel)]="nuevoUsuario.usuario" placeholder="Ej: cajero01" />
+        </div>
+        <div class="form-group">
+          <label>Nombre completo *</label>
+          <input type="text" [(ngModel)]="nuevoUsuario.nombre" placeholder="Ej: Maria Lopez" />
+        </div>
+        <div class="form-group">
+          <label>Correo *</label>
+          <input type="email" [(ngModel)]="nuevoUsuario.correo" placeholder="Ej: maria@colegio.com" />
+        </div>
+        <div class="form-group">
+          <label>Contrasena inicial *</label>
+          <input type="password" [(ngModel)]="nuevoUsuario.password" placeholder="Minimo 8 caracteres" />
+        </div>
+        <div class="form-group">
+          <label>Rol *</label>
+          <select [(ngModel)]="nuevoUsuario.rol">
+            <option value="operador">Operador</option>
+            <option value="admin">Administrador</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn-cancelar" (click)="mostrarFormulario = false">Cancelar</button>
+        <button class="btn-guardar" (click)="guardarUsuario()" [disabled]="cargando">
+          {{ cargando ? 'Creando...' : 'Crear usuario' }}
+        </button>
+      </div>
+    </div>
+  }
+
+  @if (cargando && !mostrarFormulario) {
+    <p class="cargando">Cargando usuarios...</p>
+  } @else {
+    <table class="tabla">
+      <thead>
+        <tr>
+          <th>Usuario</th>
+          <th>Nombre</th>
+          <th>Correo</th>
+          <th>Rol</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (usuario of usuarios; track usuario.id) {
+          <tr>
+            <td>{{ usuario.usuario || '-' }}</td>
+            <td>{{ usuario.nombreCompleto || usuario.nombre_completo || usuario.nombre }}</td>
+            <td>{{ usuario.correo }}</td>
+            <td>
+              <span [class]="usuario.rol === 'admin' ? 'badge-admin' : 'badge-operador'">
+                {{ usuario.rol }}
+              </span>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="4" class="sin-datos">No hay usuarios registrados</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

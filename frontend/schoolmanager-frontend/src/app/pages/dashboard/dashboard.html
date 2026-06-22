@@ -8,13 +8,14 @@
 
     <nav>
       <a routerLink="/alumnos" routerLinkActive="active">Alumnos</a>
-      <a routerLink="/matriculas" routerLinkActive="active">Matrículas</a>
+      <a routerLink="/matriculas" routerLinkActive="active">Matriculas</a>
       <a routerLink="/mensualidades" routerLinkActive="active">Mensualidades</a>
+      <a routerLink="/usuarios" routerLinkActive="active">Usuarios</a>
     </nav>
 
     <div class="sidebar-footer">
       <p>Acceso conectado con SchoolManager API</p>
-      <button (click)="logout()">Cerrar sesión</button>
+      <button (click)="logout()">Cerrar sesion</button>
     </div>
   </aside>
 
@@ -22,9 +23,9 @@
     <section class="hero-card">
       <div>
         <p class="eyebrow">Resumen operativo</p>
-        <h1>Gestiona la operación escolar con una vista clara y rápida.</h1>
+        <h1>Gestiona la operacion escolar con una vista clara y rapida.</h1>
         <p class="hero-copy">
-          Consulta estudiantes, registra matrículas y administra mensualidades desde una sola interfaz.
+          Consulta estudiantes, registra matriculas y administra mensualidades desde una sola interfaz.
         </p>
       </div>
 
@@ -38,10 +39,10 @@
       <article class="stat-card primary">
         <span class="stat-label">Estudiantes activos</span>
         <strong>Control</strong>
-        <p>Consulta y administra expedientes académicos.</p>
+        <p>Consulta y administra expedientes academicos.</p>
       </article>
       <article class="stat-card success">
-        <span class="stat-label">Matrículas</span>
+        <span class="stat-label">Matriculas</span>
         <strong>Proceso</strong>
         <p>Registro por ciclo escolar con seguimiento de estado.</p>
       </article>
@@ -54,19 +55,20 @@
 
     <section class="dashboard-grid">
       <article class="panel-card">
-        <h3>Qué puedes hacer hoy</h3>
+        <h3>Que puedes hacer hoy</h3>
         <ul>
           <li>Registrar nuevos alumnos y gestionar su estado.</li>
-          <li>Crear matrículas por ciclo y marcar pagos de inscripción.</li>
+          <li>Crear usuarios administradores, operadores y accesos para alumnos.</li>
+          <li>Crear matriculas por ciclo y marcar pagos de inscripcion.</li>
           <li>Generar mensualidades y registrar pagos del mes.</li>
         </ul>
       </article>
 
       <article class="panel-card emphasis">
-        <h3>Sistema en línea</h3>
+        <h3>Sistema en linea</h3>
         <p>
-          El frontend productivo ya está desplegado y listo para seguir iterando sobre autenticación,
-          métricas y experiencia de usuario.
+          El frontend productivo ya esta desplegado y listo para seguir iterando sobre autenticacion,
+          metricas y experiencia de usuario.
         </p>
       </article>
     </section>

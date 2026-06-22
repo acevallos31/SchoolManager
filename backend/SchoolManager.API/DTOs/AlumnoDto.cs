@@ -20,6 +20,15 @@ public class AlumnoDto
     public string PadresEncargados { get; set; } = string.Empty;
     public string Direccion { get; set; } = string.Empty;
 
+    [JsonPropertyName("correo_acceso")]
+    public string? CorreoAcceso { get; set; }
+
+    [JsonPropertyName("usuario_acceso")]
+    public string? UsuarioAcceso { get; set; }
+
+    [JsonPropertyName("tutor_id")]
+    public Guid? TutorId { get; set; }
+
     public string Estado { get; set; } = "activo";
 
     [JsonPropertyName("created_at")]
@@ -62,6 +71,9 @@ public class AlumnoCreateDto
 
     public string? PadresEncargados { get; set; }
     public string? Direccion { get; set; }
+    public string? UsuarioAcceso { get; set; }
+    public string? CorreoAcceso { get; set; }
+    public string? PasswordAcceso { get; set; }
 
     public string? Estado { get; set; }
 

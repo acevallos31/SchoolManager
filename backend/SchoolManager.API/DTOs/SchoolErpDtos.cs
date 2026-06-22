@@ -112,3 +112,28 @@ public sealed class RegistrarPagoCargoDto
     public decimal MontoPagado { get; set; }
     public string MetodoPago { get; set; } = "efectivo";
 }
+
+public sealed class UsuarioDto
+{
+    public Guid Id { get; set; }
+    public string? Usuario { get; set; }
+    public string Nombre { get; set; } = string.Empty;
+
+    [JsonPropertyName("nombre_completo")]
+    public string? NombreCompleto { get; set; }
+
+    public string Correo { get; set; } = string.Empty;
+    public string Rol { get; set; } = string.Empty;
+
+    [JsonPropertyName("supabase_uid")]
+    public Guid? SupabaseUid { get; set; }
+}
+
+public sealed class UsuarioCreateDto
+{
+    public string? Usuario { get; set; }
+    public string Nombre { get; set; } = string.Empty;
+    public string Correo { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+    public string Rol { get; set; } = "operador";
+}

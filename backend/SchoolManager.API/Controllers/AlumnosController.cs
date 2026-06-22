@@ -12,10 +12,12 @@ public class AlumnosController : ControllerBase
 {
     private const string TableName = "alumnos";
     private readonly SupabaseTableService _tableService;
+    private readonly SupabaseAuthAdminService _authAdminService;
 
-    public AlumnosController(SupabaseTableService tableService)
+    public AlumnosController(SupabaseTableService tableService, SupabaseAuthAdminService authAdminService)
     {
         _tableService = tableService;
+        _authAdminService = authAdminService;
     }
 
     [HttpGet]
@@ -84,12 +86,22 @@ public class AlumnosController : ControllerBase
             return BadRequest(new { errors = validationErrors });
         }
 
-        var payload = ToPayload(dto, useDefaultEstado: true);
-
         try
         {
+            var tutorId = await CreateAlumnoAccessUserAsync(dto, cancellationToken);
+            var payload = ToPayload(dto, useDefaultEstado: true);
+
+            if (tutorId.HasValue)
+            {
+                payload["tutor_id"] = tutorId.Value;
+            }
+
             var alumno = await _tableService.InsertAsync<AlumnoDto>(TableName, payload, cancellationToken);
             return CreatedAtAction(nameof(GetById), new { id = alumno.Id }, alumno);
+        }
+        catch (SupabaseAuthAdminException ex)
+        {
+            return StatusCode(ex.StatusCode, new { error = ex.Message });
         }
         catch (SupabaseTableException ex)
         {
@@ -216,7 +228,72 @@ public class AlumnosController : ControllerBase
             errors.Add("La direccion del alumno es obligatoria.");
         }
 
+        if (isCreate)
+        {
+            if (string.IsNullOrWhiteSpace(dto.CorreoAcceso) || !dto.CorreoAcceso.Contains('@'))
+            {
+                errors.Add("El correo de acceso del alumno no es valido.");
+            }
+
+            var passwordInicial = string.IsNullOrWhiteSpace(dto.PasswordAcceso)
+                ? dni
+                : dto.PasswordAcceso.Trim();
+
+            if (string.IsNullOrWhiteSpace(passwordInicial) || passwordInicial.Length < 8)
+            {
+                errors.Add("La contrasena de acceso debe tener al menos 8 caracteres. Si la dejas vacia se usara el DNI.");
+            }
+        }
+
         return errors;
+    }
+
+    private async Task<Guid?> CreateAlumnoAccessUserAsync(AlumnoCreateDto dto, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(dto.CorreoAcceso))
+        {
+            return null;
+        }
+
+        var nombres = FirstValue(dto.Nombres, dto.Nombre) ?? string.Empty;
+        var apellidos = FirstValue(dto.Apellidos, dto.Apellido) ?? string.Empty;
+        var nombreAlumno = $"{nombres} {apellidos}".Trim();
+        var nombreUsuario = string.IsNullOrWhiteSpace(dto.PadresEncargados)
+            ? nombreAlumno
+            : dto.PadresEncargados.Trim();
+
+        var dni = FirstValue(dto.Dni, dto.Identidad) ?? string.Empty;
+        var usuarioAcceso = string.IsNullOrWhiteSpace(dto.UsuarioAcceso)
+            ? dni.Trim().ToLowerInvariant()
+            : dto.UsuarioAcceso.Trim().ToLowerInvariant();
+        var passwordAcceso = string.IsNullOrWhiteSpace(dto.PasswordAcceso)
+            ? dni.Trim()
+            : dto.PasswordAcceso.Trim();
+
+        var authUserId = await _authAdminService.CreateUserAsync(
+            dto.CorreoAcceso,
+            passwordAcceso,
+            nombreUsuario,
+            "padre",
+            cancellationToken);
+
+        var usuario = await _tableService.InsertAsync<UsuarioDto>(
+            "usuarios",
+            new
+            {
+                id = Guid.Parse(authUserId),
+                usuario = usuarioAcceso,
+                nombre = nombreUsuario,
+                nombre_completo = nombreUsuario,
+                correo = dto.CorreoAcceso.Trim().ToLowerInvariant(),
+                rol = "padre",
+                supabase_uid = Guid.Parse(authUserId),
+                created_at = DateTimeOffset.UtcNow,
+                updated_at = DateTimeOffset.UtcNow
+            },
+            cancellationToken);
+
+        return usuario.Id;
     }
 
     private static Dictionary<string, object?> ToPayload(AlumnoCreateDto dto, bool useDefaultEstado)
@@ -232,10 +309,13 @@ public class AlumnosController : ControllerBase
         AddIfHasValue(payload, "sexo", dto.Sexo?.Trim().ToUpperInvariant());
         AddIfHasValue(payload, "padres_encargados", dto.PadresEncargados);
         AddIfHasValue(payload, "direccion", dto.Direccion);
+        AddIfHasValue(payload, "correo_acceso", dto.CorreoAcceso?.Trim().ToLowerInvariant());
 
         var nombres = FirstValue(dto.Nombres, dto.Nombre);
         var apellidos = FirstValue(dto.Apellidos, dto.Apellido);
         var dni = FirstValue(dto.Dni, dto.Identidad);
+
+        AddIfHasValue(payload, "usuario_acceso", string.IsNullOrWhiteSpace(dto.UsuarioAcceso) ? dni : dto.UsuarioAcceso);
 
         AddIfHasValue(payload, "nombre", $"{nombres} {apellidos}".Trim());
         AddIfHasValue(payload, "identidad", dni);
