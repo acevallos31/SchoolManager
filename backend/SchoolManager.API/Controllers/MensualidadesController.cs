@@ -9,68 +9,55 @@ namespace SchoolManager.API.Controllers;
 [Authorize]
 public class MensualidadesController : ControllerBase
 {
-
-    // GET api/mensualidades?alumnoId={id}&estado=pendiente
     [HttpGet]
     public IActionResult GetAll([FromQuery] Guid? alumnoId, [FromQuery] string? estado)
     {
-        // TODO: listar mensualidades (admin: todas, padre: solo de sus hijos)
         return Ok(new List<MensualidadDto>());
     }
 
-    // GET api/mensualidades/{id}
     [HttpGet("{id:guid}")]
     public IActionResult GetById(Guid id)
     {
-        // TODO: obtener mensualidad por id
         return Ok(new MensualidadDto { Id = id });
     }
 
-    // POST api/mensualidades
-    // Genera una o varias mensualidades para un alumno (ej. las 10 del año escolar)
     [HttpPost]
     [Authorize(Policy = "SoloAdmin")]
     public IActionResult Create([FromBody] MensualidadCreateDto dto)
     {
-        // TODO: insertar mensualidad en la base de datos
         return CreatedAtAction(nameof(GetById), new { id = Guid.NewGuid() }, dto);
     }
 
-    // POST api/mensualidades/generar-anio
-    // Genera automáticamente las mensualidades de todo un año escolar para un alumno
     [HttpPost("generar-anio")]
     [Authorize(Policy = "SoloAdmin")]
     public IActionResult GenerarAnioEscolar([FromBody] object dto)
     {
-        // TODO: crear N mensualidades según el calendario escolar
-        return Ok();
+        return Ok(new { mensaje = "Mensualidades del año escolar generadas" });
+    }
 
-    // GET /api/mensualidades/{alumnoId}
-    [HttpGet("{alumnoId:guid}")]
+    [HttpGet("estado-cuenta/{alumnoId:guid}")]
     public IActionResult GetEstadoCuenta(Guid alumnoId)
     {
-        // TODO: Obtener todas las mensualidades del alumno (Admin y Padre vía RLS)
         return Ok(new { mensaje = "Estado de cuenta", alumnoId });
     }
 
-    // POST /api/mensualidades/generar/{cicloId}
     [HttpPost("generar/{cicloId:guid}")]
+    [Authorize(Policy = "SoloAdmin")]
     public IActionResult GenerarMensualidades(Guid cicloId, [FromQuery] decimal monto)
     {
         if (monto <= 0)
             return BadRequest(new { error = "El monto debe ser mayor a cero" });
-        // TODO: Generar mensualidad por cada alumno activo del ciclo
+
         return Ok(new { mensaje = "Mensualidades generadas", cicloId, monto });
     }
 
-    // PUT /api/mensualidades/{id}/descuento
     [HttpPut("{id:guid}/descuento")]
+    [Authorize(Policy = "SoloAdmin")]
     public IActionResult AplicarDescuento(Guid id, [FromBody] DescuentoDto dto)
     {
         if (dto.Descuento < 0)
             return BadRequest(new { error = "El descuento no puede ser negativo" });
-        // TODO: Actualizar descuento y recalcular monto_final en Supabase
-        return Ok(new { mensaje = "Descuento aplicado", id, descuento = dto.Descuento });
 
+        return Ok(new { mensaje = "Descuento aplicado", id, descuento = dto.Descuento });
     }
 }
