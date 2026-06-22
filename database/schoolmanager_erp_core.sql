@@ -52,6 +52,15 @@ create table if not exists public.niveles (
   updated_at timestamptz
 );
 
+create table if not exists public.tipos_plan_pago (
+  id uuid primary key default gen_random_uuid(),
+  nombre text not null unique,
+  descripcion text,
+  activo boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz
+);
+
 create table if not exists public.grados (
   id uuid primary key default gen_random_uuid(),
   nombre text not null unique,
@@ -86,6 +95,7 @@ create table if not exists public.planes_pago (
   id uuid primary key default gen_random_uuid(),
   nombre text not null unique,
   tipo text not null,
+  tipo_plan_pago_id uuid references public.tipos_plan_pago(id),
   descripcion text,
   monto_matricula numeric(10,2) not null default 0,
   monto_total_anual numeric(10,2) not null default 0,
@@ -96,12 +106,14 @@ create table if not exists public.planes_pago (
   activo boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz,
-  constraint planes_pago_tipo_check check (tipo in ('10_meses', '12_meses', 'adelantado', '2_pagos', 'personalizado')),
   constraint planes_pago_cuotas_check check (cantidad_cuotas > 0),
   constraint planes_pago_mes_check check (mes_inicio between 1 and 12),
   constraint planes_pago_dia_check check (dia_vencimiento between 1 and 28),
   constraint planes_pago_montos_check check (monto_matricula >= 0 and monto_total_anual >= 0)
 );
+
+alter table public.planes_pago drop constraint if exists planes_pago_tipo_check;
+alter table public.planes_pago add column if not exists tipo_plan_pago_id uuid references public.tipos_plan_pago(id);
 
 alter table public.matriculas add column if not exists grado_id uuid references public.grados(id);
 alter table public.matriculas add column if not exists seccion_id uuid references public.secciones(id);
@@ -134,6 +146,7 @@ create index if not exists ix_grados_nivel on public.grados (nivel_id);
 create index if not exists ix_secciones_grado on public.secciones (grado_id);
 create index if not exists ix_secciones_jornada on public.secciones (jornada_id);
 create index if not exists ix_matriculas_plan_pago on public.matriculas (plan_pago_id);
+create index if not exists ix_planes_pago_tipo_plan_pago on public.planes_pago (tipo_plan_pago_id);
 create index if not exists ix_cargos_alumno_estado on public.cargos (alumno_id, estado);
 create index if not exists ix_cargos_matricula on public.cargos (matricula_id);
 create index if not exists ix_cargos_vencimiento on public.cargos (fecha_vencimiento);
@@ -147,13 +160,32 @@ insert into public.niveles (nombre, orden)
 values ('Preescolar', 1), ('Primaria', 2), ('Secundaria', 3)
 on conflict (nombre) do nothing;
 
+insert into public.tipos_plan_pago (nombre, descripcion)
+values
+  ('Mensual', 'Divide el total anual en cuotas periodicas.'),
+  ('Adelantado', 'Cobra el periodo completo en una sola cuota.'),
+  ('Semestral', 'Divide el total en pagos por semestre.'),
+  ('Personalizado', 'Permite definir manualmente la cantidad de cuotas.')
+on conflict (nombre) do nothing;
+
 insert into public.planes_pago
   (nombre, tipo, descripcion, monto_matricula, monto_total_anual, cantidad_cuotas, mes_inicio, dia_vencimiento, descuento_porcentaje)
 values
-  ('Plan 10 Meses', '10_meses', 'Mensualidades de febrero a noviembre.', 1500, 12000, 10, 2, 10, 0),
-  ('Plan 12 Meses', '12_meses', 'Mensualidades de enero a diciembre.', 1500, 14400, 12, 1, 10, 0),
+  ('Plan 10 Meses', 'mensual', 'Mensualidades de febrero a noviembre.', 1500, 12000, 10, 2, 10, 0),
+  ('Plan 12 Meses', 'mensual', 'Mensualidades de enero a diciembre.', 1500, 14400, 12, 1, 10, 0),
   ('Pago Adelantado', 'adelantado', 'Pago anual en un solo cargo.', 1500, 12000, 1, 1, 10, 5),
-  ('Plan 2 Pagos', '2_pagos', 'Dos pagos semestrales.', 1500, 12000, 2, 2, 10, 0)
+  ('Plan 2 Pagos', 'semestral', 'Dos pagos semestrales.', 1500, 12000, 2, 2, 10, 0)
 on conflict (nombre) do nothing;
+
+update public.planes_pago plan
+set tipo_plan_pago_id = tipo.id
+from public.tipos_plan_pago tipo
+where plan.tipo_plan_pago_id is null
+  and lower(tipo.nombre) = case
+    when plan.tipo = 'mensual' then 'mensual'
+    when plan.tipo = 'adelantado' then 'adelantado'
+    when plan.tipo = 'semestral' then 'semestral'
+    else 'personalizado'
+  end;
 
 commit;

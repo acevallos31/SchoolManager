@@ -102,9 +102,9 @@ public sealed class PlanesPagoController : ControllerBase
             errors.Add("El nombre del plan es obligatorio.");
         }
 
-        if (dto.Tipo is not ("10_meses" or "12_meses" or "adelantado" or "2_pagos" or "personalizado"))
+        if (string.IsNullOrWhiteSpace(dto.Tipo))
         {
-            errors.Add("El tipo de plan de pago no es valido.");
+            errors.Add("El tipo de plan de pago es obligatorio.");
         }
 
         if (dto.MontoMatricula < 0 || dto.MontoTotalAnual < 0)
@@ -112,7 +112,7 @@ public sealed class PlanesPagoController : ControllerBase
             errors.Add("Los montos no pueden ser negativos.");
         }
 
-        if (dto.Tipo != "adelantado" && dto.CantidadCuotas <= 0)
+        if (dto.CantidadCuotas <= 0)
         {
             errors.Add("La cantidad de cuotas debe ser mayor a cero.");
         }
@@ -136,10 +136,11 @@ public sealed class PlanesPagoController : ControllerBase
         {
             nombre = dto.Nombre.Trim(),
             tipo = dto.Tipo.Trim().ToLowerInvariant(),
+            tipo_plan_pago_id = dto.TipoPlanPagoId,
             descripcion = string.IsNullOrWhiteSpace(dto.Descripcion) ? null : dto.Descripcion.Trim(),
             monto_matricula = dto.MontoMatricula,
             monto_total_anual = dto.MontoTotalAnual,
-            cantidad_cuotas = dto.Tipo == "adelantado" ? 1 : dto.CantidadCuotas,
+            cantidad_cuotas = dto.CantidadCuotas,
             mes_inicio = dto.MesInicio,
             dia_vencimiento = dto.DiaVencimiento,
             descuento_porcentaje = dto.DescuentoPorcentaje,

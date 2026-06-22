@@ -16,7 +16,8 @@ public sealed class ConfiguracionController : ControllerBase
         ["niveles"] = "niveles",
         ["grados"] = "grados",
         ["secciones"] = "secciones",
-        ["ciclos"] = "ciclos_escolares"
+        ["ciclos"] = "ciclos_escolares",
+        ["tipos-plan-pago"] = "tipos_plan_pago"
     };
 
     private readonly SupabaseTableService _tableService;

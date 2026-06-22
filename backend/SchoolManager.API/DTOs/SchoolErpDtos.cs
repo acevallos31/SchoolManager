@@ -41,7 +41,11 @@ public sealed class PlanPagoDto
 {
     public Guid Id { get; set; }
     public string Nombre { get; set; } = string.Empty;
-    public string Tipo { get; set; } = "10_meses";
+    public string Tipo { get; set; } = "mensual";
+
+    [JsonPropertyName("tipo_plan_pago_id")]
+    public Guid? TipoPlanPagoId { get; set; }
+
     public string? Descripcion { get; set; }
 
     [JsonPropertyName("monto_matricula")]
@@ -68,7 +72,8 @@ public sealed class PlanPagoDto
 public sealed class PlanPagoCreateDto
 {
     public string Nombre { get; set; } = string.Empty;
-    public string Tipo { get; set; } = "10_meses";
+    public string Tipo { get; set; } = "mensual";
+    public Guid? TipoPlanPagoId { get; set; }
     public string? Descripcion { get; set; }
     public decimal MontoMatricula { get; set; }
     public decimal MontoTotalAnual { get; set; }

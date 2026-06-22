@@ -195,12 +195,7 @@ public class MatriculasController : ControllerBase
                 cancellationToken));
         }
 
-        var cantidadCuotas = plan.Tipo switch
-        {
-            "adelantado" => 1,
-            "2_pagos" => 2,
-            _ => plan.CantidadCuotas <= 0 ? 10 : plan.CantidadCuotas
-        };
+        var cantidadCuotas = Math.Max(1, plan.CantidadCuotas);
 
         if (plan.MontoTotalAnual <= 0 || cantidadCuotas <= 0)
         {
@@ -222,7 +217,7 @@ public class MatriculasController : ControllerBase
                 {
                     matricula_id = matricula.Id,
                     alumno_id = matricula.AlumnoId,
-                    tipo = plan.Tipo == "adelantado" ? "pago_anual" : "mensualidad",
+                    tipo = cantidadCuotas == 1 ? "pago_anual" : "mensualidad",
                     concepto = BuildConcepto(plan, cuota, cantidadCuotas),
                     numero_cuota = cuota,
                     monto = montoCuota,
@@ -259,11 +254,8 @@ public class MatriculasController : ControllerBase
 
     private static string BuildConcepto(PlanPagoDto plan, int cuota, int total)
     {
-        return plan.Tipo switch
-        {
-            "adelantado" => "Pago anual adelantado",
-            "2_pagos" => $"Pago semestral {cuota} de {total}",
-            _ => $"Mensualidad {cuota} de {total}"
-        };
+        return total == 1
+            ? plan.Nombre
+            : $"{plan.Nombre} - cuota {cuota} de {total}";
     }
 }

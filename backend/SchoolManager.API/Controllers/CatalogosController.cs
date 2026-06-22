@@ -53,6 +53,12 @@ public class CatalogosController : ControllerBase
         return GetCatalogo("planes_pago", cancellationToken);
     }
 
+    [HttpGet("tipos-plan-pago")]
+    public Task<IActionResult> GetTiposPlanPago(CancellationToken cancellationToken)
+    {
+        return GetCatalogo("tipos_plan_pago", cancellationToken);
+    }
+
     private async Task<IActionResult> GetCatalogo(string table, CancellationToken cancellationToken)
     {
         try
