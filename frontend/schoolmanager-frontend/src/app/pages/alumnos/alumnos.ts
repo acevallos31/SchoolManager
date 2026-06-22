@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -26,9 +26,17 @@ export class Alumnos implements OnInit {
     fecha_nacimiento: ''
   };
 
-  grados = ['1er Grado', '2do Grado', '3er Grado', '4to Grado',
-            '5to Grado', '6to Grado', '7mo Grado', '8vo Grado',
-            '9no Grado'];
+  grados = [
+    '1er Grado',
+    '2do Grado',
+    '3er Grado',
+    '4to Grado',
+    '5to Grado',
+    '6to Grado',
+    '7mo Grado',
+    '8vo Grado',
+    '9no Grado'
+  ];
 
   constructor(
     private router: Router,
@@ -43,58 +51,84 @@ export class Alumnos implements OnInit {
   async cargarAlumnos() {
     this.cargando = true;
     this.cdr.detectChanges();
-    const { data, error } = await this.auth.supabase
-      .from('alumnos')
-      .select('*')
-      .order('nombre');
-    if (!error && data) this.alumnos = [...data];
-    this.cargando = false;
-    this.cdr.detectChanges();
+
+    try {
+      const data = await this.auth.apiRequest<any[]>('/alumnos');
+      this.alumnos = Array.isArray(data) ? [...data] : [];
+    } catch (error) {
+      console.error('Error cargando alumnos:', error);
+      this.mensaje = 'No se pudieron cargar los alumnos.';
+      this.alumnos = [];
+    } finally {
+      this.cargando = false;
+      this.cdr.detectChanges();
+    }
   }
 
   get alumnosFiltrados() {
-    if (!this.busqueda) return this.alumnos;
-    const b = this.busqueda.toLowerCase();
+    if (!this.busqueda) {
+      return this.alumnos;
+    }
+
+    const busqueda = this.busqueda.toLowerCase();
     return this.alumnos.filter(a =>
-      a.nombre.toLowerCase().includes(b) ||
-      a.identidad.toLowerCase().includes(b) ||
-      a.grado.toLowerCase().includes(b)
+      String(a.nombre ?? '').toLowerCase().includes(busqueda) ||
+      String(a.identidad ?? '').toLowerCase().includes(busqueda) ||
+      String(a.grado ?? '').toLowerCase().includes(busqueda)
     );
   }
 
   async guardarAlumno() {
     if (!this.nuevoAlumno.nombre || !this.nuevoAlumno.identidad || !this.nuevoAlumno.grado) {
-      this.mensaje = '❌ Nombre, identidad y grado son obligatorios';
+      this.mensaje = 'Nombre, identidad y grado son obligatorios';
       return;
     }
+
     this.cargando = true;
-    const { error } = await this.auth.supabase
-      .from('alumnos')
-      .insert([{ ...this.nuevoAlumno, estado: 'activo' }]);
-    if (error) {
-      this.mensaje = error.message.includes('unique')
-        ? '❌ Ya existe un alumno con esa identidad'
-        : '❌ Error: ' + error.message;
-    } else {
-      this.mensaje = '✅ Alumno registrado correctamente';
+
+    try {
+      await this.auth.apiRequest('/alumnos', {
+        method: 'POST',
+        body: JSON.stringify({ ...this.nuevoAlumno, estado: 'activo' })
+      });
+
+      this.mensaje = 'Alumno registrado correctamente';
       this.nuevoAlumno = { nombre: '', identidad: '', grado: '', seccion: '', fecha_nacimiento: '' };
       this.mostrarFormulario = false;
       await this.cargarAlumnos();
+    } catch (error) {
+      this.mensaje = error instanceof Error ? error.message : 'Error registrando alumno';
+    } finally {
+      this.cargando = false;
+      this.cdr.detectChanges();
+      setTimeout(() => {
+        this.mensaje = '';
+        this.cdr.detectChanges();
+      }, 3000);
     }
-    this.cargando = false;
-    this.cdr.detectChanges();
-    setTimeout(() => { this.mensaje = ''; this.cdr.detectChanges(); }, 3000);
   }
 
   async desactivarAlumno(id: string) {
-    if (!confirm('¿Desactivar este alumno?')) return;
-    await this.auth.supabase.from('alumnos').update({ estado: 'inactivo' }).eq('id', id);
+    if (!confirm('Desactivar este alumno?')) {
+      return;
+    }
+
+    await this.auth.apiRequest(`/alumnos/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ estado: 'inactivo' })
+    });
     await this.cargarAlumnos();
   }
 
   async activarAlumno(id: string) {
-    if (!confirm('¿Activar este alumno?')) return;
-    await this.auth.supabase.from('alumnos').update({ estado: 'activo' }).eq('id', id);
+    if (!confirm('Activar este alumno?')) {
+      return;
+    }
+
+    await this.auth.apiRequest(`/alumnos/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ estado: 'activo' })
+    });
     await this.cargarAlumnos();
   }
 

@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -18,10 +18,8 @@ export class PortalPadre implements OnInit {
   pagosPorHijo: { [key: string]: any[] } = {};
   cargando = true;
   nombrePadre = '';
-  hijoSeleccionadoId: string = '';
-
+  hijoSeleccionadoId = '';
   vistaActual: 'resumen' | 'pendientes' | 'historial' = 'resumen';
-
   mostrarPago = false;
   mensualidadAPagar: any = null;
   procesandoPago = false;
@@ -35,7 +33,7 @@ export class PortalPadre implements OnInit {
   };
 
   meses = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-           'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
   constructor(
     private auth: AuthService,
@@ -51,46 +49,20 @@ export class PortalPadre implements OnInit {
     this.cargando = true;
     this.cdr.detectChanges();
 
-    const usuario = await this.auth.getUsuarioActual();
-    if (!usuario) {
-      this.router.navigate(['/login']);
+    try {
+      const usuario = await this.auth.getUsuarioActual();
+      this.nombrePadre = usuario.nombre;
+      this.hijos = [];
+      this.mensualidadesPorHijo = {};
+      this.pagosPorHijo = {};
+    } catch (error) {
+      console.error('Error cargando portal de padre:', error);
+      await this.router.navigate(['/login']);
       return;
+    } finally {
+      this.cargando = false;
+      this.cdr.detectChanges();
     }
-    this.nombrePadre = usuario.nombre;
-
-    const { data: hijosData } = await this.auth.supabase
-      .from('alumnos')
-      .select('*')
-      .eq('tutor_id', usuario.id);
-
-    this.hijos = hijosData || [];
-    if (this.hijos.length > 0 && !this.hijoSeleccionadoId) {
-      this.hijoSeleccionadoId = this.hijos[0].id;
-    }
-
-    for (const hijo of this.hijos) {
-      const { data: mensData } = await this.auth.supabase
-        .from('mensualidades')
-        .select('*')
-        .eq('alumno_id', hijo.id)
-        .order('mes');
-      this.mensualidadesPorHijo[hijo.id] = mensData || [];
-
-      const mensIds = (mensData || []).map(m => m.id);
-      if (mensIds.length > 0) {
-        const { data: pagosData } = await this.auth.supabase
-          .from('pagos')
-          .select('*')
-          .in('mensualidad_id', mensIds)
-          .order('fecha_pago', { ascending: false });
-        this.pagosPorHijo[hijo.id] = pagosData || [];
-      } else {
-        this.pagosPorHijo[hijo.id] = [];
-      }
-    }
-
-    this.cargando = false;
-    this.cdr.detectChanges();
   }
 
   get hijoSeleccionado() {
@@ -155,60 +127,58 @@ export class PortalPadre implements OnInit {
 
   async confirmarPago() {
     if (!this.tarjeta.numero || !this.tarjeta.nombre || !this.tarjeta.vencimiento || !this.tarjeta.cvv) {
-      this.mensaje = '❌ Completá todos los datos de la tarjeta';
+      this.mensaje = 'Completa todos los datos de la tarjeta';
       return;
     }
+
     if (this.tarjeta.numero.replace(/\s/g, '').length < 13) {
-      this.mensaje = '❌ Número de tarjeta inválido';
+      this.mensaje = 'Numero de tarjeta invalido';
       return;
     }
 
     this.procesandoPago = true;
     this.cdr.detectChanges();
 
-    // Simulación de procesamiento
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    try {
+      await this.auth.apiRequest('/pagos', {
+        method: 'POST',
+        body: JSON.stringify({
+          mensualidad_id: this.mensualidadAPagar.id,
+          monto_pagado: this.mensualidadAPagar.monto_final,
+          metodo_pago: 'tarjeta',
+          fecha_pago: new Date().toISOString().split('T')[0]
+        })
+      });
 
-    const { error } = await this.auth.supabase
-      .from('pagos')
-      .insert([{
-        mensualidad_id: this.mensualidadAPagar.id,
-        monto_pagado: this.mensualidadAPagar.monto_final,
-        metodo_pago: 'tarjeta',
-        fecha_pago: new Date().toISOString().split('T')[0]
-      }]);
+      await this.auth.apiRequest(`/mensualidades/${this.mensualidadAPagar.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ estado: 'pagada' })
+      });
 
-    if (!error) {
-      await this.auth.supabase
-        .from('mensualidades')
-        .update({ estado: 'pagada' })
-        .eq('id', this.mensualidadAPagar.id);
-
-      this.mensaje = '✅ Pago realizado correctamente';
+      this.mensaje = 'Pago realizado correctamente';
       this.mostrarPago = false;
       this.mensualidadAPagar = null;
       await this.cargarDatos();
-    } else {
-      this.mensaje = '❌ Error al procesar el pago: ' + error.message;
+    } catch (error) {
+      this.mensaje = error instanceof Error ? `Error al procesar el pago: ${error.message}` : 'Error al procesar el pago';
+    } finally {
+      this.procesandoPago = false;
+      this.cdr.detectChanges();
+      setTimeout(() => {
+        this.mensaje = '';
+        this.cdr.detectChanges();
+      }, 4000);
     }
-
-    this.procesandoPago = false;
-    this.cdr.detectChanges();
-    setTimeout(() => { this.mensaje = ''; this.cdr.detectChanges(); }, 4000);
   }
 
   formatearNumeroTarjeta() {
-    let valor = this.tarjeta.numero.replace(/\D/g, '').slice(0, 16);
+    const valor = this.tarjeta.numero.replace(/\D/g, '').slice(0, 16);
     this.tarjeta.numero = valor.replace(/(\d{4})(?=\d)/g, '$1 ');
   }
 
   formatearVencimiento() {
-    let valor = this.tarjeta.vencimiento.replace(/\D/g, '').slice(0, 4);
-    if (valor.length >= 3) {
-      this.tarjeta.vencimiento = valor.slice(0, 2) + '/' + valor.slice(2);
-    } else {
-      this.tarjeta.vencimiento = valor;
-    }
+    const valor = this.tarjeta.vencimiento.replace(/\D/g, '').slice(0, 4);
+    this.tarjeta.vencimiento = valor.length >= 3 ? valor.slice(0, 2) + '/' + valor.slice(2) : valor;
   }
 
   descargarFactura(m: any, pago?: any) {
@@ -233,7 +203,7 @@ export class PortalPadre implements OnInit {
     y += 8;
     doc.text(`Nombre: ${hijo?.nombre || ''}`, 14, y);
     y += 7;
-    doc.text(`Grado: ${hijo?.grado || ''} - Sección ${hijo?.seccion || ''}`, 14, y);
+    doc.text(`Grado: ${hijo?.grado || ''} - Seccion ${hijo?.seccion || ''}`, 14, y);
     y += 7;
     doc.text(`Identidad: ${hijo?.identidad || ''}`, 14, y);
 
@@ -246,19 +216,19 @@ export class PortalPadre implements OnInit {
     y += 7;
     doc.text(`Monto: L. ${Number(m.monto_final).toFixed(2)}`, 14, y);
     y += 7;
-    doc.text(`Estado: ${m.estado === 'pagada' ? 'PAGADA' : m.estado.toUpperCase()}`, 14, y);
+    doc.text(`Estado: ${m.estado === 'pagada' ? 'PAGADA' : String(m.estado).toUpperCase()}`, 14, y);
 
     if (pago) {
       y += 7;
       doc.text(`Fecha de pago: ${pago.fecha_pago}`, 14, y);
       y += 7;
-      doc.text(`Método de pago: ${pago.metodo_pago}`, 14, y);
+      doc.text(`Metodo de pago: ${pago.metodo_pago}`, 14, y);
     }
 
     y += 20;
     doc.setFontSize(9);
     doc.setTextColor(120, 120, 120);
-    doc.text('Este es un comprobante generado automáticamente por SchoolManager.', 14, y);
+    doc.text('Este es un comprobante generado automaticamente por SchoolManager.', 14, y);
     doc.text(`Generado el: ${new Date().toLocaleDateString('es-HN')}`, 14, y + 6);
 
     doc.save(`Comprobante_${hijo?.nombre?.replace(/\s/g, '_')}_${this.meses[m.mes]}.pdf`);

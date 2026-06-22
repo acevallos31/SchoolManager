@@ -1,20 +1,25 @@
 import { Injectable } from '@angular/core';
-import { createClient, SupabaseClient, Session } from '@supabase/supabase-js';
 import { BehaviorSubject } from 'rxjs';
+import { environment } from '../../environments/environment';
 
-const SUPABASE_URL = 'https://nphvszugtwumeeegvahu.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_MYmRr445RYIKhQ6JK6Gv4Q_Q68L2Eas';
 const REQUEST_TIMEOUT_MS = 12000;
 
 export type RolUsuario = 'admin' | 'padre';
 
 export interface UsuarioActual {
   id: string;
-  supabase_uid: string;
+  supabaseUid: string;
   nombre: string;
-  nombre_completo?: string;
+  nombreCompleto?: string;
   correo?: string;
   rol: RolUsuario;
+}
+
+export interface SesionUsuario {
+  accessToken: string;
+  tokenType: string;
+  expiresIn: number;
+  usuario: UsuarioActual;
 }
 
 export class AuthAppError extends Error {
@@ -36,56 +41,37 @@ export class AuthAppError extends Error {
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  public supabase: SupabaseClient;
-  private sessionSubject = new BehaviorSubject<Session | null>(null);
+  private readonly storageKey = 'schoolmanager_sesion';
+  private sessionSubject = new BehaviorSubject<SesionUsuario | null>(this.leerSesionGuardada());
   session$ = this.sessionSubject.asObservable();
-
-  constructor() {
-    this.supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
-      auth: {
-        persistSession: true,
-        storageKey: 'schoolmanager-auth',
-        storage: window.localStorage
-      }
-    });
-
-    this.supabase.auth
-      .getSession()
-      .then(({ data }) => {
-        this.sessionSubject.next(data.session);
-      })
-      .catch(error => {
-        console.error('No se pudo recuperar la sesion existente:', error);
-        this.sessionSubject.next(null);
-      });
-
-    this.supabase.auth.onAuthStateChange((_, session) => {
-      this.sessionSubject.next(session);
-    });
-  }
 
   async login(correo: string, password: string): Promise<UsuarioActual> {
     const email = correo.trim().toLowerCase();
 
     try {
-      const { data, error } = await this.withTimeout(
-        this.supabase.auth.signInWithPassword({
-          email,
-          password
+      const response = await this.withTimeout(
+        fetch(`${environment.apiUrl}/auth/login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ correo: email, password })
         }),
         'La autenticacion esta tardando demasiado. Revisa tu conexion e intenta otra vez.'
       );
 
-      if (error) {
-        throw this.mapSupabaseAuthError(error);
+      if (!response.ok) {
+        throw await this.mapApiAuthError(response);
       }
 
-      if (!data.session) {
-        throw new AuthAppError('No se recibio una sesion valida desde Supabase.', 'SESSION_NOT_FOUND');
+      const session = (await response.json()) as SesionUsuario;
+
+      if (!session.accessToken || !session.usuario) {
+        throw new AuthAppError('No se recibio una sesion valida desde el backend.', 'SESSION_NOT_FOUND');
       }
 
-      this.sessionSubject.next(data.session);
-      return await this.getUsuarioActual(data.session);
+      this.guardarSesion(session);
+      return session.usuario;
     } catch (error) {
       if (error instanceof AuthAppError) {
         throw error;
@@ -96,58 +82,66 @@ export class AuthService {
     }
   }
 
-  async logout() {
-    try {
-      await this.supabase.auth.signOut();
-    } finally {
-      this.sessionSubject.next(null);
-    }
+  async logout(): Promise<void> {
+    localStorage.removeItem(this.storageKey);
+    this.sessionSubject.next(null);
   }
 
   isLoggedIn(): boolean {
     return !!this.sessionSubject.value;
   }
 
-  getToken(): string | null {
-    return this.sessionSubject.value?.access_token ?? null;
+  estaAutenticado(): boolean {
+    return this.isLoggedIn();
   }
 
-  async getUsuarioActual(sessionOverride?: Session): Promise<UsuarioActual> {
-    const session = sessionOverride ?? this.sessionSubject.value;
+  getToken(): string | null {
+    return this.sessionSubject.value?.accessToken ?? null;
+  }
+
+  getRol(): RolUsuario | null {
+    return this.sessionSubject.value?.usuario.rol ?? null;
+  }
+
+  async apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+    const token = this.getToken();
+    const headers = new Headers(init.headers);
+
+    if (!headers.has('Content-Type') && init.body) {
+      headers.set('Content-Type', 'application/json');
+    }
+
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+
+    const response = await fetch(`${environment.apiUrl}${path}`, {
+      ...init,
+      headers
+    });
+
+    if (!response.ok) {
+      const body = await response
+        .json()
+        .catch(() => ({ error: 'La API no pudo completar la solicitud.' }));
+      throw new Error(String(body.error ?? body.message ?? 'La API no pudo completar la solicitud.'));
+    }
+
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
+    return (await response.json()) as T;
+  }
+
+  async getUsuarioActual(): Promise<UsuarioActual> {
+    const session = this.sessionSubject.value;
 
     if (!session) {
       throw new AuthAppError('No hay una sesion activa.', 'SESSION_NOT_FOUND');
     }
 
-    const { data, error } = await this.withTimeout(
-      this.supabase
-        .from('usuarios')
-        .select('id, supabase_uid, nombre_completo, correo, rol')
-        .eq('supabase_uid', session.user.id)
-        .maybeSingle(),
-      'La consulta del perfil esta tardando demasiado. Intenta otra vez.'
-    );
-
-    if (error) {
-      console.error('Error obteniendo usuario:', error);
-      throw new AuthAppError('No se pudo consultar tu perfil de usuario.', 'USER_PROFILE_ERROR');
-    }
-
-    if (!data) {
-      throw new AuthAppError(
-        'Tu cuenta existe en Supabase Auth, pero no esta registrada en la tabla usuarios.',
-        'USER_PROFILE_NOT_FOUND'
-      );
-    }
-
-    if (data.rol !== 'admin' && data.rol !== 'padre') {
-      throw new AuthAppError('Tu usuario tiene un rol no reconocido.', 'USER_PROFILE_ERROR');
-    }
-
-    return {
-      ...(data as UsuarioActual),
-      nombre: data.nombre_completo ?? data.correo ?? 'Usuario'
-    };
+    return session.usuario;
   }
 
   private async withTimeout<T>(promise: PromiseLike<T>, timeoutMessage: string): Promise<T> {
@@ -168,17 +162,49 @@ export class AuthService {
     }
   }
 
-  private mapSupabaseAuthError(error: { message?: string; status?: number; code?: string }): AuthAppError {
-    const message = (error.message ?? '').toLowerCase();
+  private async mapApiAuthError(response: Response): Promise<AuthAppError> {
+    const body = await response
+      .json()
+      .catch(() => ({ error: 'No se pudo iniciar sesion.' }));
+    const message = String(body.error ?? body.message ?? 'No se pudo iniciar sesion.');
+    const normalizedMessage = message.toLowerCase();
 
-    if (message.includes('invalid login credentials') || error.status === 400) {
+    if (response.status === 401) {
       return new AuthAppError('Correo o contrasena incorrectos.', 'INVALID_CREDENTIALS');
     }
 
-    if (message.includes('email not confirmed')) {
+    if (normalizedMessage.includes('confirm')) {
       return new AuthAppError('Debes confirmar tu correo antes de iniciar sesion.', 'EMAIL_NOT_CONFIRMED');
     }
 
-    return new AuthAppError(error.message ?? 'No se pudo iniciar sesion.', 'UNKNOWN');
+    if (response.status === 403 && normalizedMessage.includes('registrada')) {
+      return new AuthAppError(message, 'USER_PROFILE_NOT_FOUND');
+    }
+
+    if (response.status === 403) {
+      return new AuthAppError(message, 'USER_PROFILE_ERROR');
+    }
+
+    return new AuthAppError(message, 'UNKNOWN');
+  }
+
+  private guardarSesion(session: SesionUsuario): void {
+    localStorage.setItem(this.storageKey, JSON.stringify(session));
+    this.sessionSubject.next(session);
+  }
+
+  private leerSesionGuardada(): SesionUsuario | null {
+    const data = localStorage.getItem(this.storageKey);
+
+    if (!data) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(data) as SesionUsuario;
+    } catch {
+      localStorage.removeItem(this.storageKey);
+      return null;
+    }
   }
 }

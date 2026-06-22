@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -21,7 +21,6 @@ export class Mensualidades implements OnInit {
   mensaje = '';
   mostrarPago = false;
   mensualidadSeleccionada: any = null;
-
   mostrarDescuento = false;
   mensualidadDescuento: any = null;
   montoDescuento = 0;
@@ -32,7 +31,7 @@ export class Mensualidades implements OnInit {
   };
 
   meses = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-           'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
   constructor(
     private router: Router,
@@ -48,22 +47,22 @@ export class Mensualidades implements OnInit {
     this.cargando = true;
     this.cdr.detectChanges();
 
-    const [{ data: mensData }, { data: alumnosData }, { data: ciclosData }] =
-      await Promise.all([
-        this.auth.supabase
-          .from('mensualidades')
-          .select('*, alumnos(nombre), ciclos_escolares(nombre)')
-          .order('mes'),
-        this.auth.supabase.from('alumnos').select('id, nombre').eq('estado', 'activo').order('nombre'),
-        this.auth.supabase.from('ciclos_escolares').select('*').eq('activo', true)
+    try {
+      const [mensData, alumnosData] = await Promise.all([
+        this.auth.apiRequest<any[]>('/mensualidades'),
+        this.auth.apiRequest<any[]>('/alumnos')
       ]);
 
-    if (mensData) this.mensualidades = [...mensData];
-    if (alumnosData) this.alumnos = [...alumnosData];
-    if (ciclosData) this.ciclos = [...ciclosData];
-
-    this.cargando = false;
-    this.cdr.detectChanges();
+      this.mensualidades = Array.isArray(mensData) ? [...mensData] : [];
+      this.alumnos = Array.isArray(alumnosData) ? [...alumnosData] : [];
+      this.ciclos = [];
+    } catch (error) {
+      console.error('Error cargando mensualidades:', error);
+      this.mensaje = 'No se pudieron cargar los datos.';
+    } finally {
+      this.cargando = false;
+      this.cdr.detectChanges();
+    }
   }
 
   get mensualidadesFiltradas() {
@@ -83,37 +82,42 @@ export class Mensualidades implements OnInit {
 
   async registrarPago() {
     if (!this.pago.monto_pagado || this.pago.monto_pagado <= 0) {
-      this.mensaje = '❌ El monto debe ser mayor a cero';
+      this.mensaje = 'El monto debe ser mayor a cero';
       return;
     }
 
     this.cargando = true;
-    const { error } = await this.auth.supabase
-      .from('pagos')
-      .insert([{
-        mensualidad_id: this.mensualidadSeleccionada.id,
-        monto_pagado: this.pago.monto_pagado,
-        metodo_pago: this.pago.metodo_pago,
-        fecha_pago: new Date().toISOString().split('T')[0]
-      }]);
 
-    if (!error) {
-      await this.auth.supabase
-        .from('mensualidades')
-        .update({ estado: 'pagada' })
-        .eq('id', this.mensualidadSeleccionada.id);
+    try {
+      await this.auth.apiRequest('/pagos', {
+        method: 'POST',
+        body: JSON.stringify({
+          mensualidad_id: this.mensualidadSeleccionada.id,
+          monto_pagado: this.pago.monto_pagado,
+          metodo_pago: this.pago.metodo_pago,
+          fecha_pago: new Date().toISOString().split('T')[0]
+        })
+      });
 
-      this.mensaje = '✅ Pago registrado correctamente';
+      await this.auth.apiRequest(`/mensualidades/${this.mensualidadSeleccionada.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ estado: 'pagada' })
+      });
+
+      this.mensaje = 'Pago registrado correctamente';
       this.mostrarPago = false;
       this.mensualidadSeleccionada = null;
       await this.cargarDatos();
-    } else {
-      this.mensaje = '❌ Error: ' + error.message;
+    } catch (error) {
+      this.mensaje = error instanceof Error ? error.message : 'Error registrando pago';
+    } finally {
+      this.cargando = false;
+      this.cdr.detectChanges();
+      setTimeout(() => {
+        this.mensaje = '';
+        this.cdr.detectChanges();
+      }, 3000);
     }
-
-    this.cargando = false;
-    this.cdr.detectChanges();
-    setTimeout(() => { this.mensaje = ''; this.cdr.detectChanges(); }, 3000);
   }
 
   abrirDescuento(m: any) {
@@ -125,67 +129,42 @@ export class Mensualidades implements OnInit {
 
   async aplicarDescuento() {
     if (this.montoDescuento < 0) {
-      this.mensaje = '❌ El descuento no puede ser negativo';
+      this.mensaje = 'El descuento no puede ser negativo';
       return;
     }
+
     if (this.montoDescuento > this.mensualidadDescuento.monto_original) {
-      this.mensaje = '❌ El descuento no puede superar el monto original';
+      this.mensaje = 'El descuento no puede superar el monto original';
       return;
     }
 
     this.cargando = true;
-    const { error } = await this.auth.supabase
-      .from('mensualidades')
-      .update({ descuento: this.montoDescuento })
-      .eq('id', this.mensualidadDescuento.id);
 
-    if (!error) {
-      this.mensaje = '✅ Descuento aplicado correctamente';
+    try {
+      await this.auth.apiRequest(`/mensualidades/${this.mensualidadDescuento.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ descuento: this.montoDescuento })
+      });
+
+      this.mensaje = 'Descuento aplicado correctamente';
       this.mostrarDescuento = false;
       this.mensualidadDescuento = null;
       await this.cargarDatos();
-    } else {
-      this.mensaje = '❌ Error: ' + error.message;
+    } catch (error) {
+      this.mensaje = error instanceof Error ? error.message : 'Error aplicando descuento';
+    } finally {
+      this.cargando = false;
+      this.cdr.detectChanges();
+      setTimeout(() => {
+        this.mensaje = '';
+        this.cdr.detectChanges();
+      }, 3000);
     }
-
-    this.cargando = false;
-    this.cdr.detectChanges();
-    setTimeout(() => { this.mensaje = ''; this.cdr.detectChanges(); }, 3000);
   }
 
   async generarMensualidades() {
-    if (!this.ciclos.length) {
-      this.mensaje = '❌ No hay ciclo escolar activo';
-      return;
-    }
-
-    const cicloId = this.ciclos[0].id;
-    const montoBase = 1500;
-    const mesActual = new Date().getMonth() + 1;
-
-    const inserts = this.alumnos.map(a => ({
-      alumno_id: a.id,
-      ciclo_id: cicloId,
-      mes: mesActual,
-      monto_original: montoBase,
-      descuento: 0,
-      estado: 'pendiente',
-      fecha_limite: new Date(new Date().getFullYear(), mesActual, 0).toISOString().split('T')[0]
-    }));
-
-    const { error } = await this.auth.supabase.from('mensualidades').insert(inserts);
-
-    if (!error) {
-      this.mensaje = `✅ Mensualidades de ${this.meses[mesActual]} generadas correctamente`;
-      await this.cargarDatos();
-    } else {
-      this.mensaje = error.message.includes('unique')
-        ? '❌ Ya existen mensualidades para este mes'
-        : '❌ Error: ' + error.message;
-    }
-
+    this.mensaje = 'La generacion masiva debe implementarse en el backend.';
     this.cdr.detectChanges();
-    setTimeout(() => { this.mensaje = ''; this.cdr.detectChanges(); }, 4000);
   }
 
   volver() {
