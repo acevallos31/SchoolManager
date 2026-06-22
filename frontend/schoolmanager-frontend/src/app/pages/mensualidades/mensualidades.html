@@ -15,8 +15,8 @@
     <div class="modal-overlay">
       <div class="modal">
         <h3>💳 Registrar pago</h3>
-        <p><strong>Alumno:</strong> {{ mensualidadSeleccionada.alumnos?.nombre }}</p>
-        <p><strong>Mes:</strong> {{ meses[mensualidadSeleccionada.mes] }}</p>
+        <p><strong>Alumno:</strong> {{ nombreAlumno(mensualidadSeleccionada.alumno_id) }}</p>
+        <p><strong>Concepto:</strong> {{ mensualidadSeleccionada.concepto || meses[mensualidadSeleccionada.mes] }}</p>
         <p><strong>Monto:</strong> L. {{ mensualidadSeleccionada.monto_final | number:'1.2-2' }}</p>
 
         <div class="form-group">
@@ -46,8 +46,8 @@
     <div class="modal-overlay">
       <div class="modal">
         <h3>🏷️ Aplicar descuento o beca</h3>
-        <p><strong>Alumno:</strong> {{ mensualidadDescuento.alumnos?.nombre }}</p>
-        <p><strong>Mes:</strong> {{ meses[mensualidadDescuento.mes] }}</p>
+        <p><strong>Alumno:</strong> {{ nombreAlumno(mensualidadDescuento.alumno_id) }}</p>
+        <p><strong>Concepto:</strong> {{ mensualidadDescuento.concepto || meses[mensualidadDescuento.mes] }}</p>
         <p><strong>Monto original:</strong> L. {{ mensualidadDescuento.monto_original | number:'1.2-2' }}</p>
 
         <div class="form-group">
@@ -103,8 +103,8 @@
       <tbody>
         @for (m of mensualidadesFiltradas; track m.id) {
           <tr>
-            <td>{{ m.alumnos?.nombre }}</td>
-            <td>{{ meses[m.mes] }}</td>
+            <td>{{ nombreAlumno(m.alumno_id) }}</td>
+            <td>{{ m.concepto || meses[m.mes] }}</td>
             <td>L. {{ m.monto_original | number:'1.2-2' }}</td>
             <td>L. {{ m.descuento | number:'1.2-2' }}</td>
             <td>L. {{ m.monto_final | number:'1.2-2' }}</td>

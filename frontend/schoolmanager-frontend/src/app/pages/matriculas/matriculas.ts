@@ -17,6 +17,7 @@ export class Matriculas implements OnInit {
   ciclos: any[] = [];
   grados: any[] = [];
   secciones: any[] = [];
+  planesPago: any[] = [];
   mostrarFormulario = false;
   cargando = false;
   mensaje = '';
@@ -38,12 +39,13 @@ export class Matriculas implements OnInit {
     this.cdr.detectChanges();
 
     try {
-      const [matriculasData, alumnosData, ciclosData, gradosData, seccionesData] = await Promise.all([
+      const [matriculasData, alumnosData, ciclosData, gradosData, seccionesData, planesPagoData] = await Promise.all([
         this.auth.apiRequest<any[]>('/matriculas'),
         this.auth.apiRequest<any[]>('/alumnos'),
         this.auth.apiRequest<any[]>('/catalogos/ciclos'),
         this.auth.apiRequest<any[]>('/catalogos/grados'),
-        this.auth.apiRequest<any[]>('/catalogos/secciones')
+        this.auth.apiRequest<any[]>('/catalogos/secciones'),
+        this.auth.apiRequest<any[]>('/planes-pago')
       ]);
 
       this.matriculas = Array.isArray(matriculasData) ? [...matriculasData] : [];
@@ -51,6 +53,7 @@ export class Matriculas implements OnInit {
       this.ciclos = Array.isArray(ciclosData) ? [...ciclosData] : [];
       this.grados = Array.isArray(gradosData) ? [...gradosData] : [];
       this.secciones = Array.isArray(seccionesData) ? [...seccionesData] : [];
+      this.planesPago = Array.isArray(planesPagoData) ? [...planesPagoData] : [];
     } catch (error) {
       console.error('Error cargando matriculas:', error);
       this.mensaje = 'No se pudieron cargar los datos.';
@@ -66,14 +69,14 @@ export class Matriculas implements OnInit {
       !this.nuevaMatricula.cicloId ||
       !this.nuevaMatricula.gradoId ||
       !this.nuevaMatricula.seccionId ||
-      !this.nuevaMatricula.monto
+      !this.nuevaMatricula.planPagoId
     ) {
-      this.mensaje = 'Alumno, ciclo, grado, seccion y monto son obligatorios';
+      this.mensaje = 'Alumno, ciclo, grado, seccion y plan de pago son obligatorios';
       return;
     }
 
-    if (this.nuevaMatricula.monto <= 0) {
-      this.mensaje = 'El monto debe ser mayor a cero';
+    if (this.nuevaMatricula.monto < 0) {
+      this.mensaje = 'El monto no puede ser negativo';
       return;
     }
 
@@ -117,6 +120,11 @@ export class Matriculas implements OnInit {
     return items.find(item => item.id === id)?.nombre ?? '-';
   }
 
+  seleccionarPlan() {
+    const plan = this.planesPago.find(item => item.id === this.nuevaMatricula.planPagoId);
+    this.nuevaMatricula.monto = plan?.montoMatricula ?? plan?.monto_matricula ?? 0;
+  }
+
   volver() {
     this.router.navigate(['/dashboard']);
   }
@@ -127,6 +135,7 @@ export class Matriculas implements OnInit {
       cicloId: '',
       gradoId: '',
       seccionId: '',
+      planPagoId: '',
       monto: 0,
       estado: 'pendiente'
     };

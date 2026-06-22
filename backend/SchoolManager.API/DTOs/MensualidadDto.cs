@@ -56,6 +56,7 @@ public class MatriculaCreateDto
     public Guid CicloId { get; set; }
     public Guid GradoId { get; set; }
     public Guid SeccionId { get; set; }
+    public Guid PlanPagoId { get; set; }
     public decimal Monto { get; set; }
     public string Estado { get; set; } = "pendiente";
 }
@@ -75,6 +76,9 @@ public class MatriculaDto
 
     [System.Text.Json.Serialization.JsonPropertyName("seccion_id")]
     public Guid SeccionId { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("plan_pago_id")]
+    public Guid? PlanPagoId { get; set; }
 
     [System.Text.Json.Serialization.JsonPropertyName("fecha_matricula")]
     public DateOnly FechaMatricula { get; set; }

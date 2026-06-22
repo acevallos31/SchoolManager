@@ -75,7 +75,7 @@ public class AlumnosController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Policy = "SoloAdmin")]
+    [Authorize(Policy = "AdminOOperador")]
     public async Task<IActionResult> Create([FromBody] AlumnoCreateDto dto, CancellationToken cancellationToken)
     {
         var validationErrors = Validate(dto, isCreate: true);
@@ -98,7 +98,7 @@ public class AlumnosController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Policy = "SoloAdmin")]
+    [Authorize(Policy = "AdminOOperador")]
     public async Task<IActionResult> Update(Guid id, [FromBody] AlumnoUpdateDto dto, CancellationToken cancellationToken)
     {
         var validationErrors = Validate(dto, isCreate: false);

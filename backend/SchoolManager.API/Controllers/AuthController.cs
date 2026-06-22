@@ -140,7 +140,9 @@ public class AuthController : ControllerBase
             });
         }
 
-        if (usuario.Rol is not ("admin" or "padre"))
+        usuario = NormalizeUsuarioRole(usuario);
+
+        if (usuario.Rol is not ("admin" or "operador" or "padre"))
         {
             return StatusCode(StatusCodes.Status403Forbidden, new
             {
@@ -153,6 +155,7 @@ public class AuthController : ControllerBase
 
     private LoginResponse BuildLoginResponse(UsuarioActualDto usuario)
     {
+        usuario = NormalizeUsuarioRole(usuario);
         var expiresIn = 8 * 60 * 60;
         return new LoginResponse(
             CreateSchoolManagerToken(usuario, expiresIn),
@@ -253,6 +256,19 @@ public class AuthController : ControllerBase
             usuario.NombreCompleto,
             usuario.Correo,
             usuario.Rol);
+    }
+
+    private static UsuarioActualDto NormalizeUsuarioRole(UsuarioActualDto usuario)
+    {
+        var role = usuario.Rol?.Trim().ToLowerInvariant() switch
+        {
+            "alumno" or "alumno_padre" or "padre_familia" => "padre",
+            "operador" or "operator" => "operador",
+            "admin" or "administrador" => "admin",
+            var value => value ?? string.Empty
+        };
+
+        return usuario with { Rol = role };
     }
 
     private string? GetConfiguredValue(params string[] keys)

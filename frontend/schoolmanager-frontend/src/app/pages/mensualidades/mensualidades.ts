@@ -73,6 +73,11 @@ export class Mensualidades implements OnInit {
     });
   }
 
+  nombreAlumno(id: string) {
+    const alumno = this.alumnos.find(a => a.id === id);
+    return (alumno?.nombre ?? `${alumno?.nombres ?? ''} ${alumno?.apellidos ?? ''}`.trim()) || '-';
+  }
+
   abrirPago(m: any) {
     this.mensualidadSeleccionada = m;
     this.pago = { monto_pagado: m.monto_final, metodo_pago: 'efectivo' };
@@ -92,16 +97,10 @@ export class Mensualidades implements OnInit {
       await this.auth.apiRequest('/pagos', {
         method: 'POST',
         body: JSON.stringify({
-          mensualidad_id: this.mensualidadSeleccionada.id,
-          monto_pagado: this.pago.monto_pagado,
-          metodo_pago: this.pago.metodo_pago,
-          fecha_pago: new Date().toISOString().split('T')[0]
+          cargoId: this.mensualidadSeleccionada.id,
+          montoPagado: this.pago.monto_pagado,
+          metodoPago: this.pago.metodo_pago
         })
-      });
-
-      await this.auth.apiRequest(`/mensualidades/${this.mensualidadSeleccionada.id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ estado: 'pagada' })
       });
 
       this.mensaje = 'Pago registrado correctamente';

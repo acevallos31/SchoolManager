@@ -60,6 +60,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("SoloAdmin", policy => policy.RequireRole("admin"));
+    options.AddPolicy("AdminOOperador", policy => policy.RequireRole("admin", "operador"));
+    options.AddPolicy("AdminOperadorOPadre", policy => policy.RequireRole("admin", "operador", "padre"));
     options.AddPolicy("AdminOPadre", policy => policy.RequireRole("admin", "padre"));
 });
 

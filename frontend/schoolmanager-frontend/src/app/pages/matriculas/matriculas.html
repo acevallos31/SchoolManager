@@ -52,8 +52,17 @@
           </select>
         </div>
         <div class="form-group">
-          <label>Monto de matricula *</label>
-          <input type="number" [(ngModel)]="nuevaMatricula.monto" placeholder="Ej: 1500" />
+          <label>Plan de pago *</label>
+          <select [(ngModel)]="nuevaMatricula.planPagoId" (change)="seleccionarPlan()">
+            <option value="">Seleccionar plan</option>
+            @for (p of planesPago; track p.id) {
+              <option [value]="p.id">{{ p.nombre }}</option>
+            }
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Monto de matricula</label>
+          <input type="number" [(ngModel)]="nuevaMatricula.monto" placeholder="Se toma del plan" />
         </div>
         <div class="form-group">
           <label>Estado</label>
@@ -82,6 +91,7 @@
           <th>Ciclo escolar</th>
           <th>Grado</th>
           <th>Seccion</th>
+          <th>Plan</th>
           <th>Monto</th>
           <th>Estado</th>
           <th>Acciones</th>
@@ -94,6 +104,7 @@
             <td>{{ nombreCatalogo(ciclos, m.cicloId || m.ciclo_id) }}</td>
             <td>{{ nombreCatalogo(grados, m.gradoId || m.grado_id) }}</td>
             <td>{{ nombreCatalogo(secciones, m.seccionId || m.seccion_id) }}</td>
+            <td>{{ nombreCatalogo(planesPago, m.planPagoId || m.plan_pago_id) }}</td>
             <td>L. {{ m.monto | number:'1.2-2' }}</td>
             <td>
               <span [class]="m.estado === 'pagada' ? 'badge-pagada' : 'badge-pendiente'">
@@ -112,7 +123,7 @@
           </tr>
         } @empty {
           <tr>
-            <td colspan="7" class="sin-datos">No hay matriculas registradas</td>
+            <td colspan="8" class="sin-datos">No hay matriculas registradas</td>
           </tr>
         }
       </tbody>

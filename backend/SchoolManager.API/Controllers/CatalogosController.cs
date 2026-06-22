@@ -29,10 +29,28 @@ public class CatalogosController : ControllerBase
         return GetCatalogo("secciones", cancellationToken);
     }
 
+    [HttpGet("jornadas")]
+    public Task<IActionResult> GetJornadas(CancellationToken cancellationToken)
+    {
+        return GetCatalogo("jornadas", cancellationToken);
+    }
+
+    [HttpGet("niveles")]
+    public Task<IActionResult> GetNiveles(CancellationToken cancellationToken)
+    {
+        return GetCatalogo("niveles", cancellationToken);
+    }
+
     [HttpGet("ciclos")]
     public Task<IActionResult> GetCiclos(CancellationToken cancellationToken)
     {
         return GetCatalogo("ciclos_escolares", cancellationToken);
+    }
+
+    [HttpGet("planes-pago")]
+    public Task<IActionResult> GetPlanesPago(CancellationToken cancellationToken)
+    {
+        return GetCatalogo("planes_pago", cancellationToken);
     }
 
     private async Task<IActionResult> GetCatalogo(string table, CancellationToken cancellationToken)

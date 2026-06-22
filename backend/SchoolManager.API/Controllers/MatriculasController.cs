@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using SchoolManager.API.DTOs;
 using SchoolManager.API.Services;
 
@@ -66,35 +67,71 @@ public class MatriculasController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Policy = "SoloAdmin")]
+    [Authorize(Policy = "AdminOOperador")]
     public async Task<IActionResult> Create([FromBody] MatriculaCreateDto dto, CancellationToken cancellationToken)
     {
-        if (dto.AlumnoId == Guid.Empty || dto.CicloId == Guid.Empty || dto.GradoId == Guid.Empty || dto.SeccionId == Guid.Empty)
+        if (dto.AlumnoId == Guid.Empty || dto.CicloId == Guid.Empty || dto.GradoId == Guid.Empty || dto.SeccionId == Guid.Empty || dto.PlanPagoId == Guid.Empty)
         {
-            return BadRequest(new { error = "Alumno, ciclo, grado y seccion son obligatorios." });
+            return BadRequest(new { error = "Alumno, ciclo, grado, seccion y plan de pago son obligatorios." });
         }
-
-        if (dto.Monto <= 0)
-        {
-            return BadRequest(new { error = "El monto debe ser mayor a cero." });
-        }
-
-        var payload = new
-        {
-            alumno_id = dto.AlumnoId,
-            ciclo_id = dto.CicloId,
-            grado_id = dto.GradoId,
-            seccion_id = dto.SeccionId,
-            fecha_matricula = DateOnly.FromDateTime(DateTime.UtcNow),
-            monto = dto.Monto,
-            estado = string.IsNullOrWhiteSpace(dto.Estado) ? "pendiente" : dto.Estado.Trim().ToLowerInvariant(),
-            created_at = DateTimeOffset.UtcNow
-        };
 
         try
         {
+            var ciclo = await _tableService.GetSingleAsync<CicloEscolarDto>(
+                "ciclos_escolares",
+                new Dictionary<string, string?> { ["select"] = "*", ["id"] = $"eq.{dto.CicloId}" },
+                cancellationToken);
+
+            if (ciclo is null)
+            {
+                return BadRequest(new { error = "El ciclo escolar seleccionado no existe." });
+            }
+
+            var plan = await _tableService.GetSingleAsync<PlanPagoDto>(
+                "planes_pago",
+                new Dictionary<string, string?> { ["select"] = "*", ["id"] = $"eq.{dto.PlanPagoId}" },
+                cancellationToken);
+
+            if (plan is null || !plan.Activo)
+            {
+                return BadRequest(new { error = "El plan de pago seleccionado no existe o esta inactivo." });
+            }
+
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            if (ciclo.MatriculaInicio.HasValue
+                && ciclo.MatriculaFin.HasValue
+                && (today < ciclo.MatriculaInicio.Value || today > ciclo.MatriculaFin.Value))
+            {
+                return BadRequest(new
+                {
+                    error = $"El periodo de matricula para {ciclo.Nombre} esta cerrado. Vigente del {ciclo.MatriculaInicio:yyyy-MM-dd} al {ciclo.MatriculaFin:yyyy-MM-dd}."
+                });
+            }
+
+            var montoMatricula = dto.Monto > 0 ? dto.Monto : plan.MontoMatricula;
+            var payload = new
+            {
+                alumno_id = dto.AlumnoId,
+                ciclo_id = dto.CicloId,
+                grado_id = dto.GradoId,
+                seccion_id = dto.SeccionId,
+                plan_pago_id = dto.PlanPagoId,
+                fecha_matricula = today,
+                monto = montoMatricula,
+                estado = "pendiente",
+                registrado_por = TryGetUserGuid(),
+                created_at = DateTimeOffset.UtcNow
+            };
+
             var matricula = await _tableService.InsertAsync<MatriculaDto>(TableName, payload, cancellationToken);
-            return CreatedAtAction(nameof(GetById), new { id = matricula.Id }, matricula);
+            var cargos = await GenerarCargosAsync(matricula, ciclo, plan, cancellationToken);
+
+            return CreatedAtAction(nameof(GetById), new { id = matricula.Id }, new
+            {
+                matricula,
+                cargosGenerados = cargos.Count,
+                mensaje = "Matricula registrada y cargos generados correctamente."
+            });
         }
         catch (SupabaseTableException ex)
         {
@@ -103,7 +140,7 @@ public class MatriculasController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Policy = "SoloAdmin")]
+    [Authorize(Policy = "AdminOOperador")]
     public async Task<IActionResult> Update(Guid id, [FromBody] MatriculaCreateDto dto, CancellationToken cancellationToken)
     {
         var payload = new Dictionary<string, object?>
@@ -115,6 +152,7 @@ public class MatriculasController : ControllerBase
         if (dto.CicloId != Guid.Empty) payload["ciclo_id"] = dto.CicloId;
         if (dto.GradoId != Guid.Empty) payload["grado_id"] = dto.GradoId;
         if (dto.SeccionId != Guid.Empty) payload["seccion_id"] = dto.SeccionId;
+        if (dto.PlanPagoId != Guid.Empty) payload["plan_pago_id"] = dto.PlanPagoId;
         if (dto.Monto > 0) payload["monto"] = dto.Monto;
         if (!string.IsNullOrWhiteSpace(dto.Estado)) payload["estado"] = dto.Estado.Trim().ToLowerInvariant();
 
@@ -127,5 +165,105 @@ public class MatriculasController : ControllerBase
         {
             return StatusCode(ex.StatusCode, new { error = ex.Message });
         }
+    }
+
+    private async Task<IReadOnlyList<CargoDto>> GenerarCargosAsync(
+        MatriculaDto matricula,
+        CicloEscolarDto ciclo,
+        PlanPagoDto plan,
+        CancellationToken cancellationToken)
+    {
+        var cargos = new List<CargoDto>();
+        var now = DateTimeOffset.UtcNow;
+
+        if (plan.MontoMatricula > 0)
+        {
+            cargos.Add(await _tableService.InsertAsync<CargoDto>(
+                "cargos",
+                new
+                {
+                    matricula_id = matricula.Id,
+                    alumno_id = matricula.AlumnoId,
+                    tipo = "matricula",
+                    concepto = $"Matricula {ciclo.Nombre}",
+                    numero_cuota = (int?)null,
+                    monto = plan.MontoMatricula,
+                    fecha_vencimiento = ciclo.MatriculaFin ?? DateOnly.FromDateTime(DateTime.UtcNow),
+                    estado = "pendiente",
+                    created_at = now
+                },
+                cancellationToken));
+        }
+
+        var cantidadCuotas = plan.Tipo switch
+        {
+            "adelantado" => 1,
+            "2_pagos" => 2,
+            _ => plan.CantidadCuotas <= 0 ? 10 : plan.CantidadCuotas
+        };
+
+        if (plan.MontoTotalAnual <= 0 || cantidadCuotas <= 0)
+        {
+            return cargos;
+        }
+
+        var montoCuota = Math.Round(CalcularMontoFinanciado(plan) / cantidadCuotas, 2, MidpointRounding.AwayFromZero);
+        var baseYear = ciclo.FechaInicio.Year;
+        var baseDate = SafeDate(baseYear, Math.Clamp(plan.MesInicio, 1, 12), Math.Clamp(plan.DiaVencimiento, 1, 28));
+
+        for (var cuota = 1; cuota <= cantidadCuotas; cuota++)
+        {
+            var vencimiento = DateOnly.FromDateTime(baseDate.AddMonths(cuota - 1));
+            var estado = vencimiento < DateOnly.FromDateTime(DateTime.UtcNow) ? "vencido" : "pendiente";
+
+            cargos.Add(await _tableService.InsertAsync<CargoDto>(
+                "cargos",
+                new
+                {
+                    matricula_id = matricula.Id,
+                    alumno_id = matricula.AlumnoId,
+                    tipo = plan.Tipo == "adelantado" ? "pago_anual" : "mensualidad",
+                    concepto = BuildConcepto(plan, cuota, cantidadCuotas),
+                    numero_cuota = cuota,
+                    monto = montoCuota,
+                    fecha_vencimiento = vencimiento,
+                    estado,
+                    created_at = now
+                },
+                cancellationToken));
+        }
+
+        return cargos;
+    }
+
+    private Guid? TryGetUserGuid()
+    {
+        var id = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return Guid.TryParse(id, out var parsed) ? parsed : null;
+    }
+
+    private static decimal CalcularMontoFinanciado(PlanPagoDto plan)
+    {
+        var descuento = plan.DescuentoPorcentaje <= 0
+            ? 0
+            : plan.MontoTotalAnual * (plan.DescuentoPorcentaje / 100);
+
+        return Math.Max(0, plan.MontoTotalAnual - descuento);
+    }
+
+    private static DateTime SafeDate(int year, int month, int day)
+    {
+        var safeDay = Math.Min(day, DateTime.DaysInMonth(year, month));
+        return new DateTime(year, month, safeDay, 0, 0, 0, DateTimeKind.Utc);
+    }
+
+    private static string BuildConcepto(PlanPagoDto plan, int cuota, int total)
+    {
+        return plan.Tipo switch
+        {
+            "adelantado" => "Pago anual adelantado",
+            "2_pagos" => $"Pago semestral {cuota} de {total}",
+            _ => $"Mensualidad {cuota} de {total}"
+        };
     }
 }
