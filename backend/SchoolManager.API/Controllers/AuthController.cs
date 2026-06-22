@@ -1,10 +1,13 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
 using SchoolManager.API.DTOs;
 
 namespace SchoolManager.API.Controllers;
@@ -113,11 +116,7 @@ public class AuthController : ControllerBase
 
             if (usuario is not null)
             {
-                return Ok(new LoginResponse(
-                    authSession.AccessToken,
-                    authSession.TokenType ?? "bearer",
-                    authSession.ExpiresIn,
-                    usuario));
+                return Ok(BuildLoginResponse(usuario));
             }
 
             return StatusCode(StatusCodes.Status502BadGateway, new
@@ -132,11 +131,7 @@ public class AuthController : ControllerBase
 
             if (usuario is not null)
             {
-                return Ok(new LoginResponse(
-                    authSession.AccessToken,
-                    authSession.TokenType ?? "bearer",
-                    authSession.ExpiresIn,
-                    usuario));
+                return Ok(BuildLoginResponse(usuario));
             }
 
             return StatusCode(StatusCodes.Status403Forbidden, new
@@ -153,11 +148,46 @@ public class AuthController : ControllerBase
             });
         }
 
-        return Ok(new LoginResponse(
-            authSession.AccessToken,
-            authSession.TokenType ?? "bearer",
-            authSession.ExpiresIn,
-            usuario));
+        return Ok(BuildLoginResponse(usuario));
+    }
+
+    private LoginResponse BuildLoginResponse(UsuarioActualDto usuario)
+    {
+        var expiresIn = 8 * 60 * 60;
+        return new LoginResponse(
+            CreateSchoolManagerToken(usuario, expiresIn),
+            "bearer",
+            expiresIn,
+            usuario);
+    }
+
+    private string CreateSchoolManagerToken(UsuarioActualDto usuario, int expiresInSeconds)
+    {
+        var jwtSecret = GetConfiguredValue("Jwt:Secret", "Supabase:JwtSecret")
+            ?? throw new InvalidOperationException("JWT secret is not configured.");
+        var jwtIssuer = GetConfiguredValue("Jwt:Issuer") ?? "SchoolManager.API";
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret));
+        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var now = DateTime.UtcNow;
+        var claims = new List<Claim>
+        {
+            new(JwtRegisteredClaimNames.Sub, usuario.SupabaseUid),
+            new(JwtRegisteredClaimNames.Email, usuario.Correo ?? string.Empty),
+            new(ClaimTypes.NameIdentifier, usuario.Id),
+            new(ClaimTypes.Name, usuario.Nombre),
+            new(ClaimTypes.Role, usuario.Rol),
+            new("role", usuario.Rol)
+        };
+
+        var token = new JwtSecurityToken(
+            issuer: jwtIssuer,
+            audience: null,
+            claims: claims,
+            notBefore: now,
+            expires: now.AddSeconds(expiresInSeconds),
+            signingCredentials: credentials);
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
     private UsuarioActualDto? BuildBootstrapAdmin(SupabaseAuthUser user)

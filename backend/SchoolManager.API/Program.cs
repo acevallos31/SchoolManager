@@ -52,7 +52,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(jwtSecret)
             ),
-            NameClaimType = "sub"
+            NameClaimType = "sub",
+            RoleClaimType = System.Security.Claims.ClaimTypes.Role
         };
     });
 
