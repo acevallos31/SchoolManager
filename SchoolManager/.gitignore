@@ -1,0 +1,11 @@
+bin/
+obj/
+node_modules/
+dist/
+.angular/
+*.env
+appsettings.Development.json
+.DS_Store
+.vscode/settings.json
+.env
+s

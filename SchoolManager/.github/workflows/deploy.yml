@@ -1,0 +1,56 @@
+name: CI/CD SchoolManager
+
+on:
+  push:
+    branches: [ "main", "AxeellCevallos" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  # ETAPA 1: VALIDACIÓN (Compilar código para asegurar que no tenga errores)
+  validate-code:
+    name: Validar Compilación del Proyecto
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Configurar .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Validar Backend (.NET)
+        run: |
+          dotnet restore backend/SchoolManager.API/SchoolManager.API.csproj
+          dotnet build backend/SchoolManager.API/SchoolManager.API.csproj --configuration Release
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.3
+
+      - name: Validar Frontend (Angular)
+        run: |
+          cd frontend/schoolmanager-frontend
+          npm install
+          npx ng build --configuration production
+
+  # ETAPA 2: DESPLIEGUE (Solo se ejecuta si la etapa anterior pasa Y estamos en la rama main)
+  deploy:
+    name: Desplegar a Producción
+    needs: validate-code
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Desplegar Backend a Render
+        continue-on-error: true
+        run: |
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+
+      - name: Frontend desplegado por integracion de Vercel
+        run: |
+          echo "El frontend se despliega automaticamente desde la rama main mediante la integracion Git de Vercel."

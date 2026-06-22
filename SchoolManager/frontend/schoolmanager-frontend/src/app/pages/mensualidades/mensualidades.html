@@ -1,0 +1,138 @@
+<div class="page-container">
+  <div class="page-header">
+    <button class="btn-volver" (click)="volver()">← Volver</button>
+    <h1>💰 Gestión de Mensualidades</h1>
+    <button class="btn-generar" (click)="generarMensualidades()">
+      ⚡ Generar mes actual
+    </button>
+  </div>
+
+  @if (mensaje) {
+    <div class="mensaje">{{ mensaje }}</div>
+  }
+
+  @if (mostrarPago && mensualidadSeleccionada) {
+    <div class="modal-overlay">
+      <div class="modal">
+        <h3>💳 Registrar pago</h3>
+        <p><strong>Alumno:</strong> {{ mensualidadSeleccionada.alumnos?.nombre }}</p>
+        <p><strong>Mes:</strong> {{ meses[mensualidadSeleccionada.mes] }}</p>
+        <p><strong>Monto:</strong> L. {{ mensualidadSeleccionada.monto_final | number:'1.2-2' }}</p>
+
+        <div class="form-group">
+          <label>Monto a pagar *</label>
+          <input type="number" [(ngModel)]="pago.monto_pagado" />
+        </div>
+        <div class="form-group">
+          <label>Método de pago</label>
+          <select [(ngModel)]="pago.metodo_pago">
+            <option value="efectivo">Efectivo</option>
+            <option value="transferencia">Transferencia</option>
+            <option value="tarjeta">Tarjeta</option>
+          </select>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn-cancelar" (click)="mostrarPago = false">Cancelar</button>
+          <button class="btn-guardar" (click)="registrarPago()" [disabled]="cargando">
+            {{ cargando ? 'Registrando...' : 'Registrar pago' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (mostrarDescuento && mensualidadDescuento) {
+    <div class="modal-overlay">
+      <div class="modal">
+        <h3>🏷️ Aplicar descuento o beca</h3>
+        <p><strong>Alumno:</strong> {{ mensualidadDescuento.alumnos?.nombre }}</p>
+        <p><strong>Mes:</strong> {{ meses[mensualidadDescuento.mes] }}</p>
+        <p><strong>Monto original:</strong> L. {{ mensualidadDescuento.monto_original | number:'1.2-2' }}</p>
+
+        <div class="form-group">
+          <label>Monto del descuento (L.) *</label>
+          <input type="number" [(ngModel)]="montoDescuento" placeholder="Ej: 300" />
+        </div>
+
+        <p class="preview-descuento">
+          Monto final: <strong>L. {{ (mensualidadDescuento.monto_original - montoDescuento) | number:'1.2-2' }}</strong>
+        </p>
+
+        <div class="modal-actions">
+          <button class="btn-cancelar" (click)="mostrarDescuento = false">Cancelar</button>
+          <button class="btn-guardar" (click)="aplicarDescuento()" [disabled]="cargando">
+            {{ cargando ? 'Aplicando...' : 'Aplicar descuento' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <div class="filtros">
+    <select [(ngModel)]="filtroEstado">
+      <option value="">Todos los estados</option>
+      <option value="pendiente">Pendiente</option>
+      <option value="pagada">Pagada</option>
+      <option value="vencida">Vencida</option>
+    </select>
+    <select [(ngModel)]="filtroAlumno">
+      <option value="">Todos los alumnos</option>
+      @for (a of alumnos; track a.id) {
+        <option [value]="a.id">{{ a.nombre }}</option>
+      }
+    </select>
+  </div>
+
+  @if (cargando) {
+    <p class="cargando">Cargando mensualidades...</p>
+  } @else {
+    <table class="tabla">
+      <thead>
+        <tr>
+          <th>Alumno</th>
+          <th>Mes</th>
+          <th>Monto original</th>
+          <th>Descuento</th>
+          <th>Monto final</th>
+          <th>Estado</th>
+          <th>Fecha límite</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (m of mensualidadesFiltradas; track m.id) {
+          <tr>
+            <td>{{ m.alumnos?.nombre }}</td>
+            <td>{{ meses[m.mes] }}</td>
+            <td>L. {{ m.monto_original | number:'1.2-2' }}</td>
+            <td>L. {{ m.descuento | number:'1.2-2' }}</td>
+            <td>L. {{ m.monto_final | number:'1.2-2' }}</td>
+            <td>
+              <span [class]="'badge-' + m.estado">{{ m.estado }}</span>
+            </td>
+            <td>{{ m.fecha_limite }}</td>
+            <td>
+              @if (m.estado === 'pendiente' || m.estado === 'vencida') {
+                <button class="btn-pagar" (click)="abrirPago(m)">
+                  💳 Registrar pago
+                </button>
+                <button class="btn-descuento" (click)="abrirDescuento(m)">
+                  🏷️ Descuento
+                </button>
+              } @else {
+                <span class="pagado-texto">✅ Pagada</span>
+              }
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="8" class="sin-datos">
+              No hay mensualidades. Clic en "Generar mes actual" para crearlas.
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

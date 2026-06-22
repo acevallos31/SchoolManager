@@ -1,0 +1,74 @@
+<div class="dashboard-shell">
+  <aside class="sidebar">
+    <div class="brand-block">
+      <p class="brand-kicker">SchoolManager</p>
+      <h2>Panel escolar</h2>
+      <span>Control administrativo diario</span>
+    </div>
+
+    <nav>
+      <a routerLink="/alumnos" routerLinkActive="active">Alumnos</a>
+      <a routerLink="/matriculas" routerLinkActive="active">Matrículas</a>
+      <a routerLink="/mensualidades" routerLinkActive="active">Mensualidades</a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <p>Acceso conectado con Supabase</p>
+      <button (click)="logout()">Cerrar sesión</button>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <section class="hero-card">
+      <div>
+        <p class="eyebrow">Resumen operativo</p>
+        <h1>Gestiona la operación escolar con una vista clara y rápida.</h1>
+        <p class="hero-copy">
+          Consulta estudiantes, registra matrículas y administra mensualidades desde una sola interfaz.
+        </p>
+      </div>
+
+      <div class="hero-actions">
+        <a routerLink="/alumnos">Ver alumnos</a>
+        <a routerLink="/mensualidades" class="secondary">Revisar mensualidades</a>
+      </div>
+    </section>
+
+    <section class="stats-grid">
+      <article class="stat-card primary">
+        <span class="stat-label">Estudiantes activos</span>
+        <strong>Control</strong>
+        <p>Consulta y administra expedientes académicos.</p>
+      </article>
+      <article class="stat-card success">
+        <span class="stat-label">Matrículas</span>
+        <strong>Proceso</strong>
+        <p>Registro por ciclo escolar con seguimiento de estado.</p>
+      </article>
+      <article class="stat-card warning">
+        <span class="stat-label">Cobranza</span>
+        <strong>Mensualidades</strong>
+        <p>Pagos pendientes, vencidos y registrados en una sola vista.</p>
+      </article>
+    </section>
+
+    <section class="dashboard-grid">
+      <article class="panel-card">
+        <h3>Qué puedes hacer hoy</h3>
+        <ul>
+          <li>Registrar nuevos alumnos y gestionar su estado.</li>
+          <li>Crear matrículas por ciclo y marcar pagos de inscripción.</li>
+          <li>Generar mensualidades y registrar pagos del mes.</li>
+        </ul>
+      </article>
+
+      <article class="panel-card emphasis">
+        <h3>Sistema en línea</h3>
+        <p>
+          El frontend productivo ya está desplegado y listo para seguir iterando sobre autenticación,
+          métricas y experiencia de usuario.
+        </p>
+      </article>
+    </section>
+  </main>
+</div>

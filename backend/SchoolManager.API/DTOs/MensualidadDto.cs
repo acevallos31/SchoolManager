@@ -1,10 +1,32 @@
 namespace SchoolManager.API.DTOs;
 
+
+// Usado para listar / mostrar una mensualidad
+public class MensualidadDto
+
 public class MensualidadResponseDto
+
 {
     public Guid Id { get; set; }
     public Guid AlumnoId { get; set; }
     public int Mes { get; set; }
+
+    public int Anio { get; set; }
+    public decimal Monto { get; set; }
+    public DateOnly FechaVencimiento { get; set; }
+    public string Estado { get; set; } = string.Empty;
+}
+
+// Usado al generar mensualidades nuevas
+public class MensualidadCreateDto
+{
+    public Guid AlumnoId { get; set; }
+    public Guid? MatriculaId { get; set; }
+    public int Mes { get; set; }
+    public int Anio { get; set; }
+    public decimal Monto { get; set; }
+    public DateOnly FechaVencimiento { get; set; }
+
     public string NombreMes { get; set; } = string.Empty;
     public decimal MontoOriginal { get; set; }
     public decimal Descuento { get; set; }
@@ -30,4 +52,5 @@ public class MatriculaCreateDto
     public Guid AlumnoId { get; set; }
     public Guid CicloId { get; set; }
     public decimal Monto { get; set; }
+
 }
