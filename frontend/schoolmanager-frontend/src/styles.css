@@ -1,8 +1,4 @@
-
 /* Estilos globales del proyecto */
-html, body {
-  margin: 0;
-  font-family: Arial, sans-serif;
 
 :root {
   --sm-bg: #f4efe7;
@@ -40,5 +36,4 @@ button,
 input,
 select {
   font: inherit;
-
 }
