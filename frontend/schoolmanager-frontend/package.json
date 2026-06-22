@@ -9,6 +9,9 @@
     "test": "ng test"
   },
   "private": true,
+  "engines": {
+    "node": "^22.22.3 || ^24.15.0 || >=26.0.0"
+  },
   "packageManager": "npm@11.13.0",
   "dependencies": {
     "@angular/common": "^22.0.0",
@@ -20,12 +23,8 @@
     "@supabase/supabase-js": "^2.108.2",
     "jspdf": "^4.2.1",
     "rxjs": "~7.8.0",
-<<<<<<< Updated upstream
-    "tslib": "^2.3.0"
-=======
     "tslib": "^2.3.0",
     "zone.js": "~0.16.0"
->>>>>>> Stashed changes
   },
   "devDependencies": {
     "@angular/build": "^22.0.2",

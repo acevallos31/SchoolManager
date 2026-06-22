@@ -223,8 +223,6 @@
 .btn-guardar:disabled {
   background: #aaa;
   cursor: not-allowed;
-<<<<<<< Updated upstream
-=======
 }
 
 .btn-descuento {
@@ -244,5 +242,4 @@
   border-radius: 8px;
   margin-top: 12px;
   color: #1a73e8;
->>>>>>> Stashed changes
 }

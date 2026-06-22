@@ -13,8 +13,6 @@ export const routes: Routes = [
   { path: 'alumnos', component: Alumnos },
   { path: 'matriculas', component: Matriculas },
   { path: 'mensualidades', component: Mensualidades },
-<<<<<<< Updated upstream
-=======
   { path: 'portal-padre', component: PortalPadre },
->>>>>>> Stashed changes
+  { path: '**', redirectTo: 'login' }
 ];
