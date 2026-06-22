@@ -233,6 +233,14 @@ public class AlumnosController : ControllerBase
         AddIfHasValue(payload, "padres_encargados", dto.PadresEncargados);
         AddIfHasValue(payload, "direccion", dto.Direccion);
 
+        var nombres = FirstValue(dto.Nombres, dto.Nombre);
+        var apellidos = FirstValue(dto.Apellidos, dto.Apellido);
+        var dni = FirstValue(dto.Dni, dto.Identidad);
+
+        AddIfHasValue(payload, "nombre", $"{nombres} {apellidos}".Trim());
+        AddIfHasValue(payload, "identidad", dni);
+        AddIfHasValue(payload, "grado", "Sin asignar");
+
         var fechaNacimiento = dto.FechaNacimiento ?? dto.FechaNacimientoSnake;
         if (fechaNacimiento.HasValue)
         {

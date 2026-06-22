@@ -17,6 +17,7 @@ export class Alumnos implements OnInit {
   busqueda = '';
   cargando = false;
   mensaje = '';
+  mensajeTipo: 'success' | 'error' = 'success';
 
   nuevoAlumno = this.crearFormularioVacio();
 
@@ -39,7 +40,7 @@ export class Alumnos implements OnInit {
       this.alumnos = Array.isArray(data) ? [...data] : [];
     } catch (error) {
       console.error('Error cargando alumnos:', error);
-      this.mensaje = 'No se pudieron cargar los alumnos.';
+      this.mostrarMensaje('No se pudieron cargar los alumnos.', 'error');
       this.alumnos = [];
     } finally {
       this.cargando = false;
@@ -70,7 +71,7 @@ export class Alumnos implements OnInit {
       !this.nuevoAlumno.padresEncargados ||
       !this.nuevoAlumno.direccion
     ) {
-      this.mensaje = 'Nombres, apellidos, nacimiento, sexo, DNI, encargados y direccion son obligatorios';
+      this.mostrarMensaje('Nombres, apellidos, nacimiento, sexo, DNI, encargados y direccion son obligatorios', 'error');
       return;
     }
 
@@ -82,19 +83,15 @@ export class Alumnos implements OnInit {
         body: JSON.stringify({ ...this.nuevoAlumno, estado: 'activo' })
       });
 
-      this.mensaje = 'Alumno registrado correctamente';
+      this.mostrarMensaje('Alumno registrado correctamente', 'success');
       this.nuevoAlumno = this.crearFormularioVacio();
       this.mostrarFormulario = false;
       await this.cargarAlumnos();
     } catch (error) {
-      this.mensaje = error instanceof Error ? error.message : 'Error registrando alumno';
+      this.mostrarMensaje(error instanceof Error ? error.message : 'Error registrando alumno', 'error');
     } finally {
       this.cargando = false;
       this.cdr.detectChanges();
-      setTimeout(() => {
-        this.mensaje = '';
-        this.cdr.detectChanges();
-      }, 3000);
     }
   }
 
@@ -135,5 +132,16 @@ export class Alumnos implements OnInit {
       padresEncargados: '',
       direccion: ''
     };
+  }
+
+  private mostrarMensaje(texto: string, tipo: 'success' | 'error') {
+    this.mensaje = texto;
+    this.mensajeTipo = tipo;
+    this.cdr.detectChanges();
+
+    setTimeout(() => {
+      this.mensaje = '';
+      this.cdr.detectChanges();
+    }, 4200);
   }
 }

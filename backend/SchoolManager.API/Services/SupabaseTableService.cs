@@ -180,6 +180,16 @@ public sealed class SupabaseTableService
             return "Ya existe un registro con esos datos.";
         }
 
+        if (body.Contains("null value in column", StringComparison.OrdinalIgnoreCase))
+        {
+            return "La base de datos aun tiene una columna obligatoria sin valor. Ejecuta la migracion o revisa columnas antiguas requeridas.";
+        }
+
+        if (body.Contains("violates check constraint", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Uno de los valores no cumple las reglas de la base de datos.";
+        }
+
         return fallback;
     }
 
