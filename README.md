@@ -1,120 +1,204 @@
-
 # SchoolManager
 
+Sistema de gestion escolar para administrar alumnos, matriculas, mensualidades,
+pagos y acceso de padres de familia.
 
-Sistema de gestión escolar (alumnos, matrículas, mensualidades y pagos) con:
+## Stack
 
-- **Backend**: ASP.NET Core Web API (.NET 8)
-- **Frontend**: Angular
-- **Base de datos / Auth**: Supabase (PostgreSQL)
+| Capa | Tecnologia |
+| --- | --- |
+| Frontend | Angular 22 + TypeScript |
+| Backend | ASP.NET Core Web API |
+| Base de datos | Supabase PostgreSQL |
+| Autenticacion | Supabase Auth + JWT |
+| Frontend hosting | Vercel |
+| Backend hosting | Render |
 
-## Estructura del proyecto
+## Estructura
 
-```
+```txt
 SchoolManager/
-├── database/                          # Script SQL y guía de configuración de Supabase
-│   ├── schema.sql
+├── backend/
+│   └── SchoolManager.API/          # API REST en ASP.NET Core
+│       ├── Controllers/
+│       ├── DTOs/
+│       ├── Models/
+│       ├── Program.cs
+│       ├── SchoolManager.API.csproj
+│       └── Dockerfile              # Dockerfile para Render si el root es backend
+├── database/
+│   ├── schema.sql                  # Script SQL de Supabase
 │   └── GUIA_SUPABASE.md
-├── backend/SchoolManager.API/         # API REST en .NET
-│   ├── Program.cs
-│   ├── appsettings.json
-│   ├── Controllers/
-│   ├── Models/
-│   └── DTOs/
-└── frontend/schoolmanager-frontend/   # Aplicación Angular
-    └── src/app/
-        ├── core/services/
-        ├── core/guards/
-        ├── core/interceptors/
-        └── environments/
+├── frontend/
+│   └── schoolmanager-frontend/     # App Angular 22 standalone
+│       ├── src/app/
+│       ├── angular.json
+│       ├── package.json
+│       └── package-lock.json
+├── Dockerfile                      # Dockerfile para Render desde la raiz
+└── README.md
 ```
 
-## Requisitos previos
+## Requisitos
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/download)
-- [Node.js 18+](https://nodejs.org/) y Angular CLI (`npm install -g @angular/cli`)
-- Una cuenta gratuita en [Supabase](https://supabase.com)
+- .NET SDK compatible con el `TargetFramework` del backend.
+- Node.js compatible con Angular 22:
 
-## Puesta en marcha
+```txt
+^22.22.3 || ^24.15.0 || >=26.0.0
+```
 
-### 1. Base de datos (Supabase)
+- npm 11+
+- Cuenta/proyecto en Supabase.
+- Opcional para despliegue: cuentas en Render y Vercel.
 
-1. Crea un proyecto nuevo en Supabase.
-2. Sigue la guía paso a paso en `database/GUIA_SUPABASE.md`.
-3. Ejecuta el script `database/schema.sql` en el editor SQL de Supabase.
+## Configuracion de Supabase
 
-### 2. Backend (API)
+1. Crear un proyecto en Supabase.
+2. Ejecutar `database/schema.sql` en el SQL Editor.
+3. Revisar los pasos de `database/GUIA_SUPABASE.md`.
+4. Copiar las credenciales necesarias:
+   - Supabase URL
+   - Publishable/anon key
+   - JWT secret
+   - Service/secret key, si aplica al backend
+
+## Backend local
 
 ```bash
 cd backend/SchoolManager.API
-# Edita appsettings.json con tus credenciales de Supabase (URL, Service Key, JWT Secret)
 dotnet restore
 dotnet run
 ```
 
-La API queda disponible en `https://localhost:5001` y la documentación Swagger en `https://localhost:5001/swagger`.
+La API expone endpoints bajo `/api`.
 
-### 3. Frontend (Angular)
+En desarrollo, Swagger se habilita cuando el entorno es `Development`.
+
+Variables recomendadas para produccion:
+
+```txt
+ASPNETCORE_ENVIRONMENT=Production
+Supabase__Url=https://TU-PROYECTO.supabase.co
+Supabase__PublishableKey=TU_PUBLISHABLE_KEY
+Supabase__SecretKey=TU_SECRET_KEY
+Supabase__JwtSecret=TU_JWT_SECRET
+```
+
+## Frontend local
 
 ```bash
 cd frontend/schoolmanager-frontend
-# Edita src/app/environments/environment.ts con tu URL y anon key de Supabase
 npm install
-ng serve
+npm run start
 ```
 
-La aplicación queda disponible en `http://localhost:4200`.
+La aplicacion corre normalmente en:
 
-## Roles del sistema
+```txt
+http://localhost:4200
+```
 
-- **Admin**: gestiona alumnos, matrículas, mensualidades y pagos.
-- **Padre**: consulta el estado de cuenta y mensualidades de sus hijos.
+Para build de produccion:
 
-## Módulos principales
+```bash
+npm run build
+```
 
-- **Alumnos**: datos personales y académicos de cada estudiante.
-- **Matrículas**: inscripción de un alumno en un año/ciclo escolar.
-- **Mensualidades**: cargos mensuales generados por alumno.
-- **Pagos**: registro de pagos aplicados a una mensualidad.
+Salida generada para Vercel:
 
-## Próximos pasos sugeridos
+```txt
+dist/schoolmanager-frontend/browser
+```
 
-- Completar la lógica de negocio dentro de cada Controller.
-- Implementar las pantallas Angular que consuman los servicios ya creados.
-- Configurar políticas de Row Level Security (RLS) adicionales según tus reglas de negocio.
+## Rutas principales
+
+| Ruta | Uso |
+| --- | --- |
+| `/login` | Inicio de sesion |
+| `/dashboard` | Panel administrativo |
+| `/alumnos` | Gestion de alumnos |
+| `/matriculas` | Gestion de matriculas |
+| `/mensualidades` | Gestion de mensualidades |
+| `/portal-padre` | Vista para padres |
+
+## Despliegue en Render
+
+El backend puede desplegarse como Web Service usando Docker.
+
+Configuracion si Render usa la raiz del repositorio:
+
+```txt
+Environment: Docker
+Root Directory: vacio
+Dockerfile Path: ./Dockerfile
+Docker Build Context Directory: .
+```
+
+Configuracion alternativa si Render usa el backend como root:
+
+```txt
+Environment: Docker
+Root Directory: backend/SchoolManager.API
+Dockerfile Path: ./Dockerfile
+Docker Build Context Directory: .
+```
+
+URL actual usada por el frontend:
+
+```txt
+https://schoolmanager-xdxx.onrender.com/api
+```
+
+## Despliegue en Vercel
+
+Configuracion recomendada:
+
+```txt
+Framework Preset: Angular
+Root Directory: frontend/schoolmanager-frontend
+Install Command: npm install
+Build Command: npm run build
+Output Directory: dist/schoolmanager-frontend/browser
+```
+
+## GitHub Actions
+
+El workflow `.github/workflows/deploy.yml` valida backend y frontend. En `main`,
+puede disparar despliegues hacia Render y Vercel si los secrets estan
+configurados.
+
+Secrets esperados:
+
+```txt
+RENDER_DEPLOY_HOOK_URL
+VERCEL_TOKEN
+VERCEL_ORG_ID
+VERCEL_PROJECT_ID
+```
+
+## Roles
+
+- Admin: gestiona alumnos, matriculas, mensualidades y pagos.
+- Padre: consulta estado de cuenta y mensualidades.
+
+## Modulos
+
+- Alumnos
+- Matriculas
+- Mensualidades
+- Pagos
+- Portal de padres
+
+## Notas de mantenimiento
+
+- El frontend esta organizado como Angular 22 standalone. Evitar mezclarlo con
+  `AppModule`/`NgModule` clasico.
+- Si se modifica `package.json`, regenerar `package-lock.json` con
+  `npm install`.
+- Si el bundle crece por `jspdf`/`html2canvas`, revisar presupuestos en
+  `angular.json` o aplicar lazy loading donde convenga.
 
 ## Licencia
 
 Uso libre para fines educativos.
-
-Sistema de Control de Matricula
-
-Sistema de gestión de matrículas y mensualidades para instituciones educativas.
-
-## Stack
-| Capa | Tecnología |
-|---|---|
-| Frontend | Angular 17 + TypeScript |
-| Backend | .NET Core 10 Web API |
-| Base de datos | Supabase (PostgreSQL) |
-| Autenticación | Supabase Auth (JWT) |
-
-## Iniciar el proyecto
-
-### Backend
-```bash
-cd backend/SchoolManager.API
-dotnet restore
-dotnet run
-```
-Corre en: http://localhost:5000
-Swagger en: http://localhost:5000/swagger
-
-### Frontend
-```bash
-cd frontend/schoolmanager-frontend
-npm install
-ng serve
-```
-Corre en: http://localhost:4200
-

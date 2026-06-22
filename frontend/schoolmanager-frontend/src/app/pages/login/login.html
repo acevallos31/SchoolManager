@@ -1,24 +1,24 @@
 <div class="login-shell">
   <section class="login-hero">
     <span class="badge">Plataforma escolar</span>
-    <h1>Administra matrículas, mensualidades y alumnos desde un solo lugar.</h1>
+    <h1>Administra matriculas, mensualidades y alumnos desde un solo lugar.</h1>
     <p>
-      SchoolManager centraliza la operación académica diaria con un acceso rápido,
-      claro y listo para producción.
+      SchoolManager centraliza la operacion academica diaria con un acceso rapido,
+      claro y listo para produccion.
     </p>
 
     <div class="hero-points">
       <div class="hero-point">
-        <strong>Control académico</strong>
+        <strong>Control academico</strong>
         <span>Seguimiento de alumnos, pagos y estado administrativo.</span>
       </div>
       <div class="hero-point">
         <strong>Acceso seguro</strong>
-        <span>Autenticación centralizada con sesiones persistentes.</span>
+        <span>Autenticacion centralizada con sesiones persistentes.</span>
       </div>
       <div class="hero-point">
-        <strong>Operación diaria</strong>
-        <span>Diseñado para secretaría, coordinación y administración.</span>
+        <strong>Operacion diaria</strong>
+        <span>Disenado para secretaria, coordinacion y administracion.</span>
       </div>
     </div>
   </section>
@@ -26,12 +26,12 @@
   <section class="login-panel">
     <div class="login-card">
       <p class="eyebrow">Bienvenido</p>
-      <h2>Inicia sesión</h2>
+      <h2>Inicia sesion</h2>
       <p class="subtitulo">Ingresa tus credenciales para acceder al panel escolar.</p>
 
       <form class="login-form" (ngSubmit)="login()">
         <div class="form-group">
-          <label for="correo">Correo electrónico</label>
+          <label for="correo">Correo electronico</label>
           <input
             id="correo"
             name="correo"
@@ -39,23 +39,27 @@
             [(ngModel)]="correo"
             placeholder="admin@schoolmanager.com"
             autocomplete="email"
+            required
+            [disabled]="cargando"
           />
         </div>
 
         <div class="form-group">
-          <label for="password">Contraseña</label>
+          <label for="password">Contrasena</label>
           <input
             id="password"
             name="password"
             type="password"
             [(ngModel)]="password"
-            placeholder="••••••••"
+            placeholder="********"
             autocomplete="current-password"
+            required
+            [disabled]="cargando"
           />
         </div>
 
         @if (error) {
-          <div class="error">{{ error }}</div>
+          <div class="error" role="alert" aria-live="assertive">{{ error }}</div>
         }
 
         <button type="submit" [disabled]="cargando">
