@@ -1,35 +1,8 @@
 {
-  "compileOnSave": false,
+  "extends": "./tsconfig.json",
   "compilerOptions": {
-    "baseUrl": "./",
-    "outDir": "./dist/out-tsc",
-    "ignoreDeprecations": "6.0",
-
-    "sourceMap": true,
-    "declaration": false,
-    "downlevelIteration": true,
-    "experimentalDecorators": true,
-    "module": "es2020",
-
-    "moduleResolution": "node",
-    "importHelpers": true,
-    "target": "es2020",
-
-    "moduleResolution": "bundler",
-    "importHelpers": true,
-    "target": "es2022",
-    "skipLibCheck": true,
-
-    "typeRoots": [
-      "node_modules/@types"
-    ],
-    "lib": [
-      "es2020",
-      "dom"
-    ]
-  },
-  "angularCompilerOptions": {
-    "enableIvy": true
+    "outDir": "./out-tsc/app",
+    "types": []
   },
   "files": [
     "src/main.ts",
@@ -40,7 +13,6 @@
     "src/**/*.ts"
   ],
   "exclude": [
-    "node_modules",
-    "dist"
+    "src/**/*.spec.ts"
   ]
 }
