@@ -66,7 +66,7 @@ export class Login {
         case 'USER_PROFILE_NOT_FOUND':
           return 'Tu cuenta existe, pero no esta registrada en SchoolManager. Contacta al administrador.';
         case 'USER_PROFILE_ERROR':
-          return 'No se pudo validar tu perfil. Contacta al administrador.';
+          return error.message || 'No se pudo validar tu perfil. Contacta al administrador.';
         case 'REQUEST_TIMEOUT':
           return error.message;
         case 'SESSION_NOT_FOUND':

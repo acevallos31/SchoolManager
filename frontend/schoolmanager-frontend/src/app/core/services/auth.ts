@@ -185,6 +185,10 @@ export class AuthService {
       return new AuthAppError(message, 'USER_PROFILE_ERROR');
     }
 
+    if (response.status === 502) {
+      return new AuthAppError(message, 'USER_PROFILE_ERROR');
+    }
+
     return new AuthAppError(message, 'UNKNOWN');
   }
 

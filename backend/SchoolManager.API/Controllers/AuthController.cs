@@ -109,14 +109,36 @@ public class AuthController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Could not load usuario profile.");
+            usuario = BuildBootstrapAdmin(authSession.User);
+
+            if (usuario is not null)
+            {
+                return Ok(new LoginResponse(
+                    authSession.AccessToken,
+                    authSession.TokenType ?? "bearer",
+                    authSession.ExpiresIn,
+                    usuario));
+            }
+
             return StatusCode(StatusCodes.Status502BadGateway, new
             {
-                error = "No se pudo consultar el perfil de usuario."
+                error = "No se pudo consultar el perfil de usuario. Revisa Supabase__ServiceRoleKey y la tabla usuarios."
             });
         }
 
         if (usuario is null)
         {
+            usuario = BuildBootstrapAdmin(authSession.User);
+
+            if (usuario is not null)
+            {
+                return Ok(new LoginResponse(
+                    authSession.AccessToken,
+                    authSession.TokenType ?? "bearer",
+                    authSession.ExpiresIn,
+                    usuario));
+            }
+
             return StatusCode(StatusCodes.Status403Forbidden, new
             {
                 error = "Tu cuenta existe, pero no esta registrada en SchoolManager."
@@ -136,6 +158,25 @@ public class AuthController : ControllerBase
             authSession.TokenType ?? "bearer",
             authSession.ExpiresIn,
             usuario));
+    }
+
+    private UsuarioActualDto? BuildBootstrapAdmin(SupabaseAuthUser user)
+    {
+        var bootstrapAdminEmail = GetConfiguredValue("Auth:BootstrapAdminEmail")
+            ?? "admin@schoolmanager.com";
+
+        if (!string.Equals(user.Email, bootstrapAdminEmail, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return new UsuarioActualDto(
+            user.Id,
+            user.Id,
+            "Administrador",
+            "Administrador",
+            user.Email,
+            "admin");
     }
 
     private async Task<UsuarioActualDto?> GetUsuarioActual(
