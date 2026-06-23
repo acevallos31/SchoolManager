@@ -122,6 +122,22 @@ export class Alumnos implements OnInit {
     await this.cargarAlumnos();
   }
 
+  async eliminarAlumno(id: string) {
+    if (!confirm('Eliminar definitivamente este alumno? Esta accion puede fallar si tiene matriculas o pagos relacionados.')) {
+      return;
+    }
+
+    try {
+      await this.auth.apiRequest(`/alumnos/${id}?permanente=true`, {
+        method: 'DELETE'
+      });
+      this.mostrarMensaje('Alumno eliminado correctamente', 'success');
+      await this.cargarAlumnos();
+    } catch (error) {
+      this.mostrarMensaje(error instanceof Error ? error.message : 'No se pudo eliminar el alumno', 'error');
+    }
+  }
+
   async activarAlumno(id: string) {
     if (!confirm('Activar este alumno?')) {
       return;
@@ -152,6 +168,14 @@ export class Alumnos implements OnInit {
     };
     this.mostrarFormulario = true;
     this.cdr.detectChanges();
+  }
+
+  nombreUsuarioAlumno(alumno: any): string {
+    const tutorId = alumno.tutorId || alumno.tutor_id;
+    const usuario = this.usuariosAcceso.find(item => item.id === tutorId);
+    return usuario?.usuario
+      ? `${usuario.nombreCompleto || usuario.nombre_completo || usuario.nombre} - ${usuario.usuario}`
+      : alumno.usuarioAcceso || alumno.usuario_acceso || '-';
   }
 
   abrirNuevo() {

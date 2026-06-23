@@ -112,6 +112,20 @@ export class Usuarios implements OnInit {
     await this.cargarUsuarios();
   }
 
+  async eliminarUsuario(id: string) {
+    if (!confirm('Eliminar definitivamente este usuario? Si tiene alumnos vinculados, la base puede rechazarlo.')) {
+      return;
+    }
+
+    try {
+      await this.auth.apiRequest(`/usuarios/${id}?permanente=true`, { method: 'DELETE' });
+      this.mostrarMensaje('Usuario eliminado correctamente.', 'success');
+      await this.cargarUsuarios();
+    } catch (error) {
+      this.mostrarMensaje(error instanceof Error ? error.message : 'No se pudo eliminar el usuario.', 'error');
+    }
+  }
+
   async activarUsuario(id: string) {
     await this.auth.apiRequest(`/usuarios/${id}/activar`, { method: 'PUT' });
     await this.cargarUsuarios();

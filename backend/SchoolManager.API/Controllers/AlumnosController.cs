@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using SchoolManager.API.DTOs;
 using SchoolManager.API.Services;
@@ -82,19 +83,31 @@ public class AlumnosController : ControllerBase
     public async Task<IActionResult> GetMisAlumnos(CancellationToken cancellationToken)
     {
         var usuarioId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!Guid.TryParse(usuarioId, out var tutorId))
+        var supabaseUid = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        var possibleTutorIds = new[]
+            {
+                Guid.TryParse(usuarioId, out var profileId) ? profileId : (Guid?)null,
+                Guid.TryParse(supabaseUid, out var authId) ? authId : (Guid?)null
+            }
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToList();
+
+        if (possibleTutorIds.Count == 0)
         {
             return Unauthorized(new { error = "No se pudo identificar el usuario actual." });
         }
 
         try
         {
+            var tutorFilter = string.Join(",", possibleTutorIds.Select(id => $"tutor_id.eq.{id}"));
             var alumnos = await _tableService.GetListAsync<AlumnoDto>(
                 TableName,
                 new Dictionary<string, string?>
                 {
                     ["select"] = "*",
-                    ["tutor_id"] = $"eq.{tutorId}",
+                    ["or"] = $"({tutorFilter})",
                     ["estado"] = "eq.activo",
                     ["order"] = "nombres.asc"
                 },
@@ -126,6 +139,7 @@ public class AlumnosController : ControllerBase
             if (tutorId.HasValue)
             {
                 payload["tutor_id"] = tutorId.Value;
+                await ApplyTutorSnapshotAsync(payload, tutorId.Value, cancellationToken);
             }
 
             var alumno = await _tableService.InsertAsync<AlumnoDto>(TableName, payload, cancellationToken);
@@ -155,6 +169,7 @@ public class AlumnosController : ControllerBase
         if (dto.TutorId.HasValue)
         {
             payload["tutor_id"] = dto.TutorId.Value;
+            await ApplyTutorSnapshotAsync(payload, dto.TutorId.Value, cancellationToken);
         }
 
         try
@@ -170,10 +185,16 @@ public class AlumnosController : ControllerBase
 
     [HttpDelete("{id:guid}")]
     [Authorize(Policy = "SoloAdmin")]
-    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> Delete(Guid id, [FromQuery] bool permanente, CancellationToken cancellationToken)
     {
         try
         {
+            if (permanente)
+            {
+                await _tableService.DeleteAsync(TableName, id, cancellationToken);
+                return NoContent();
+            }
+
             var alumno = await _tableService.UpdateAsync<AlumnoDto>(
                 TableName,
                 id,
@@ -328,6 +349,29 @@ public class AlumnosController : ControllerBase
             cancellationToken);
 
         return usuario.Id;
+    }
+
+    private async Task ApplyTutorSnapshotAsync(
+        Dictionary<string, object?> payload,
+        Guid tutorId,
+        CancellationToken cancellationToken)
+    {
+        var usuario = await _tableService.GetSingleAsync<UsuarioDto>(
+            "usuarios",
+            new Dictionary<string, string?>
+            {
+                ["select"] = "*",
+                ["id"] = $"eq.{tutorId}"
+            },
+            cancellationToken);
+
+        if (usuario is null)
+        {
+            throw new SupabaseTableException("El usuario de acceso seleccionado no existe.", 400);
+        }
+
+        payload["usuario_acceso"] = usuario.Usuario;
+        payload["correo_acceso"] = usuario.Correo;
     }
 
     private static Dictionary<string, object?> ToPayload(AlumnoCreateDto dto, bool useDefaultEstado)

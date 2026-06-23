@@ -181,10 +181,16 @@ public sealed class UsuariosController : ControllerBase
 
     [HttpDelete("{id:guid}")]
     [Authorize(Policy = "SoloAdmin")]
-    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> Delete(Guid id, [FromQuery] bool permanente, CancellationToken cancellationToken)
     {
         try
         {
+            if (permanente)
+            {
+                await _tableService.DeleteAsync("usuarios", id, cancellationToken);
+                return NoContent();
+            }
+
             var usuario = await _tableService.UpdateAsync<UsuarioDto>(
                 "usuarios",
                 id,

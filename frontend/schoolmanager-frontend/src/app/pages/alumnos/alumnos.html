@@ -122,7 +122,7 @@
                 {{ alumno.estado }}
               </span>
             </td>
-            <td>{{ alumno.usuarioAcceso || alumno.usuario_acceso || '-' }}</td>
+            <td>{{ nombreUsuarioAlumno(alumno) }}</td>
             <td>
               @if (alumno.estado === 'activo') {
                 <button class="btn-activar" (click)="editarAlumno(alumno)">
@@ -131,12 +131,18 @@
                 <button class="btn-desactivar" (click)="desactivarAlumno(alumno.id)">
                   Desactivar
                 </button>
+                <button class="btn-desactivar" (click)="eliminarAlumno(alumno.id)">
+                  Eliminar
+                </button>
               } @else {
                 <button class="btn-activar" (click)="editarAlumno(alumno)">
                   Editar
                 </button>
                 <button class="btn-activar" (click)="activarAlumno(alumno.id)">
                   Activar
+                </button>
+                <button class="btn-desactivar" (click)="eliminarAlumno(alumno.id)">
+                  Eliminar
                 </button>
               }
             </td>

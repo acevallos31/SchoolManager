@@ -100,6 +100,29 @@ public sealed class SupabaseTableService
         return JsonSerializer.Deserialize<List<T>>(body, JsonOptions)?.FirstOrDefault();
     }
 
+    public async Task<bool> DeleteAsync(
+        string table,
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        var url = BuildUrl(table, new Dictionary<string, string?>
+        {
+            ["id"] = $"eq.{id}"
+        });
+        using var request = CreateRequest(HttpMethod.Delete, url);
+
+        using var response = await SendAsync(request, cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            LogFailure("DELETE", table, response.StatusCode, body);
+            throw new SupabaseTableException(MapError(body, "No se pudo eliminar el registro."), (int)response.StatusCode);
+        }
+
+        return true;
+    }
+
     private HttpRequestMessage CreateRequest(HttpMethod method, string url, object? payload = null)
     {
         var serviceRoleKey = GetConfiguredValue("Supabase:ServiceRoleKey", "Supabase:SecretKey")
@@ -188,6 +211,12 @@ public sealed class SupabaseTableService
         if (body.Contains("violates check constraint", StringComparison.OrdinalIgnoreCase))
         {
             return "Uno de los valores no cumple las reglas de la base de datos.";
+        }
+
+        if (body.Contains("violates foreign key constraint", StringComparison.OrdinalIgnoreCase)
+            || body.Contains("is still referenced", StringComparison.OrdinalIgnoreCase))
+        {
+            return "No se puede eliminar porque el registro tiene informacion relacionada. Desactivalo o elimina primero sus relaciones.";
         }
 
         return fallback;
