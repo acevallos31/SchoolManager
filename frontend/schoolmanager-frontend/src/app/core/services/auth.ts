@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { environment } from '../../environments/environment';
 
-const REQUEST_TIMEOUT_MS = 12000;
+const REQUEST_TIMEOUT_MS = 30000;
 
 export type RolUsuario = 'admin' | 'operador' | 'usuario' | 'padre';
 
@@ -57,7 +57,7 @@ export class AuthService {
           },
           body: JSON.stringify({ correo: email, password })
         }),
-        'La autenticacion esta tardando demasiado. Revisa tu conexion e intenta otra vez.'
+        'La autenticacion esta tardando demasiado. Si el backend esta en Render Free, espera unos segundos e intenta otra vez.'
       );
 
       if (!response.ok) {
