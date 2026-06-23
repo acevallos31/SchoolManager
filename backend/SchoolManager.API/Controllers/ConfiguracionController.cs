@@ -106,6 +106,41 @@ public sealed class ConfiguracionController : ControllerBase
         }
     }
 
+    [HttpDelete("{catalogo}/{id:guid}")]
+    [Authorize(Policy = "SoloAdmin")]
+    public async Task<IActionResult> Delete(string catalogo, Guid id, [FromQuery] bool permanente, CancellationToken cancellationToken)
+    {
+        if (!Tables.TryGetValue(catalogo, out var table))
+        {
+            return NotFound(new { error = "Catalogo no reconocido." });
+        }
+
+        try
+        {
+            if (permanente)
+            {
+                await _tableService.DeleteAsync(table, id, cancellationToken);
+                return NoContent();
+            }
+
+            var item = await _tableService.UpdateAsync<Dictionary<string, object?>>(
+                table,
+                id,
+                new
+                {
+                    activo = false,
+                    updated_at = DateTimeOffset.UtcNow
+                },
+                cancellationToken);
+
+            return item is null ? NotFound(new { error = "Registro no encontrado." }) : Ok(item);
+        }
+        catch (SupabaseTableException ex)
+        {
+            return StatusCode(ex.StatusCode, new { error = ex.Message });
+        }
+    }
+
     private static Dictionary<string, object?> ToSnakePayload(JsonElement body)
     {
         var payload = new Dictionary<string, object?>();

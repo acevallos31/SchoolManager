@@ -16,6 +16,8 @@ export class PortalPadre implements OnInit {
   hijos: any[] = [];
   mensualidadesPorHijo: { [key: string]: any[] } = {};
   pagosPorHijo: { [key: string]: any[] } = {};
+  resumenPorHijo: { [key: string]: any } = {};
+  resumenFamiliar: any = null;
   cargando = true;
   nombrePadre = '';
   hijoSeleccionadoId = '';
@@ -52,15 +54,25 @@ export class PortalPadre implements OnInit {
     try {
       const usuario = await this.auth.getUsuarioActual();
       this.nombrePadre = usuario.nombre;
-      this.hijos = await this.auth.apiRequest<any[]>('/alumnos/mis-alumnos');
+      const estadoCuenta = await this.auth.apiRequest<any>('/mensualidades/estado-cuenta/mis-alumnos');
       this.mensualidadesPorHijo = {};
       this.pagosPorHijo = {};
+      this.resumenPorHijo = {};
 
-      await Promise.all(this.hijos.map(async hijo => {
-        const mensualidades = await this.auth.apiRequest<any[]>(`/mensualidades?alumnoId=${hijo.id}`);
-        this.mensualidadesPorHijo[hijo.id] = mensualidades;
-        this.pagosPorHijo[hijo.id] = [];
-      }));
+      const cuentas = Array.isArray(estadoCuenta.alumnos) ? estadoCuenta.alumnos : [];
+      this.hijos = cuentas.map((item: any) => item.alumno);
+      this.resumenFamiliar = estadoCuenta.resumen ?? null;
+
+      for (const item of cuentas) {
+        const alumnoId = item.alumno?.id;
+        if (!alumnoId) {
+          continue;
+        }
+
+        this.mensualidadesPorHijo[alumnoId] = Array.isArray(item.cargos) ? item.cargos : [];
+        this.pagosPorHijo[alumnoId] = Array.isArray(item.pagos) ? item.pagos : [];
+        this.resumenPorHijo[alumnoId] = item.resumen ?? null;
+      }
 
       this.hijoSeleccionadoId = this.hijos[0]?.id ?? '';
     } catch (error) {
@@ -121,9 +133,9 @@ export class PortalPadre implements OnInit {
   }
 
   abrirPago(m: any) {
-    this.mensualidadAPagar = m;
-    this.tarjeta = { numero: '', nombre: '', vencimiento: '', cvv: '' };
-    this.mostrarPago = true;
+    this.mensaje = 'Los pagos se registran en caja/colecturia. Este portal es solo de consulta.';
+    this.mensualidadAPagar = null;
+    this.mostrarPago = false;
     this.cdr.detectChanges();
   }
 

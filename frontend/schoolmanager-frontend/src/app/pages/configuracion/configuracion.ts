@@ -106,6 +106,48 @@ export class Configuracion implements OnInit {
     }
   }
 
+  async desactivarCiclo(id: string) {
+    if (!confirm('Desactivar este ciclo escolar?')) {
+      return;
+    }
+
+    this.cargando = true;
+
+    try {
+      await this.auth.apiRequest(`/configuracion/ciclos/${id}`, {
+        method: 'DELETE'
+      });
+      this.mostrarMensaje('Ciclo desactivado correctamente.', 'success');
+      await this.cargarCiclos();
+    } catch (error) {
+      this.mostrarMensaje(error instanceof Error ? error.message : 'No se pudo desactivar el ciclo.', 'error');
+    } finally {
+      this.cargando = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  async eliminarCiclo(id: string) {
+    if (!confirm('Eliminar definitivamente este ciclo escolar? Esta accion fallara si tiene matriculas relacionadas.')) {
+      return;
+    }
+
+    this.cargando = true;
+
+    try {
+      await this.auth.apiRequest(`/configuracion/ciclos/${id}?permanente=true`, {
+        method: 'DELETE'
+      });
+      this.mostrarMensaje('Ciclo eliminado correctamente.', 'success');
+      await this.cargarCiclos();
+    } catch (error) {
+      this.mostrarMensaje(error instanceof Error ? error.message : 'No se pudo eliminar el ciclo.', 'error');
+    } finally {
+      this.cargando = false;
+      this.cdr.detectChanges();
+    }
+  }
+
   cancelarCiclo() {
     this.ciclo = this.crearCicloVacio();
     this.cicloEditandoId = '';

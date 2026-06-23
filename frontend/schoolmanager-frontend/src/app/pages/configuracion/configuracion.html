@@ -89,6 +89,10 @@
               <td>{{ c.activo === false ? 'No' : 'Si' }}</td>
               <td>
                 <button class="btn-editar" (click)="editarCiclo(c)">Editar</button>
+                @if (c.activo !== false) {
+                  <button class="btn-cancelar" (click)="desactivarCiclo(c.id)">Desactivar</button>
+                }
+                <button class="btn-cancelar" (click)="eliminarCiclo(c.id)">Eliminar</button>
               </td>
             </tr>
           } @empty {

@@ -109,13 +109,40 @@ public sealed class CargoDto
 
     [JsonPropertyName("created_at")]
     public DateTimeOffset CreatedAt { get; set; }
+
+    [JsonPropertyName("updated_at")]
+    public DateTimeOffset? UpdatedAt { get; set; }
 }
 
 public sealed class RegistrarPagoCargoDto
 {
     public Guid CargoId { get; set; }
+
+    [JsonPropertyName("cargo_id")]
+    public Guid CargoIdSnake { get; set; }
+
+    [JsonPropertyName("mensualidad_id")]
+    public Guid MensualidadId { get; set; }
+
     public decimal MontoPagado { get; set; }
+
+    [JsonPropertyName("monto_pagado")]
+    public decimal MontoPagadoSnake { get; set; }
+
     public string MetodoPago { get; set; } = "efectivo";
+
+    [JsonPropertyName("metodo_pago")]
+    public string? MetodoPagoSnake { get; set; }
+
+    public Guid CargoIdEfectivo => CargoId != Guid.Empty
+        ? CargoId
+        : CargoIdSnake != Guid.Empty
+            ? CargoIdSnake
+            : MensualidadId;
+
+    public decimal MontoPagadoEfectivo => MontoPagado > 0 ? MontoPagado : MontoPagadoSnake;
+
+    public string MetodoPagoEfectivo => string.IsNullOrWhiteSpace(MetodoPagoSnake) ? MetodoPago : MetodoPagoSnake;
 }
 
 public sealed class UsuarioDto

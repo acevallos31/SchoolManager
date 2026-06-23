@@ -1,5 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text.Json;
 using SchoolManager.API.DTOs;
 using SchoolManager.API.Services;
 
@@ -133,11 +136,93 @@ public class MensualidadesController : ControllerBase
                 },
                 cancellationToken);
 
+            var pagos = await GetPagosDeCargosAsync(cargos, cancellationToken);
+
             return Ok(new
             {
                 alumnoId,
+                cargos = cargos.Select(ToLegacyMensualidad),
+                pagos,
                 pagados = cargos.Where(cargo => cargo.Estado == "pagado").Select(ToLegacyMensualidad),
-                pendientes = cargos.Where(cargo => cargo.Estado is "pendiente" or "vencido").Select(ToLegacyMensualidad)
+                pendientes = cargos.Where(cargo => cargo.Estado is "pendiente" or "vencido").Select(ToLegacyMensualidad),
+                resumen = BuildResumen(cargos, pagos)
+            });
+        }
+        catch (SupabaseTableException ex)
+        {
+            return StatusCode(ex.StatusCode, new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("estado-cuenta/mis-alumnos")]
+    [Authorize(Policy = "AdminOPadre")]
+    public async Task<IActionResult> GetMiEstadoCuenta(CancellationToken cancellationToken)
+    {
+        var possibleTutorIds = GetPossibleTutorIds();
+
+        if (possibleTutorIds.Count == 0)
+        {
+            return Unauthorized(new { error = "No se pudo identificar el usuario actual." });
+        }
+
+        try
+        {
+            var tutorFilter = string.Join(",", possibleTutorIds.Select(id => $"tutor_id.eq.{id}"));
+            var alumnos = await _tableService.GetListAsync<AlumnoDto>(
+                "alumnos",
+                new Dictionary<string, string?>
+                {
+                    ["select"] = "*",
+                    ["or"] = $"({tutorFilter})",
+                    ["estado"] = "eq.activo",
+                    ["order"] = "nombres.asc"
+                },
+                cancellationToken);
+
+            var detalle = new List<object>();
+            decimal totalPendiente = 0;
+            decimal totalVencido = 0;
+            decimal totalPagado = 0;
+
+            foreach (var alumno in alumnos)
+            {
+                var cargos = await _tableService.GetListAsync<CargoDto>(
+                    "cargos",
+                    new Dictionary<string, string?>
+                    {
+                        ["select"] = "*",
+                        ["alumno_id"] = $"eq.{alumno.Id}",
+                        ["order"] = "fecha_vencimiento.asc"
+                    },
+                    cancellationToken);
+
+                var pagos = await GetPagosDeCargosAsync(cargos, cancellationToken);
+                var resumen = BuildResumen(cargos, pagos);
+
+                totalPendiente += resumen.TotalPendiente;
+                totalVencido += resumen.TotalVencido;
+                totalPagado += resumen.TotalPagado;
+
+                detalle.Add(new
+                {
+                    alumno,
+                    cargos = cargos.Select(ToLegacyMensualidad),
+                    pagos,
+                    resumen
+                });
+            }
+
+            return Ok(new
+            {
+                alumnos = detalle,
+                resumen = new
+                {
+                    totalAlumnos = alumnos.Count,
+                    totalPendiente,
+                    totalVencido,
+                    totalPagado,
+                    totalSaldo = totalPendiente + totalVencido
+                }
             });
         }
         catch (SupabaseTableException ex)
@@ -184,4 +269,97 @@ public class MensualidadesController : ControllerBase
             fecha_vencimiento = cargo.FechaVencimiento
         };
     }
+
+    private async Task<IReadOnlyList<Dictionary<string, object?>>> GetPagosDeCargosAsync(
+        IReadOnlyList<CargoDto> cargos,
+        CancellationToken cancellationToken)
+    {
+        if (cargos.Count == 0)
+        {
+            return [];
+        }
+
+        return await _tableService.GetListAsync<Dictionary<string, object?>>(
+            "pagos",
+            new Dictionary<string, string?>
+            {
+                ["select"] = "*",
+                ["cargo_id"] = $"in.({string.Join(",", cargos.Select(cargo => cargo.Id))})",
+                ["order"] = "fecha_pago.desc"
+            },
+            cancellationToken);
+    }
+
+    private static EstadoCuentaResumen BuildResumen(
+        IReadOnlyList<CargoDto> cargos,
+        IReadOnlyList<Dictionary<string, object?>> pagos)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var totalPendiente = cargos
+            .Where(cargo => cargo.Estado == "pendiente" && cargo.FechaVencimiento >= today)
+            .Sum(cargo => cargo.Monto);
+        var totalVencido = cargos
+            .Where(cargo => cargo.Estado == "vencido" || (cargo.Estado == "pendiente" && cargo.FechaVencimiento < today))
+            .Sum(cargo => cargo.Monto);
+        var totalPagado = pagos
+            .Where(pago => !TryReadBool(pago, "anulado"))
+            .Sum(pago => TryReadDecimal(pago, "monto_pagado"));
+
+        return new EstadoCuentaResumen(totalPendiente, totalVencido, totalPagado, totalPendiente + totalVencido);
+    }
+
+    private List<Guid> GetPossibleTutorIds()
+    {
+        var usuarioId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var supabaseUid = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+        return new[]
+            {
+                Guid.TryParse(usuarioId, out var profileId) ? profileId : (Guid?)null,
+                Guid.TryParse(supabaseUid, out var authId) ? authId : (Guid?)null
+            }
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToList();
+    }
+
+    private static decimal TryReadDecimal(Dictionary<string, object?> values, string key)
+    {
+        if (!values.TryGetValue(key, out var value) || value is null)
+        {
+            return 0;
+        }
+
+        return value switch
+        {
+            decimal decimalValue => decimalValue,
+            double doubleValue => Convert.ToDecimal(doubleValue),
+            int intValue => intValue,
+            long longValue => longValue,
+            JsonElement element when element.ValueKind == JsonValueKind.Number && element.TryGetDecimal(out var parsed) => parsed,
+            _ => decimal.TryParse(value.ToString(), out var parsed) ? parsed : 0
+        };
+    }
+
+    private static bool TryReadBool(Dictionary<string, object?> values, string key)
+    {
+        if (!values.TryGetValue(key, out var value) || value is null)
+        {
+            return false;
+        }
+
+        return value switch
+        {
+            bool boolValue => boolValue,
+            JsonElement element when element.ValueKind is JsonValueKind.True or JsonValueKind.False => element.GetBoolean(),
+            _ => bool.TryParse(value.ToString(), out var parsed) && parsed
+        };
+    }
+
+    private sealed record EstadoCuentaResumen(
+        decimal TotalPendiente,
+        decimal TotalVencido,
+        decimal TotalPagado,
+        decimal TotalSaldo);
 }
