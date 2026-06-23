@@ -23,6 +23,7 @@ public class AlumnosController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Policy = "AdminOOperador")]
     public async Task<IActionResult> GetAll(
         [FromQuery] string? buscar,
         [FromQuery] string? estado,
@@ -57,6 +58,7 @@ public class AlumnosController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = "AdminOOperador")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
     {
         try

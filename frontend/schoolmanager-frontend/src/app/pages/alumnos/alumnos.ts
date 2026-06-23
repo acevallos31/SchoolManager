@@ -30,6 +30,13 @@ export class Alumnos implements OnInit {
   ) {}
 
   async ngOnInit() {
+    const rol = this.auth.getRol();
+
+    if (rol === 'usuario' || rol === 'padre') {
+      this.router.navigate(['/portal-padre']);
+      return;
+    }
+
     await this.cargarAlumnos();
   }
 
@@ -38,15 +45,20 @@ export class Alumnos implements OnInit {
     this.cdr.detectChanges();
 
     try {
-      const [data, usuarios] = await Promise.all([
-        this.auth.apiRequest<any[]>('/alumnos'),
-        this.auth.apiRequest<any[]>('/usuarios?rol=usuario&incluirInactivos=false')
-      ]);
+      const data = await this.auth.apiRequest<any[]>('/alumnos');
       this.alumnos = Array.isArray(data) ? [...data] : [];
-      this.usuariosAcceso = Array.isArray(usuarios) ? [...usuarios] : [];
+
+      try {
+        const usuarios = await this.auth.apiRequest<any[]>('/usuarios?rol=usuario&incluirInactivos=false');
+        this.usuariosAcceso = Array.isArray(usuarios) ? [...usuarios] : [];
+      } catch (usuariosError) {
+        console.error('Error cargando usuarios de acceso:', usuariosError);
+        this.usuariosAcceso = [];
+        this.mostrarMensaje('Alumnos cargados, pero no se pudieron cargar los usuarios de acceso.', 'error');
+      }
     } catch (error) {
       console.error('Error cargando alumnos:', error);
-      this.mostrarMensaje('No se pudieron cargar los alumnos.', 'error');
+      this.mostrarMensaje(error instanceof Error ? error.message : 'No se pudieron cargar los alumnos.', 'error');
       this.alumnos = [];
     } finally {
       this.cargando = false;
