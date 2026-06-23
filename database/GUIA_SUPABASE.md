@@ -118,3 +118,13 @@ export const environment = {
 INSERT INTO usuarios (nombre, correo, rol, supabase_uid)
 VALUES ('Admin Principal', 'admin@schoolmanager.com', 'admin', 'UUID-AQUI');
 ```
+
+## Migraciones ERP actuales
+
+Para la version transaccional actual del sistema, ejecuta en Supabase SQL Editor estos scripts en este orden:
+
+1. `database/schoolmanager_erp_core.sql`
+2. `database/schoolmanager_billing_rules.sql`
+3. `database/schoolmanager_transactional_functions.sql`
+
+El ultimo script crea `registrar_matricula_transaccional`, la funcion que el backend usa para crear una matricula y todas sus facturas en una sola operacion atomica. Si esta funcion no existe en Supabase, el endpoint de matriculas no podra registrar nuevas matriculas.

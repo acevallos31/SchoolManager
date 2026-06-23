@@ -77,76 +77,26 @@ public class MatriculasController : ControllerBase
 
         try
         {
-            var ciclo = await _tableService.GetSingleAsync<CicloEscolarDto>(
-                "ciclos_escolares",
-                new Dictionary<string, string?> { ["select"] = "*", ["id"] = $"eq.{dto.CicloId}" },
-                cancellationToken);
-
-            if (ciclo is null)
-            {
-                return BadRequest(new { error = "El ciclo escolar seleccionado no existe." });
-            }
-
-            var matriculaExistente = await _tableService.GetSingleAsync<MatriculaDto>(
-                TableName,
-                new Dictionary<string, string?>
+            var resultado = await _tableService.RpcAsync<RegistrarMatriculaResponse>(
+                "registrar_matricula_transaccional",
+                new
                 {
-                    ["select"] = "*",
-                    ["alumno_id"] = $"eq.{dto.AlumnoId}",
-                    ["ciclo_id"] = $"eq.{dto.CicloId}"
+                    p_alumno_id = dto.AlumnoId,
+                    p_ciclo_id = dto.CicloId,
+                    p_grado_id = dto.GradoId,
+                    p_seccion_id = dto.SeccionId,
+                    p_plan_pago_id = dto.PlanPagoId,
+                    p_monto_matricula = dto.Monto > 0 ? dto.Monto : (decimal?)null,
+                    p_registrado_por = TryGetUserGuid()
                 },
                 cancellationToken);
 
-            if (matriculaExistente is not null)
+            return CreatedAtAction(nameof(GetById), new { id = resultado.Matricula.Id }, new
             {
-                return Conflict(new { error = "Este alumno ya tiene una matricula registrada para el ciclo seleccionado." });
-            }
-
-            var plan = await _tableService.GetSingleAsync<PlanPagoDto>(
-                "planes_pago",
-                new Dictionary<string, string?> { ["select"] = "*", ["id"] = $"eq.{dto.PlanPagoId}" },
-                cancellationToken);
-
-            if (plan is null || !plan.Activo)
-            {
-                return BadRequest(new { error = "El plan de pago seleccionado no existe o esta inactivo." });
-            }
-
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
-            if (ciclo.MatriculaInicio.HasValue
-                && ciclo.MatriculaFin.HasValue
-                && (today < ciclo.MatriculaInicio.Value || today > ciclo.MatriculaFin.Value))
-            {
-                return BadRequest(new
-                {
-                    error = $"El periodo de matricula para {ciclo.Nombre} esta cerrado. Vigente del {ciclo.MatriculaInicio:yyyy-MM-dd} al {ciclo.MatriculaFin:yyyy-MM-dd}."
-                });
-            }
-
-            var montoMatricula = dto.Monto > 0 ? dto.Monto : plan.MontoMatricula;
-            var payload = new
-            {
-                alumno_id = dto.AlumnoId,
-                ciclo_id = dto.CicloId,
-                grado_id = dto.GradoId,
-                seccion_id = dto.SeccionId,
-                plan_pago_id = dto.PlanPagoId,
-                fecha_matricula = today,
-                monto = montoMatricula,
-                estado = "pendiente",
-                registrado_por = TryGetUserGuid(),
-                created_at = DateTimeOffset.UtcNow
-            };
-
-            var matricula = await _tableService.InsertAsync<MatriculaDto>(TableName, payload, cancellationToken);
-            var cargos = await GenerarCargosAsync(matricula, ciclo, plan, cancellationToken);
-
-            return CreatedAtAction(nameof(GetById), new { id = matricula.Id }, new
-            {
-                matricula,
-                facturasGeneradas = cargos.Count,
-                facturas = cargos,
-                mensaje = "Matricula registrada. La factura de matricula y las facturas del plan fueron generadas correctamente."
+                matricula = resultado.Matricula,
+                facturasGeneradas = resultado.Facturas.Count,
+                facturas = resultado.Facturas,
+                mensaje = resultado.Mensaje
             });
         }
         catch (SupabaseTableException ex)
@@ -183,95 +133,16 @@ public class MatriculasController : ControllerBase
         }
     }
 
-    private async Task<IReadOnlyList<CargoDto>> GenerarCargosAsync(
-        MatriculaDto matricula,
-        CicloEscolarDto ciclo,
-        PlanPagoDto plan,
-        CancellationToken cancellationToken)
-    {
-        var cargos = new List<CargoDto>();
-        var now = DateTimeOffset.UtcNow;
-
-        if (plan.MontoMatricula > 0)
-        {
-            cargos.Add(await _tableService.InsertAsync<CargoDto>(
-                "cargos",
-                new
-                {
-                    matricula_id = matricula.Id,
-                    alumno_id = matricula.AlumnoId,
-                    tipo = "matricula",
-                    concepto = $"Factura de matricula - {ciclo.Nombre}",
-                    numero_cuota = (int?)null,
-                    monto = plan.MontoMatricula,
-                    fecha_vencimiento = ciclo.MatriculaFin ?? DateOnly.FromDateTime(DateTime.UtcNow),
-                    estado = "pendiente",
-                    created_at = now
-                },
-                cancellationToken));
-        }
-
-        var cantidadCuotas = Math.Max(1, plan.CantidadCuotas);
-
-        if (plan.MontoTotalAnual <= 0 || cantidadCuotas <= 0)
-        {
-            return cargos;
-        }
-
-        var montoCuota = Math.Round(CalcularMontoFinanciado(plan) / cantidadCuotas, 2, MidpointRounding.AwayFromZero);
-        var baseYear = ciclo.FechaInicio.Year;
-        var baseDate = SafeDate(baseYear, Math.Clamp(plan.MesInicio, 1, 12), Math.Clamp(plan.DiaVencimiento, 1, 28));
-
-        for (var cuota = 1; cuota <= cantidadCuotas; cuota++)
-        {
-            var vencimiento = DateOnly.FromDateTime(baseDate.AddMonths(cuota - 1));
-            var estado = vencimiento < DateOnly.FromDateTime(DateTime.UtcNow) ? "vencido" : "pendiente";
-
-            cargos.Add(await _tableService.InsertAsync<CargoDto>(
-                "cargos",
-                new
-                {
-                    matricula_id = matricula.Id,
-                    alumno_id = matricula.AlumnoId,
-                    tipo = cantidadCuotas == 1 ? "pago_anual" : "mensualidad",
-                    concepto = BuildConcepto(plan, cuota, cantidadCuotas),
-                    numero_cuota = cuota,
-                    monto = montoCuota,
-                    fecha_vencimiento = vencimiento,
-                    estado,
-                    created_at = now
-                },
-                cancellationToken));
-        }
-
-        return cargos;
-    }
-
     private Guid? TryGetUserGuid()
     {
         var id = User.FindFirstValue(ClaimTypes.NameIdentifier);
         return Guid.TryParse(id, out var parsed) ? parsed : null;
     }
 
-    private static decimal CalcularMontoFinanciado(PlanPagoDto plan)
+    private sealed class RegistrarMatriculaResponse
     {
-        var descuento = plan.DescuentoPorcentaje <= 0
-            ? 0
-            : plan.MontoTotalAnual * (plan.DescuentoPorcentaje / 100);
-
-        return Math.Max(0, plan.MontoTotalAnual - descuento);
-    }
-
-    private static DateTime SafeDate(int year, int month, int day)
-    {
-        var safeDay = Math.Min(day, DateTime.DaysInMonth(year, month));
-        return new DateTime(year, month, safeDay, 0, 0, 0, DateTimeKind.Utc);
-    }
-
-    private static string BuildConcepto(PlanPagoDto plan, int cuota, int total)
-    {
-        return total == 1
-            ? $"Factura anual - {plan.Nombre}"
-            : $"Factura {plan.Nombre} - cuota {cuota} de {total}";
+        public MatriculaDto Matricula { get; set; } = new();
+        public List<CargoDto> Facturas { get; set; } = [];
+        public string Mensaje { get; set; } = string.Empty;
     }
 }

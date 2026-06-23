@@ -123,6 +123,30 @@ public sealed class SupabaseTableService
         return true;
     }
 
+    public async Task<T> RpcAsync<T>(
+        string functionName,
+        object payload,
+        CancellationToken cancellationToken)
+        where T : class
+    {
+        var supabaseUrl = GetConfiguredValue("Supabase:Url")?.TrimEnd('/')
+            ?? throw new SupabaseTableException("Supabase__Url no esta configurada en el backend.", 500);
+        var url = $"{supabaseUrl}/rest/v1/rpc/{functionName}";
+        using var request = CreateRequest(HttpMethod.Post, url, payload);
+
+        using var response = await SendAsync(request, cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            LogFailure("RPC", functionName, response.StatusCode, body);
+            throw new SupabaseTableException(MapError(body, "No se pudo completar la operacion transaccional."), (int)response.StatusCode);
+        }
+
+        return JsonSerializer.Deserialize<T>(body, JsonOptions)
+            ?? throw new SupabaseTableException("La base de datos no devolvio una respuesta valida.", 502);
+    }
+
     private HttpRequestMessage CreateRequest(HttpMethod method, string url, object? payload = null)
     {
         var serviceRoleKey = GetConfiguredValue("Supabase:ServiceRoleKey", "Supabase:SecretKey")
@@ -197,6 +221,12 @@ public sealed class SupabaseTableService
 
     private static string MapError(string body, string fallback)
     {
+        var postgresMessage = TryReadPostgresMessage(body);
+        if (!string.IsNullOrWhiteSpace(postgresMessage))
+        {
+            return postgresMessage;
+        }
+
         if (body.Contains("duplicate key", StringComparison.OrdinalIgnoreCase)
             || body.Contains("violates unique constraint", StringComparison.OrdinalIgnoreCase))
         {
@@ -220,6 +250,29 @@ public sealed class SupabaseTableService
         }
 
         return fallback;
+    }
+
+    private static string? TryReadPostgresMessage(string body)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(body);
+            if (document.RootElement.TryGetProperty("message", out var message))
+            {
+                return message.GetString();
+            }
+
+            if (document.RootElement.TryGetProperty("details", out var details))
+            {
+                return details.GetString();
+            }
+        }
+        catch
+        {
+            return null;
+        }
+
+        return null;
     }
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
