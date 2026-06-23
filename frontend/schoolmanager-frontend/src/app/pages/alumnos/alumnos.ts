@@ -97,7 +97,7 @@ export class Alumnos implements OnInit {
       const url = this.alumnoEditandoId ? `/alumnos/${this.alumnoEditandoId}` : '/alumnos';
       await this.auth.apiRequest(url, {
         method: this.alumnoEditandoId ? 'PUT' : 'POST',
-        body: JSON.stringify({ ...this.nuevoAlumno, estado: 'activo' })
+        body: JSON.stringify(this.crearPayloadAlumno())
       });
 
       this.mostrarMensaje(this.alumnoEditandoId ? 'Alumno actualizado correctamente' : 'Alumno registrado correctamente', 'success');
@@ -156,7 +156,7 @@ export class Alumnos implements OnInit {
       nombres: alumno.nombres || '',
       apellidos: alumno.apellidos || '',
       fechaNacimiento: alumno.fechaNacimiento || alumno.fecha_nacimiento || '',
-      sexo: alumno.sexo || '',
+      sexo: this.normalizarSexo(alumno.sexo),
       dni: alumno.dni || alumno.identidad || '',
       padresEncargados: alumno.padresEncargados || alumno.padres_encargados || '',
       direccion: alumno.direccion || '',
@@ -235,6 +235,38 @@ export class Alumnos implements OnInit {
       passwordAcceso: '',
       tutorId: ''
     };
+  }
+
+  private crearPayloadAlumno() {
+    const payload: any = {
+      ...this.nuevoAlumno,
+      sexo: this.normalizarSexo(this.nuevoAlumno.sexo),
+      estado: 'activo'
+    };
+
+    if (!payload.tutorId) {
+      delete payload.tutorId;
+    }
+
+    return payload;
+  }
+
+  private normalizarSexo(valor: string | null | undefined): string {
+    const sexo = String(valor ?? '').trim().toUpperCase();
+
+    if (sexo === 'M' || sexo === 'MASCULINO') {
+      return 'M';
+    }
+
+    if (sexo === 'F' || sexo === 'FEMENINO') {
+      return 'F';
+    }
+
+    if (sexo === 'O' || sexo === 'OTRO' || sexo === 'OTRA') {
+      return 'O';
+    }
+
+    return sexo;
   }
 
   private mostrarMensaje(texto: string, tipo: 'success' | 'error') {

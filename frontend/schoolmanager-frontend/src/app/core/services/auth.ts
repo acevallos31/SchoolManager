@@ -124,7 +124,7 @@ export class AuthService {
       const body = await response
         .json()
         .catch(() => ({ error: 'La API no pudo completar la solicitud.' }));
-      throw new Error(String(body.error ?? body.message ?? 'La API no pudo completar la solicitud.'));
+      throw new Error(this.extraerMensajeApi(body));
     }
 
     if (response.status === 204) {
@@ -190,6 +190,24 @@ export class AuthService {
     }
 
     return new AuthAppError(message, 'UNKNOWN');
+  }
+
+  private extraerMensajeApi(body: any): string {
+    if (Array.isArray(body?.errors)) {
+      return body.errors.map((item: unknown) => String(item)).join(' ');
+    }
+
+    if (body?.errors && typeof body.errors === 'object') {
+      const mensajes = Object.values(body.errors)
+        .flatMap((value: any) => Array.isArray(value) ? value : [value])
+        .map((value: unknown) => String(value));
+
+      if (mensajes.length > 0) {
+        return mensajes.join(' ');
+      }
+    }
+
+    return String(body?.error ?? body?.message ?? 'La API no pudo completar la solicitud.');
   }
 
   private guardarSesion(session: SesionUsuario): void {

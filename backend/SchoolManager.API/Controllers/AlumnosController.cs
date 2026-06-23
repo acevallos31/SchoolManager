@@ -165,15 +165,15 @@ public class AlumnosController : ControllerBase
             return BadRequest(new { errors = validationErrors });
         }
 
-        var payload = ToPayload(dto, useDefaultEstado: false);
-        if (dto.TutorId.HasValue)
-        {
-            payload["tutor_id"] = dto.TutorId.Value;
-            await ApplyTutorSnapshotAsync(payload, dto.TutorId.Value, cancellationToken);
-        }
-
         try
         {
+            var payload = ToPayload(dto, useDefaultEstado: false);
+            if (dto.TutorId.HasValue)
+            {
+                payload["tutor_id"] = dto.TutorId.Value;
+                await ApplyTutorSnapshotAsync(payload, dto.TutorId.Value, cancellationToken);
+            }
+
             var alumno = await _tableService.UpdateAsync<AlumnoDto>(TableName, id, payload, cancellationToken);
             return alumno is null ? NotFound(new { error = "Alumno no encontrado." }) : Ok(alumno);
         }
@@ -264,7 +264,7 @@ public class AlumnosController : ControllerBase
 
         if (isCreate || !string.IsNullOrWhiteSpace(dto.Sexo))
         {
-            var sexo = dto.Sexo?.Trim().ToUpperInvariant();
+            var sexo = NormalizeSexo(dto.Sexo);
             if (string.IsNullOrWhiteSpace(sexo))
             {
                 errors.Add("El sexo del alumno es obligatorio.");
@@ -384,7 +384,7 @@ public class AlumnosController : ControllerBase
         AddIfHasValue(payload, "nombres", FirstValue(dto.Nombres, dto.Nombre));
         AddIfHasValue(payload, "apellidos", FirstValue(dto.Apellidos, dto.Apellido));
         AddIfHasValue(payload, "dni", FirstValue(dto.Dni, dto.Identidad));
-        AddIfHasValue(payload, "sexo", dto.Sexo?.Trim().ToUpperInvariant());
+        AddIfHasValue(payload, "sexo", NormalizeSexo(dto.Sexo));
         AddIfHasValue(payload, "padres_encargados", dto.PadresEncargados);
         AddIfHasValue(payload, "direccion", dto.Direccion);
         AddIfHasValue(payload, "correo_acceso", dto.CorreoAcceso?.Trim().ToLowerInvariant());
@@ -426,6 +426,19 @@ public class AlumnosController : ControllerBase
     private static string? FirstValue(params string?[] values)
     {
         return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+    }
+
+    private static string? NormalizeSexo(string? value)
+    {
+        var sexo = value?.Trim().ToUpperInvariant();
+
+        return sexo switch
+        {
+            "M" or "MASCULINO" => "M",
+            "F" or "FEMENINO" => "F",
+            "O" or "OTRO" or "OTRA" => "O",
+            _ => sexo
+        };
     }
 
     private static string BuildNombreUsuarioAcceso(AlumnoCreateDto dto, string nombres, string nombreAlumno)
