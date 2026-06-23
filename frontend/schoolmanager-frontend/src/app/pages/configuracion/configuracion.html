@@ -1,0 +1,103 @@
+<div class="page-container">
+  <div class="page-header">
+    <button class="btn-volver" (click)="volver()">Volver</button>
+    <h1>Configuracion Institucional</h1>
+    <button class="btn-nuevo" (click)="abrirNuevoCiclo()">+ Nuevo Ciclo</button>
+  </div>
+
+  @if (mensaje) {
+    <div class="mensaje toast" [class.toast-error]="mensajeTipo === 'error'" [class.toast-success]="mensajeTipo === 'success'">
+      {{ mensaje }}
+    </div>
+  }
+
+  <section class="panel">
+    <div class="panel-header">
+      <div>
+        <h2>Ciclos escolares y periodo de matricula</h2>
+        <p>El backend solo permite matricular cuando la fecha actual esta dentro del periodo configurado.</p>
+      </div>
+    </div>
+
+    @if (mostrarFormularioCiclo) {
+      <div class="formulario">
+        <h3>{{ cicloEditandoId ? 'Editar ciclo escolar' : 'Crear ciclo escolar' }}</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Nombre *</label>
+            <input type="text" [(ngModel)]="ciclo.nombre" placeholder="Ej: Ano Escolar 2026" />
+          </div>
+          <div class="form-group">
+            <label>Estado</label>
+            <select [(ngModel)]="ciclo.activo">
+              <option [ngValue]="true">Activo</option>
+              <option [ngValue]="false">Inactivo</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Inicio del ciclo *</label>
+            <input type="date" [(ngModel)]="ciclo.fechaInicio" />
+          </div>
+          <div class="form-group">
+            <label>Fin del ciclo *</label>
+            <input type="date" [(ngModel)]="ciclo.fechaFin" />
+          </div>
+          <div class="form-group">
+            <label>Inicio de matricula *</label>
+            <input type="date" [(ngModel)]="ciclo.matriculaInicio" />
+          </div>
+          <div class="form-group">
+            <label>Fin de matricula *</label>
+            <input type="date" [(ngModel)]="ciclo.matriculaFin" />
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn-cancelar" (click)="cancelarCiclo()">Cancelar</button>
+          <button class="btn-guardar" (click)="guardarCiclo()" [disabled]="cargando">
+            {{ cargando ? 'Guardando...' : 'Guardar ciclo' }}
+          </button>
+        </div>
+      </div>
+    }
+
+    @if (cargando && !mostrarFormularioCiclo) {
+      <p class="cargando">Cargando ciclos...</p>
+    } @else {
+      <table class="tabla">
+        <thead>
+          <tr>
+            <th>Ciclo</th>
+            <th>Fechas del ciclo</th>
+            <th>Periodo de matricula</th>
+            <th>Estado matricula</th>
+            <th>Activo</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (c of ciclos; track c.id) {
+            <tr>
+              <td>{{ c.nombre }}</td>
+              <td>{{ c.fechaInicio || c.fecha_inicio }} / {{ c.fechaFin || c.fecha_fin }}</td>
+              <td>{{ c.matriculaInicio || c.matricula_inicio || '-' }} / {{ c.matriculaFin || c.matricula_fin || '-' }}</td>
+              <td>
+                <span [class]="'badge-' + periodoClase(c)">
+                  {{ periodoEstado(c) }}
+                </span>
+              </td>
+              <td>{{ c.activo === false ? 'No' : 'Si' }}</td>
+              <td>
+                <button class="btn-editar" (click)="editarCiclo(c)">Editar</button>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="6" class="sin-datos">No hay ciclos configurados</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </section>
+</div>
