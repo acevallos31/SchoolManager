@@ -372,7 +372,6 @@ public class AlumnosController : ControllerBase
             throw new SupabaseTableException("El usuario de acceso seleccionado no existe.", 400);
         }
 
-        payload["usuario_acceso"] = usuario.Usuario;
         payload["correo_acceso"] = usuario.Correo;
     }
 

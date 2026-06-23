@@ -121,10 +121,7 @@ export class AuthService {
     });
 
     if (!response.ok) {
-      const body = await response
-        .json()
-        .catch(() => ({ error: 'La API no pudo completar la solicitud.' }));
-      throw new Error(this.extraerMensajeApi(body));
+      throw new Error(await this.extraerErrorRespuesta(response));
     }
 
     if (response.status === 204) {
@@ -190,6 +187,39 @@ export class AuthService {
     }
 
     return new AuthAppError(message, 'UNKNOWN');
+  }
+
+  private async extraerErrorRespuesta(response: Response): Promise<string> {
+    const text = await response.text().catch(() => '');
+    let body: any = null;
+
+    if (text) {
+      try {
+        body = JSON.parse(text);
+      } catch {
+        body = { error: text };
+      }
+    }
+
+    const message = this.extraerMensajeApi(body);
+
+    if (message !== 'La API no pudo completar la solicitud.') {
+      return message;
+    }
+
+    if (response.status === 401) {
+      return 'Tu sesion expiro o no tienes acceso. Inicia sesion nuevamente.';
+    }
+
+    if (response.status === 403) {
+      return 'No tienes permiso para realizar esta accion.';
+    }
+
+    if (response.status >= 500) {
+      return 'El servidor no pudo completar la solicitud. Revisa los logs del backend.';
+    }
+
+    return `${message} Codigo HTTP ${response.status}.`;
   }
 
   private extraerMensajeApi(body: any): string {
