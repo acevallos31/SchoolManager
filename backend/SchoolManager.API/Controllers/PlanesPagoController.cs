@@ -20,21 +20,57 @@ public sealed class PlanesPagoController : ControllerBase
 
     [HttpGet]
     [Authorize(Policy = "AdminOOperador")]
-    public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetAll([FromQuery] bool incluirInactivos, CancellationToken cancellationToken)
     {
+        var query = new Dictionary<string, string?>
+        {
+            ["select"] = "*",
+            ["order"] = "nombre.asc"
+        };
+
+        if (!incluirInactivos)
+        {
+            query["activo"] = "eq.true";
+        }
+
         try
         {
             var planes = await _tableService.GetListAsync<PlanPagoDto>(
                 TableName,
-                new Dictionary<string, string?>
-                {
-                    ["select"] = "*",
-                    ["activo"] = "eq.true",
-                    ["order"] = "nombre.asc"
-                },
+                query,
                 cancellationToken);
 
             return Ok(planes);
+        }
+        catch (SupabaseTableException ex)
+        {
+            return StatusCode(ex.StatusCode, new { error = ex.Message });
+        }
+    }
+
+    [HttpDelete("{id:guid}")]
+    [Authorize(Policy = "SoloAdmin")]
+    public async Task<IActionResult> Delete(Guid id, [FromQuery] bool permanente, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (permanente)
+            {
+                await _tableService.DeleteAsync(TableName, id, cancellationToken);
+                return NoContent();
+            }
+
+            var plan = await _tableService.UpdateAsync<PlanPagoDto>(
+                TableName,
+                id,
+                new
+                {
+                    activo = false,
+                    updated_at = DateTimeOffset.UtcNow
+                },
+                cancellationToken);
+
+            return plan is null ? NotFound(new { error = "Plan de pago no encontrado." }) : Ok(plan);
         }
         catch (SupabaseTableException ex)
         {

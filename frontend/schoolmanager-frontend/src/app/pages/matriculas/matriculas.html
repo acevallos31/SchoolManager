@@ -14,6 +14,7 @@
   @if (mostrarFormulario) {
     <div class="formulario">
       <h3>Registrar matricula</h3>
+      <p class="nota-flujo">Al guardar, el backend genera automaticamente la factura de matricula y las cuotas futuras segun el plan seleccionado.</p>
       <div class="form-grid">
         <div class="form-group">
           <label>Alumno *</label>
@@ -35,7 +36,7 @@
         </div>
         <div class="form-group">
           <label>Grado *</label>
-          <select [(ngModel)]="nuevaMatricula.gradoId">
+          <select [(ngModel)]="nuevaMatricula.gradoId" (change)="cambiarGrado()">
             <option value="">Seleccionar grado</option>
             @for (g of grados; track g.id) {
               <option [value]="g.id">{{ g.nombre }}</option>
@@ -46,7 +47,7 @@
           <label>Seccion *</label>
           <select [(ngModel)]="nuevaMatricula.seccionId">
             <option value="">Seleccionar seccion</option>
-            @for (s of secciones; track s.id) {
+            @for (s of seccionesDisponibles; track s.id) {
               <option [value]="s.id">{{ s.nombre }}</option>
             }
           </select>

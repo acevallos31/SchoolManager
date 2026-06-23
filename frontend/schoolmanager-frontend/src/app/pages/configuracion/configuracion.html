@@ -2,7 +2,7 @@
   <div class="page-header">
     <button class="btn-volver" (click)="volver()">Volver</button>
     <h1>Configuracion Institucional</h1>
-    <button class="btn-nuevo" (click)="abrirNuevoCiclo()">+ Nuevo Ciclo</button>
+    <button class="btn-nuevo" (click)="abrirNuevo(tabActual)">+ Nuevo</button>
   </div>
 
   @if (mensaje) {
@@ -11,17 +11,39 @@
     </div>
   }
 
+  <div class="tabs-config">
+    @for (tab of tabs; track tab.id) {
+      <button [class.active]="tabActual === tab.id" (click)="cambiarTab(tab.id)">
+        {{ tab.label }}
+      </button>
+    }
+  </div>
+
   <section class="panel">
     <div class="panel-header">
       <div>
-        <h2>Ciclos escolares y periodo de matricula</h2>
-        <p>El backend solo permite matricular cuando la fecha actual esta dentro del periodo configurado.</p>
+        <h2>
+          @if (tabActual === 'ciclos') { Ciclos escolares y periodo de matricula }
+          @if (tabActual === 'jornadas') { Jornadas }
+          @if (tabActual === 'niveles') { Niveles academicos }
+          @if (tabActual === 'grados') { Grados }
+          @if (tabActual === 'secciones') { Secciones }
+          @if (tabActual === 'planes') { Planes de pago }
+        </h2>
+        <p>
+          @if (tabActual === 'ciclos') { Define el ciclo y las fechas exactas en las que se permite matricular. }
+          @if (tabActual === 'jornadas') { Administra turnos como Matutina, Vespertina, Nocturna o Sabatina. }
+          @if (tabActual === 'niveles') { Organiza la estructura por Preescolar, Primaria, Secundaria u otros niveles. }
+          @if (tabActual === 'grados') { Relaciona cada grado con su nivel academico. }
+          @if (tabActual === 'secciones') { Relaciona cada seccion con un grado y una jornada. }
+          @if (tabActual === 'planes') { Define matricula, cuotas, vencimientos y descuentos por plan. }
+        </p>
       </div>
     </div>
 
-    @if (mostrarFormularioCiclo) {
+    @if (formularioActivo === 'ciclos') {
       <div class="formulario">
-        <h3>{{ cicloEditandoId ? 'Editar ciclo escolar' : 'Crear ciclo escolar' }}</h3>
+        <h3>{{ editandoId ? 'Editar ciclo escolar' : 'Crear ciclo escolar' }}</h3>
         <div class="form-grid">
           <div class="form-group">
             <label>Nombre *</label>
@@ -51,57 +73,259 @@
             <input type="date" [(ngModel)]="ciclo.matriculaFin" />
           </div>
         </div>
-
         <div class="form-actions">
-          <button class="btn-cancelar" (click)="cancelarCiclo()">Cancelar</button>
-          <button class="btn-guardar" (click)="guardarCiclo()" [disabled]="cargando">
-            {{ cargando ? 'Guardando...' : 'Guardar ciclo' }}
-          </button>
+          <button class="btn-cancelar" (click)="cancelarFormulario()">Cancelar</button>
+          <button class="btn-guardar" (click)="guardarCiclo()" [disabled]="cargando">Guardar ciclo</button>
         </div>
       </div>
     }
 
-    @if (cargando && !mostrarFormularioCiclo) {
-      <p class="cargando">Cargando ciclos...</p>
-    } @else {
-      <table class="tabla">
-        <thead>
-          <tr>
-            <th>Ciclo</th>
-            <th>Fechas del ciclo</th>
-            <th>Periodo de matricula</th>
-            <th>Estado matricula</th>
-            <th>Activo</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (c of ciclos; track c.id) {
-            <tr>
-              <td>{{ c.nombre }}</td>
-              <td>{{ c.fechaInicio || c.fecha_inicio }} / {{ c.fechaFin || c.fecha_fin }}</td>
-              <td>{{ c.matriculaInicio || c.matricula_inicio || '-' }} / {{ c.matriculaFin || c.matricula_fin || '-' }}</td>
-              <td>
-                <span [class]="'badge-' + periodoClase(c)">
-                  {{ periodoEstado(c) }}
-                </span>
-              </td>
-              <td>{{ c.activo === false ? 'No' : 'Si' }}</td>
-              <td>
-                <button class="btn-editar" (click)="editarCiclo(c)">Editar</button>
-                @if (c.activo !== false) {
-                  <button class="btn-cancelar" (click)="desactivarCiclo(c.id)">Desactivar</button>
-                }
-                <button class="btn-cancelar" (click)="eliminarCiclo(c.id)">Eliminar</button>
-              </td>
-            </tr>
-          } @empty {
-            <tr>
-              <td colspan="6" class="sin-datos">No hay ciclos configurados</td>
-            </tr>
+    @if (formularioActivo === 'jornadas' || formularioActivo === 'niveles' || formularioActivo === 'grados') {
+      <div class="formulario">
+        <h3>{{ editandoId ? 'Editar registro' : 'Crear registro' }}</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Nombre *</label>
+            <input type="text" [(ngModel)]="catalogo.nombre" placeholder="Nombre" />
+          </div>
+          @if (formularioActivo === 'niveles' || formularioActivo === 'grados') {
+            <div class="form-group">
+              <label>Orden</label>
+              <input type="number" [(ngModel)]="catalogo.orden" />
+            </div>
           }
-        </tbody>
-      </table>
+          @if (formularioActivo === 'grados') {
+            <div class="form-group">
+              <label>Nivel</label>
+              <select [(ngModel)]="catalogo.nivelId">
+                <option value="">Sin nivel</option>
+                @for (nivel of niveles; track nivel.id) {
+                  <option [value]="nivel.id">{{ nivel.nombre }}</option>
+                }
+              </select>
+            </div>
+          }
+          <div class="form-group">
+            <label>Estado</label>
+            <select [(ngModel)]="catalogo.activo">
+              <option [ngValue]="true">Activo</option>
+              <option [ngValue]="false">Inactivo</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn-cancelar" (click)="cancelarFormulario()">Cancelar</button>
+          <button class="btn-guardar" (click)="guardarCatalogo(formularioActivo)" [disabled]="cargando">Guardar</button>
+        </div>
+      </div>
+    }
+
+    @if (formularioActivo === 'secciones') {
+      <div class="formulario">
+        <h3>{{ editandoId ? 'Editar seccion' : 'Crear seccion' }}</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Nombre *</label>
+            <input type="text" [(ngModel)]="seccion.nombre" placeholder="Ej: A" />
+          </div>
+          <div class="form-group">
+            <label>Grado *</label>
+            <select [(ngModel)]="seccion.gradoId">
+              <option value="">Seleccionar grado</option>
+              @for (grado of grados; track grado.id) {
+                <option [value]="grado.id">{{ grado.nombre }}</option>
+              }
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Jornada *</label>
+            <select [(ngModel)]="seccion.jornadaId">
+              <option value="">Seleccionar jornada</option>
+              @for (jornada of jornadas; track jornada.id) {
+                <option [value]="jornada.id">{{ jornada.nombre }}</option>
+              }
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Cupo</label>
+            <input type="number" [(ngModel)]="seccion.cupo" />
+          </div>
+          <div class="form-group">
+            <label>Estado</label>
+            <select [(ngModel)]="seccion.activo">
+              <option [ngValue]="true">Activo</option>
+              <option [ngValue]="false">Inactivo</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn-cancelar" (click)="cancelarFormulario()">Cancelar</button>
+          <button class="btn-guardar" (click)="guardarSeccion()" [disabled]="cargando">Guardar seccion</button>
+        </div>
+      </div>
+    }
+
+    @if (formularioActivo === 'planes') {
+      <div class="formulario">
+        <h3>{{ editandoId ? 'Editar plan de pago' : 'Crear plan de pago' }}</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Nombre *</label>
+            <input type="text" [(ngModel)]="plan.nombre" placeholder="Ej: Plan 10 meses" />
+          </div>
+          <div class="form-group">
+            <label>Tipo</label>
+            <select [(ngModel)]="plan.tipo">
+              <option value="mensual">Mensual</option>
+              <option value="anual">Pago anual</option>
+              <option value="semestral">Dos pagos</option>
+              <option value="personalizado">Personalizado</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Tipo dinamico</label>
+            <select [(ngModel)]="plan.tipoPlanPagoId">
+              <option value="">Sin tipo asociado</option>
+              @for (tipo of tiposPlanPago; track tipo.id) {
+                <option [value]="tipo.id">{{ tipo.nombre }}</option>
+              }
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Matricula</label>
+            <input type="number" [(ngModel)]="plan.montoMatricula" />
+          </div>
+          <div class="form-group">
+            <label>Total anual</label>
+            <input type="number" [(ngModel)]="plan.montoTotalAnual" />
+          </div>
+          <div class="form-group">
+            <label>Cuotas</label>
+            <input type="number" [(ngModel)]="plan.cantidadCuotas" />
+          </div>
+          <div class="form-group">
+            <label>Mes inicial</label>
+            <input type="number" min="1" max="12" [(ngModel)]="plan.mesInicio" />
+          </div>
+          <div class="form-group">
+            <label>Dia de vencimiento</label>
+            <input type="number" min="1" max="28" [(ngModel)]="plan.diaVencimiento" />
+          </div>
+          <div class="form-group">
+            <label>Descuento %</label>
+            <input type="number" [(ngModel)]="plan.descuentoPorcentaje" />
+          </div>
+          <div class="form-group">
+            <label>Estado</label>
+            <select [(ngModel)]="plan.activo">
+              <option [ngValue]="true">Activo</option>
+              <option [ngValue]="false">Inactivo</option>
+            </select>
+          </div>
+          <div class="form-group full">
+            <label>Descripcion</label>
+            <input type="text" [(ngModel)]="plan.descripcion" placeholder="Notas internas del plan" />
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn-cancelar" (click)="cancelarFormulario()">Cancelar</button>
+          <button class="btn-guardar" (click)="guardarPlan()" [disabled]="cargando">Guardar plan</button>
+        </div>
+      </div>
+    }
+
+    @if (cargando && !formularioActivo) {
+      <p class="cargando">Cargando configuracion...</p>
+    } @else {
+      @if (tabActual === 'ciclos') {
+        <table class="tabla">
+          <thead><tr><th>Ciclo</th><th>Fechas</th><th>Periodo matricula</th><th>Estado</th><th>Activo</th><th>Acciones</th></tr></thead>
+          <tbody>
+            @for (c of ciclos; track c.id) {
+              <tr>
+                <td>{{ c.nombre }}</td>
+                <td>{{ c.fechaInicio || c.fecha_inicio }} / {{ c.fechaFin || c.fecha_fin }}</td>
+                <td>{{ c.matriculaInicio || c.matricula_inicio || '-' }} / {{ c.matriculaFin || c.matricula_fin || '-' }}</td>
+                <td><span [class]="'badge-' + periodoClase(c)">{{ periodoEstado(c) }}</span></td>
+                <td>{{ c.activo === false ? 'No' : 'Si' }}</td>
+                <td class="acciones">
+                  <button class="btn-editar" (click)="editarCiclo(c)">Editar</button>
+                  @if (c.activo !== false) { <button class="btn-cancelar" (click)="desactivar('ciclos', c.id)">Desactivar</button> }
+                  <button class="btn-cancelar" (click)="eliminarPermanente('ciclos', c.id)">Eliminar</button>
+                </td>
+              </tr>
+            } @empty { <tr><td colspan="6" class="sin-datos">No hay ciclos configurados</td></tr> }
+          </tbody>
+        </table>
+      }
+
+      @if (tabActual === 'jornadas' || tabActual === 'niveles' || tabActual === 'grados') {
+        <table class="tabla">
+          <thead><tr><th>Nombre</th><th>Detalle</th><th>Activo</th><th>Acciones</th></tr></thead>
+          <tbody>
+            @for (item of (tabActual === 'jornadas' ? jornadas : tabActual === 'niveles' ? niveles : grados); track item.id) {
+              <tr>
+                <td>{{ item.nombre }}</td>
+                <td>
+                  @if (tabActual === 'niveles') { Orden {{ item.orden || 0 }} }
+                  @if (tabActual === 'grados') { {{ nombreCatalogo(niveles, item.nivelId || item.nivel_id) }} · Orden {{ item.orden || 0 }} }
+                  @if (tabActual === 'jornadas') { Turno academico }
+                </td>
+                <td>{{ item.activo === false ? 'No' : 'Si' }}</td>
+                <td class="acciones">
+                  <button class="btn-editar" (click)="editarCatalogo(tabActual, item)">Editar</button>
+                  @if (item.activo !== false) { <button class="btn-cancelar" (click)="desactivar(tabActual, item.id)">Desactivar</button> }
+                  <button class="btn-cancelar" (click)="eliminarPermanente(tabActual, item.id)">Eliminar</button>
+                </td>
+              </tr>
+            } @empty { <tr><td colspan="4" class="sin-datos">No hay registros configurados</td></tr> }
+          </tbody>
+        </table>
+      }
+
+      @if (tabActual === 'secciones') {
+        <table class="tabla">
+          <thead><tr><th>Seccion</th><th>Grado</th><th>Jornada</th><th>Cupo</th><th>Activo</th><th>Acciones</th></tr></thead>
+          <tbody>
+            @for (s of secciones; track s.id) {
+              <tr>
+                <td>{{ s.nombre }}</td>
+                <td>{{ nombreCatalogo(grados, s.gradoId || s.grado_id) }}</td>
+                <td>{{ nombreCatalogo(jornadas, s.jornadaId || s.jornada_id) }}</td>
+                <td>{{ s.cupo || '-' }}</td>
+                <td>{{ s.activo === false ? 'No' : 'Si' }}</td>
+                <td class="acciones">
+                  <button class="btn-editar" (click)="editarSeccion(s)">Editar</button>
+                  @if (s.activo !== false) { <button class="btn-cancelar" (click)="desactivar('secciones', s.id)">Desactivar</button> }
+                  <button class="btn-cancelar" (click)="eliminarPermanente('secciones', s.id)">Eliminar</button>
+                </td>
+              </tr>
+            } @empty { <tr><td colspan="6" class="sin-datos">No hay secciones configuradas</td></tr> }
+          </tbody>
+        </table>
+      }
+
+      @if (tabActual === 'planes') {
+        <table class="tabla">
+          <thead><tr><th>Plan</th><th>Cuotas</th><th>Montos</th><th>Vencimiento</th><th>Activo</th><th>Acciones</th></tr></thead>
+          <tbody>
+            @for (p of planesPago; track p.id) {
+              <tr>
+                <td>{{ p.nombre }}<br /><small>{{ p.tipo }}</small></td>
+                <td>{{ p.cantidadCuotas || p.cantidad_cuotas }}</td>
+                <td>Matricula L. {{ (p.montoMatricula ?? p.monto_matricula) | number:'1.2-2' }} / Anual L. {{ (p.montoTotalAnual ?? p.monto_total_anual) | number:'1.2-2' }}</td>
+                <td>Mes {{ p.mesInicio || p.mes_inicio }} · Dia {{ p.diaVencimiento || p.dia_vencimiento }}</td>
+                <td>{{ p.activo === false ? 'No' : 'Si' }}</td>
+                <td class="acciones">
+                  <button class="btn-editar" (click)="editarPlan(p)">Editar</button>
+                  @if (p.activo !== false) { <button class="btn-cancelar" (click)="desactivar('planes', p.id)">Desactivar</button> }
+                  <button class="btn-cancelar" (click)="eliminarPermanente('planes', p.id)">Eliminar</button>
+                </td>
+              </tr>
+            } @empty { <tr><td colspan="6" class="sin-datos">No hay planes configurados</td></tr> }
+          </tbody>
+        </table>
+      }
     }
   </section>
 </div>

@@ -161,11 +161,6 @@ export class Mensualidades implements OnInit {
     }
   }
 
-  async generarMensualidades() {
-    this.mensaje = 'La generacion masiva debe implementarse en el backend.';
-    this.cdr.detectChanges();
-  }
-
   volver() {
     this.router.navigate(['/dashboard']);
   }

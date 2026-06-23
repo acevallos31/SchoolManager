@@ -60,6 +60,29 @@
   padding: 1.5rem;
 }
 
+.tabs-config {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  overflow-x: auto;
+}
+
+.tabs-config button {
+  border: 1px solid var(--sm-border);
+  border-radius: 999px;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--sm-text);
+  cursor: pointer;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.tabs-config button.active {
+  background: #163455;
+  color: #fffef9;
+}
+
 .panel-header h2,
 .formulario h3 {
   margin: 0;
@@ -136,6 +159,10 @@
   background: rgba(255, 255, 255, 0.94);
 }
 
+.form-group.full {
+  grid-column: 1 / -1;
+}
+
 .form-actions {
   display: flex;
   justify-content: flex-end;
@@ -160,6 +187,16 @@
 .tabla td {
   padding: 1rem;
   text-align: left;
+}
+
+.tabla small {
+  color: var(--sm-text-soft);
+}
+
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
 }
 
 .badge-abierto,

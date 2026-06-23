@@ -1,10 +1,10 @@
 <div class="page-container">
   <div class="page-header">
-    <button class="btn-volver" (click)="volver()">← Volver</button>
-    <h1>💰 Gestión de Mensualidades</h1>
-    <button class="btn-generar" (click)="generarMensualidades()">
-      ⚡ Generar mes actual
-    </button>
+    <button class="btn-volver" (click)="volver()">Volver</button>
+    <div>
+      <h1>Facturas y Estado de Cuenta</h1>
+      <p class="page-subtitle">Los cargos se generan automaticamente al matricular segun el plan de pago elegido.</p>
+    </div>
   </div>
 
   @if (mensaje) {
@@ -14,7 +14,7 @@
   @if (mostrarPago && mensualidadSeleccionada) {
     <div class="modal-overlay">
       <div class="modal">
-        <h3>💳 Registrar pago</h3>
+        <h3>Registrar pago</h3>
         <p><strong>Alumno:</strong> {{ nombreAlumno(mensualidadSeleccionada.alumno_id) }}</p>
         <p><strong>Concepto:</strong> {{ mensualidadSeleccionada.concepto || meses[mensualidadSeleccionada.mes] }}</p>
         <p><strong>Monto:</strong> L. {{ mensualidadSeleccionada.monto_final | number:'1.2-2' }}</p>
@@ -24,7 +24,7 @@
           <input type="number" [(ngModel)]="pago.monto_pagado" />
         </div>
         <div class="form-group">
-          <label>Método de pago</label>
+          <label>Metodo de pago</label>
           <select [(ngModel)]="pago.metodo_pago">
             <option value="efectivo">Efectivo</option>
             <option value="transferencia">Transferencia</option>
@@ -45,7 +45,7 @@
   @if (mostrarDescuento && mensualidadDescuento) {
     <div class="modal-overlay">
       <div class="modal">
-        <h3>🏷️ Aplicar descuento o beca</h3>
+        <h3>Aplicar descuento o beca</h3>
         <p><strong>Alumno:</strong> {{ nombreAlumno(mensualidadDescuento.alumno_id) }}</p>
         <p><strong>Concepto:</strong> {{ mensualidadDescuento.concepto || meses[mensualidadDescuento.mes] }}</p>
         <p><strong>Monto original:</strong> L. {{ mensualidadDescuento.monto_original | number:'1.2-2' }}</p>
@@ -73,8 +73,8 @@
     <select [(ngModel)]="filtroEstado">
       <option value="">Todos los estados</option>
       <option value="pendiente">Pendiente</option>
-      <option value="pagada">Pagada</option>
-      <option value="vencida">Vencida</option>
+      <option value="pagado">Pagado</option>
+      <option value="vencido">Vencido</option>
     </select>
     <select [(ngModel)]="filtroAlumno">
       <option value="">Todos los alumnos</option>
@@ -85,18 +85,18 @@
   </div>
 
   @if (cargando) {
-    <p class="cargando">Cargando mensualidades...</p>
+    <p class="cargando">Cargando facturas...</p>
   } @else {
     <table class="tabla">
       <thead>
         <tr>
           <th>Alumno</th>
-          <th>Mes</th>
+          <th>Concepto</th>
           <th>Monto original</th>
           <th>Descuento</th>
           <th>Monto final</th>
           <th>Estado</th>
-          <th>Fecha límite</th>
+          <th>Vencimiento</th>
           <th>Acciones</th>
         </tr>
       </thead>
@@ -113,22 +113,22 @@
             </td>
             <td>{{ m.fecha_limite }}</td>
             <td>
-              @if (m.estado === 'pendiente' || m.estado === 'vencida') {
+              @if (m.estado === 'pendiente' || m.estado === 'vencido') {
                 <button class="btn-pagar" (click)="abrirPago(m)">
-                  💳 Registrar pago
+                  Registrar pago
                 </button>
                 <button class="btn-descuento" (click)="abrirDescuento(m)">
-                  🏷️ Descuento
+                  Descuento
                 </button>
               } @else {
-                <span class="pagado-texto">✅ Pagada</span>
+                <span class="pagado-texto">Pagado</span>
               }
             </td>
           </tr>
         } @empty {
           <tr>
             <td colspan="8" class="sin-datos">
-              No hay mensualidades. Clic en "Generar mes actual" para crearlas.
+              No hay facturas generadas. Registra una matricula con plan de pago para crear los cargos automaticamente.
             </td>
           </tr>
         }

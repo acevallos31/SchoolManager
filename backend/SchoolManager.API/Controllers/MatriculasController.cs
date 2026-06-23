@@ -87,6 +87,21 @@ public class MatriculasController : ControllerBase
                 return BadRequest(new { error = "El ciclo escolar seleccionado no existe." });
             }
 
+            var matriculaExistente = await _tableService.GetSingleAsync<MatriculaDto>(
+                TableName,
+                new Dictionary<string, string?>
+                {
+                    ["select"] = "*",
+                    ["alumno_id"] = $"eq.{dto.AlumnoId}",
+                    ["ciclo_id"] = $"eq.{dto.CicloId}"
+                },
+                cancellationToken);
+
+            if (matriculaExistente is not null)
+            {
+                return Conflict(new { error = "Este alumno ya tiene una matricula registrada para el ciclo seleccionado." });
+            }
+
             var plan = await _tableService.GetSingleAsync<PlanPagoDto>(
                 "planes_pago",
                 new Dictionary<string, string?> { ["select"] = "*", ["id"] = $"eq.{dto.PlanPagoId}" },
@@ -129,8 +144,9 @@ public class MatriculasController : ControllerBase
             return CreatedAtAction(nameof(GetById), new { id = matricula.Id }, new
             {
                 matricula,
-                cargosGenerados = cargos.Count,
-                mensaje = "Matricula registrada y cargos generados correctamente."
+                facturasGeneradas = cargos.Count,
+                facturas = cargos,
+                mensaje = "Matricula registrada. La factura de matricula y las facturas del plan fueron generadas correctamente."
             });
         }
         catch (SupabaseTableException ex)
@@ -185,7 +201,7 @@ public class MatriculasController : ControllerBase
                     matricula_id = matricula.Id,
                     alumno_id = matricula.AlumnoId,
                     tipo = "matricula",
-                    concepto = $"Matricula {ciclo.Nombre}",
+                    concepto = $"Factura de matricula - {ciclo.Nombre}",
                     numero_cuota = (int?)null,
                     monto = plan.MontoMatricula,
                     fecha_vencimiento = ciclo.MatriculaFin ?? DateOnly.FromDateTime(DateTime.UtcNow),
@@ -255,7 +271,7 @@ public class MatriculasController : ControllerBase
     private static string BuildConcepto(PlanPagoDto plan, int cuota, int total)
     {
         return total == 1
-            ? plan.Nombre
-            : $"{plan.Nombre} - cuota {cuota} de {total}";
+            ? $"Factura anual - {plan.Nombre}"
+            : $"Factura {plan.Nombre} - cuota {cuota} de {total}";
     }
 }

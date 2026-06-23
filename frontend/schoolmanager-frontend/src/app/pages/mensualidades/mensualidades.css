@@ -11,11 +11,19 @@
 }
 
 .page-header h1 {
-  flex: 1;
   margin: 0;
   font-size: clamp(1.8rem, 3vw, 2.7rem);
   color: var(--sm-text);
-  letter-spacing: -0.04em;
+  letter-spacing: 0;
+}
+
+.page-header > div {
+  flex: 1;
+}
+
+.page-subtitle {
+  margin: 0.25rem 0 0;
+  color: var(--sm-text-soft);
 }
 
 .btn-volver,
@@ -26,7 +34,6 @@
 }
 
 .btn-volver,
-.btn-generar,
 .btn-cancelar,
 .btn-guardar,
 .btn-pagar {
@@ -37,7 +44,6 @@
   border: none;
 }
 
-.btn-generar,
 .btn-guardar {
   background: linear-gradient(135deg, var(--sm-accent), #8e521c);
   color: #fffef9;
@@ -104,6 +110,7 @@
 
 .badge-pendiente,
 .badge-pagada,
+.badge-pagado,
 .badge-vencida {
   display: inline-flex;
   padding: 0.35rem 0.7rem;
@@ -114,6 +121,7 @@
 
 .badge-pendiente { background: #fff5e9; color: var(--sm-warning); }
 .badge-pagada { background: #edf8f1; color: var(--sm-success); }
+.badge-pagado { background: #edf8f1; color: var(--sm-success); }
 .badge-vencida { background: #fff0ed; color: var(--sm-danger); }
 
 .btn-pagar {

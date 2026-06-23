@@ -80,6 +80,11 @@ export class Matriculas implements OnInit {
       return;
     }
 
+    if (this.existeMatriculaAlumnoCiclo(this.nuevaMatricula.alumnoId, this.nuevaMatricula.cicloId)) {
+      this.mensaje = 'Este alumno ya tiene una matricula registrada para el ciclo seleccionado.';
+      return;
+    }
+
     this.cargando = true;
 
     try {
@@ -88,7 +93,7 @@ export class Matriculas implements OnInit {
         body: JSON.stringify({ ...this.nuevaMatricula })
       });
 
-      this.mensaje = 'Matricula registrada correctamente';
+      this.mensaje = 'Matricula registrada correctamente. Las facturas del plan fueron generadas en el estado de cuenta.';
       this.nuevaMatricula = this.crearFormularioVacio();
       this.mostrarFormulario = false;
       await this.cargarDatos();
@@ -120,9 +125,28 @@ export class Matriculas implements OnInit {
     return items.find(item => item.id === id)?.nombre ?? '-';
   }
 
+  get seccionesDisponibles() {
+    if (!this.nuevaMatricula.gradoId) {
+      return this.secciones;
+    }
+
+    return this.secciones.filter(item => (item.gradoId || item.grado_id) === this.nuevaMatricula.gradoId);
+  }
+
+  cambiarGrado() {
+    this.nuevaMatricula.seccionId = '';
+  }
+
   seleccionarPlan() {
     const plan = this.planesPago.find(item => item.id === this.nuevaMatricula.planPagoId);
     this.nuevaMatricula.monto = plan?.montoMatricula ?? plan?.monto_matricula ?? 0;
+  }
+
+  private existeMatriculaAlumnoCiclo(alumnoId: string, cicloId: string): boolean {
+    return this.matriculas.some(item =>
+      (item.alumnoId || item.alumno_id) === alumnoId &&
+      (item.cicloId || item.ciclo_id) === cicloId
+    );
   }
 
   volver() {

@@ -27,7 +27,6 @@ public class MensualidadesController : ControllerBase
         var query = new Dictionary<string, string?>
         {
             ["select"] = "*",
-            ["or"] = "(tipo.eq.mensualidad,tipo.eq.pago_anual)",
             ["order"] = "fecha_vencimiento.asc"
         };
 
