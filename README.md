@@ -202,3 +202,5 @@ VERCEL_PROJECT_ID
 ## Licencia
 
 Uso libre para fines educativos.
+
+LEARN-CAP-AEDC71C1
