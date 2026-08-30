@@ -17,6 +17,10 @@ export class Dashboard {
     return this.auth.tienePermiso('academico.alumnos.ver');
   }
 
+  get puedeVerConfiguracion(): boolean {
+    return this.auth.tienePermiso('configuracion.sistema.ver');
+  }
+
   logout() {
     this.auth.logout();
     this.router.navigate(['/login']);

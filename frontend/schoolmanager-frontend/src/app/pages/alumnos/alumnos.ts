@@ -5,10 +5,10 @@ import { Router } from '@angular/router';
 import {
   AlumnoListado,
   AlumnoService,
-  AlumnoServiceError,
-  CicloEscolarOpcion
+  AlumnoServiceError
 } from '../../core/services/alumno.service';
 import { AuthService } from '../../core/services/auth';
+import { ConfiguracionError, ConfiguracionService } from '../../core/services/configuracion.service';
 
 interface NuevoAlumnoForm {
   nombres: string;
@@ -42,7 +42,8 @@ export class Alumnos implements OnInit {
   constructor(
     private readonly router: Router,
     private readonly auth: AuthService,
-    private readonly alumnoService: AlumnoService
+    private readonly alumnoService: AlumnoService,
+    private readonly configuracionService: ConfiguracionService
   ) {}
 
   get puedeVer(): boolean {
@@ -103,14 +104,8 @@ export class Alumnos implements OnInit {
     this.mostrarFormulario = true;
     this.mensaje = '';
     try {
-      const ciclos = await this.alumnoService.cargarCiclos();
-      this.institucionCreacionId = this.resolverInstitucionUnica(ciclos);
-      if (!this.institucionCreacionId) {
-        this.mostrarMensaje(
-          'No se pudo determinar una única institución para registrar el alumno.',
-          true
-        );
-      }
+      const institucion = await this.configuracionService.obtenerInstitucionActual();
+      this.institucionCreacionId = institucion.id;
     } catch (error) {
       this.institucionCreacionId = null;
       this.mostrarError(error, 'No se pudo determinar la institución del alumno.');
@@ -218,17 +213,17 @@ export class Alumnos implements OnInit {
     };
   }
 
-  private resolverInstitucionUnica(ciclos: CicloEscolarOpcion[]): string | null {
-    const instituciones = [...new Set(ciclos.map(ciclo => ciclo.institucionId))];
-    return instituciones.length === 1 ? instituciones[0] : null;
-  }
-
   private normalizar(valor: string): string {
     return valor.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
   }
 
   private mostrarError(error: unknown, fallback: string): void {
-    this.mostrarMensaje(error instanceof AlumnoServiceError ? error.message : fallback, true);
+    this.mostrarMensaje(
+      error instanceof AlumnoServiceError || error instanceof ConfiguracionError
+        ? error.message
+        : fallback,
+      true
+    );
   }
 
   private mostrarMensaje(mensaje: string, esError = false): void {

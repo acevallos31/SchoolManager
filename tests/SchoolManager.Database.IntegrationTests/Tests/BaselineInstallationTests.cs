@@ -47,6 +47,7 @@ public sealed class BaselineInstallationTests
                 "alumnos",
                 "ciclos_escolares",
                 "configuracion_identificadores",
+                "configuracion_implementacion",
                 "grados",
                 "instituciones",
                 "jornadas",

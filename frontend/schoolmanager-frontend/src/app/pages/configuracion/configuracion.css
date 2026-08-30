@@ -1,0 +1,20 @@
+.configuration-shell { max-width: 920px; margin: 0 auto; padding: 2rem; }
+header { display: flex; justify-content: space-between; gap: 2rem; align-items: start; margin-bottom: 1.5rem; }
+h1 { margin: 0; font-size: 2.4rem; }
+header p { color: var(--sm-text-soft); }
+.eyebrow { color: var(--sm-accent); font-weight: 800; text-transform: uppercase; letter-spacing: .12em; }
+.card, .future { padding: 1.5rem; border: 1px solid var(--sm-border); border-radius: 1.4rem; background: var(--sm-surface); box-shadow: var(--sm-shadow); }
+.card h2, .future h2 { margin-top: 0; }
+.institution-name { font-size: 1.2rem; font-weight: 700; }
+hr { margin: 1.5rem 0; border: 0; border-top: 1px solid var(--sm-border); }
+.toggle-row { display: flex; align-items: start; gap: .8rem; }
+.toggle-row input { margin-top: .25rem; width: 1.2rem; height: 1.2rem; }
+.toggle-row small { display: block; margin-top: .3rem; color: var(--sm-text-soft); }
+.message { padding: .9rem 1rem; border-radius: .8rem; background: #e5f5eb; color: #1e5d42; }
+.message.error { background: #fde9e7; color: #912f2b; }
+.read-only { color: var(--sm-text-soft); }
+.future { margin-top: 1rem; display: flex; flex-wrap: wrap; gap: .7rem; }
+.future h2 { flex-basis: 100%; }
+.future span { padding: .5rem .75rem; border-radius: 999px; background: rgba(15,95,168,.08); color: var(--sm-primary-strong); }
+button.secondary { border: 1px solid var(--sm-border); border-radius: 999px; padding: .8rem 1.1rem; background: white; cursor: pointer; }
+@media (max-width: 640px) { header { flex-direction: column; } .configuration-shell { padding: 1rem; } }
