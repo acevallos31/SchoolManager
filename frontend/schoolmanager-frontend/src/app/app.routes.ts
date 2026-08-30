@@ -6,6 +6,7 @@ import { Matriculas } from './pages/matriculas/matriculas';
 import { Mensualidades } from './pages/mensualidades/mensualidades';
 import { PortalPadre } from './pages/portal-padre/portal-padre';
 import { Configuracion } from './pages/configuracion/configuracion';
+import { ConfiguracionCiclos } from './pages/configuracion-ciclos/configuracion-ciclos';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'login', pathMatch: 'full' },
@@ -17,5 +18,6 @@ export const routes: Routes = [
   { path: 'mensualidades', component: Mensualidades },
   { path: 'portal-padre', component: PortalPadre },
   { path: 'configuracion', component: Configuracion },
+  { path: 'configuracion/ciclos', component: ConfiguracionCiclos },
   { path: '**', redirectTo: 'login' }
 ];

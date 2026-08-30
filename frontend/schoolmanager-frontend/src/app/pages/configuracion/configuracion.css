@@ -28,4 +28,5 @@ button.primary { color: white; background: var(--sm-primary); }
 button.secondary { border: 1px solid var(--sm-border); background: white; }
 button:disabled { opacity: .55; cursor: not-allowed; }
 hr { margin: 1.5rem 0; border: 0; border-top: 1px solid var(--sm-border); }
+.configuration-link { display:inline-block; padding:.75rem 1rem; border-radius:999px; color:var(--sm-primary-strong); background:rgba(15,95,168,.08); font-weight:700; text-decoration:none; }
 @media (max-width: 640px) { header, .section-heading { flex-direction: column; } .form-grid, .details { grid-template-columns: 1fr; } .configuration-shell { padding: 1rem; } }

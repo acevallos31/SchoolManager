@@ -39,3 +39,9 @@ La migración 013 reutiliza `instituciones`; no crea otra entidad ni agrega camp
 `rpc_obtener_configuracion_institucion(uuid)` devuelve en una operación los datos institucionales y `configuracion_identificadores`. En modo single resuelve la institución activa o devuelve un estado sin institución para permitir configurar la primera. En modo multi exige el UUID explícito y responde `SM003` si falta.
 
 Las escrituras se realizan exclusivamente mediante `rpc_crear_institucion` y `rpc_actualizar_institucion`. Requieren `configuracion.instituciones.editar`, validan el nombre y correo, normalizan textos y mantienen una sola configuración de identificadores por institución. La creación de una segunda institución activa en modo single responde `SM004`.
+
+## Ciclos y períodos de matrícula
+
+La migración 014 reutiliza `ciclos_escolares` y `periodos_matricula`. Se permiten varios ciclos activos para preparar el siguiente año sin cerrar el actual; la vigencia se expresa mediante `activo` y el rango de fechas. Todo período debe quedar dentro de las fechas de su ciclo.
+
+Las lecturas y escrituras usan RPC separadas y permisos `configuracion.ciclos.*` y `configuracion.periodos_matricula.*`. En single la institución se resuelve automáticamente; en multi es obligatoria de forma explícita. No existe eliminación física y la configuración está disponible en `/configuracion/ciclos`.

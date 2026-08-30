@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Router } from '@angular/router';
+import { provideRouter } from '@angular/router';
 import { vi } from 'vitest';
 import { AuthService } from '../../core/services/auth';
 import { ConfiguracionError, ConfiguracionService } from '../../core/services/configuracion.service';
@@ -34,7 +34,7 @@ describe('Configuracion', () => {
     await TestBed.configureTestingModule({
       imports: [Configuracion],
       providers: [
-        { provide: Router, useValue: { navigate: vi.fn() } },
+        provideRouter([]),
         { provide: AuthService, useValue: { tienePermiso: (p: string) => permisos.has(p) } },
         { provide: ConfiguracionService, useValue: service }
       ]
