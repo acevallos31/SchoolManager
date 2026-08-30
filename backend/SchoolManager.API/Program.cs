@@ -1,6 +1,7 @@
-using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Npgsql;
+using SchoolManager.API.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,29 +29,48 @@ builder.Services.AddCors(options =>
     });
 });
 
-var jwtSecret = GetConfiguredValue(builder.Configuration, "Supabase:JwtSecret", "Jwt:Secret")
-    ?? throw new InvalidOperationException(
-        "JWT secret is not configured. Set Supabase__JwtSecret or Jwt__Secret in the environment."
-    );
-
-var jwtIssuer = GetConfiguredValue(builder.Configuration, "Jwt:Issuer");
+var jwtIssuer = builder.Configuration["Jwt:Issuer"]
+    ?? throw new InvalidOperationException("Jwt:Issuer is not configured.");
+var jwtAudience = builder.Configuration["Jwt:Audience"]
+    ?? throw new InvalidOperationException("Jwt:Audience is not configured.");
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        options.Authority = jwtIssuer;
+        options.MetadataAddress = $"{jwtIssuer.TrimEnd('/')}/.well-known/openid-configuration";
+        options.Audience = jwtAudience;
+        options.MapInboundClaims = false;
+        options.RequireHttpsMetadata = true;
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = !string.IsNullOrEmpty(jwtIssuer),
+            ValidateIssuer = true,
             ValidIssuer = jwtIssuer,
-            ValidateAudience = false,
+            ValidateAudience = true,
+            ValidAudience = jwtAudience,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(jwtSecret)
-            ),
+            ValidAlgorithms = [SecurityAlgorithms.EcdsaSha256],
             NameClaimType = "sub"
         };
     });
+
+builder.Services.AddSingleton(sp =>
+{
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    var connectionString = configuration.GetConnectionString("PostgreSQL");
+
+    if (string.IsNullOrWhiteSpace(connectionString)
+        || connectionString.Contains("REEMPLAZAR", StringComparison.OrdinalIgnoreCase))
+    {
+        throw new InvalidOperationException(
+            "PostgreSQL connection is not configured. Set ConnectionStrings__PostgreSQL."
+        );
+    }
+
+    return NpgsqlDataSource.Create(connectionString);
+});
+builder.Services.AddScoped<IUsuarioActualService, UsuarioActualService>();
 
 builder.Services.AddAuthorization(options =>
 {
@@ -76,27 +96,3 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
-
-static string? GetConfiguredValue(IConfiguration configuration, params string[] keys)
-{
-    foreach (var key in keys)
-    {
-        var value = configuration[key];
-
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            continue;
-        }
-
-        if (value.Contains("REEMPLAZAR", StringComparison.OrdinalIgnoreCase)
-            || value.Contains("TU-", StringComparison.OrdinalIgnoreCase)
-            || value.Contains("TU_", StringComparison.OrdinalIgnoreCase))
-        {
-            continue;
-        }
-
-        return value;
-    }
-
-    return null;
-}
