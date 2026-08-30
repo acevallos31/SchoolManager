@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component } from '@angular/core';
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -17,11 +17,7 @@ export class Login {
   error = '';
   cargando = false;
 
-  constructor(
-    private auth: AuthService,
-    private router: Router,
-    private cdr: ChangeDetectorRef
-  ) {}
+  constructor(private auth: AuthService, private router: Router) {}
 
   async login() {
     this.error = '';
@@ -31,19 +27,17 @@ export class Login {
 
     if (!correo || !password) {
       this.error = 'Ingresa tu correo y contrasena para continuar.';
-      this.cdr.detectChanges();
       return;
     }
 
     this.cargando = true;
-    this.cdr.detectChanges();
 
     try {
       const usuario = await this.auth.login(correo, password);
 
-      if (usuario.rol === 'admin' || usuario.rol === 'operador') {
+      if (usuario.rol === 'admin') {
         await this.router.navigate(['/dashboard']);
-      } else if (usuario.rol === 'usuario' || usuario.rol === 'padre') {
+      } else if (usuario.rol === 'padre') {
         await this.router.navigate(['/portal-padre']);
       } else {
         this.error = 'Rol de usuario no reconocido.';
@@ -52,12 +46,13 @@ export class Login {
     } catch (error: unknown) {
       this.error = this.obtenerMensajeError(error);
 
-      this.auth.logout().catch(logoutError => {
+      try {
+        await this.auth.logout();
+      } catch (logoutError) {
         console.error('No se pudo cerrar la sesion despues del error:', logoutError);
-      });
+      }
     } finally {
       this.cargando = false;
-      this.cdr.detectChanges();
     }
   }
 
@@ -71,7 +66,7 @@ export class Login {
         case 'USER_PROFILE_NOT_FOUND':
           return 'Tu cuenta existe, pero no esta registrada en SchoolManager. Contacta al administrador.';
         case 'USER_PROFILE_ERROR':
-          return error.message || 'No se pudo validar tu perfil. Contacta al administrador.';
+          return 'No se pudo validar tu perfil. Contacta al administrador.';
         case 'REQUEST_TIMEOUT':
           return error.message;
         case 'SESSION_NOT_FOUND':

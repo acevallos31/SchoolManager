@@ -1,0 +1,28 @@
+using SchoolManager.Database.IntegrationTests.Infrastructure;
+using Xunit;
+
+namespace SchoolManager.Database.IntegrationTests.Tests;
+
+public sealed class MigrationTests(PostgreSqlFixture fixture) : IClassFixture<PostgreSqlFixture>
+{
+    [Fact]
+    public void Migraciones_activas_estan_ordenadas_de_001_a_006()
+    {
+        var names = MigrationRunner.GetActiveMigrationPaths().Select(Path.GetFileName).ToArray();
+        Assert.Equal(new[]
+        {
+            "001_establecer_convencion_migraciones.sql",
+            "002_crear_instituciones_y_configuracion_identificadores.sql",
+            "003_crear_personas_y_extender_alumnos_usuarios.sql",
+            "004_crear_responsables_y_alumno_responsable.sql",
+            "005_extender_ciclos_y_crear_periodos_matricula.sql",
+            "006_extender_matriculas_contexto_canonico.sql"
+        }, names);
+    }
+
+    [Fact]
+    public async Task Reejecucion_estructural_de_migraciones_es_idempotente()
+    {
+        await MigrationRunner.ApplyActiveAsync(fixture.DataSource);
+    }
+}

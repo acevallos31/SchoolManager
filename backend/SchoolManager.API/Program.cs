@@ -1,14 +1,13 @@
-using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
-using SchoolManager.API.Services;
+using Npgsql;
+using SchoolManager.API.Authorization;
+using SchoolManager.API.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
-builder.Services.AddHttpClient();
-builder.Services.AddScoped<SupabaseTableService>();
-builder.Services.AddScoped<SupabaseAuthAdminService>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -18,52 +17,89 @@ var allowedOrigins = builder.Configuration
     ?? new[]
     {
         "http://localhost:4200",
-        "https://schoolmanager.vercel.app",
-        "https://school-manager-self.vercel.app"
+        "https://schoolmanager.vercel.app"
     };
+var explicitAllowedOrigins = allowedOrigins
+    .Select(origin => origin.TrimEnd('/'))
+    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+var vercelPreviewHostPrefix = builder.Configuration["Cors:VercelPreviewHostPrefix"]
+    ?? "school-manager-";
+var vercelPreviewHostSuffix = builder.Configuration["Cors:VercelPreviewHostSuffix"]
+    ?? "-acevallos31s-projects.vercel.app";
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendPolicy", policy =>
     {
-        policy.WithOrigins(allowedOrigins)
+        policy.SetIsOriginAllowed(origin =>
+                  IsAllowedFrontendOrigin(
+                      origin,
+                      explicitAllowedOrigins,
+                      vercelPreviewHostPrefix,
+                      vercelPreviewHostSuffix
+                  ))
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
     });
 });
 
-var jwtSecret = GetConfiguredValue(builder.Configuration, "Supabase:JwtSecret", "Jwt:Secret")
-    ?? throw new InvalidOperationException(
-        "JWT secret is not configured. Set Supabase__JwtSecret or Jwt__Secret in the environment."
-    );
-
-var jwtIssuer = GetConfiguredValue(builder.Configuration, "Jwt:Issuer");
+var jwtIssuer = builder.Configuration["Jwt:Issuer"]
+    ?? throw new InvalidOperationException("Jwt:Issuer is not configured.");
+var jwtAudience = builder.Configuration["Jwt:Audience"]
+    ?? throw new InvalidOperationException("Jwt:Audience is not configured.");
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        options.Authority = jwtIssuer;
+        options.MetadataAddress = $"{jwtIssuer.TrimEnd('/')}/.well-known/openid-configuration";
+        options.Audience = jwtAudience;
+        options.MapInboundClaims = false;
+        options.RequireHttpsMetadata = true;
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = !string.IsNullOrEmpty(jwtIssuer),
+            ValidateIssuer = true,
             ValidIssuer = jwtIssuer,
-            ValidateAudience = false,
+            ValidateAudience = true,
+            ValidAudience = jwtAudience,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(jwtSecret)
-            ),
-            NameClaimType = "sub",
-            RoleClaimType = System.Security.Claims.ClaimTypes.Role
+            ValidAlgorithms = [SecurityAlgorithms.EcdsaSha256],
+            NameClaimType = "sub"
         };
     });
 
+builder.Services.AddSingleton(sp =>
+{
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    var connectionString = configuration.GetConnectionString("PostgreSQL");
+
+    if (string.IsNullOrWhiteSpace(connectionString)
+        || connectionString.Contains("REEMPLAZAR", StringComparison.OrdinalIgnoreCase))
+    {
+        throw new InvalidOperationException(
+            "PostgreSQL connection is not configured. Set ConnectionStrings__PostgreSQL."
+        );
+    }
+
+    return NpgsqlDataSource.Create(connectionString);
+});
+builder.Services.AddScoped<IUsuarioActualService, UsuarioActualService>();
+builder.Services.AddScoped<IAuthorizationHandler, RolUsuarioHandler>();
+
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("SoloAdmin", policy => policy.RequireRole("admin"));
-    options.AddPolicy("AdminOOperador", policy => policy.RequireRole("admin", "operador"));
-    options.AddPolicy("AdminOperadorOPadre", policy => policy.RequireRole("admin", "operador", "usuario", "padre"));
-    options.AddPolicy("AdminOPadre", policy => policy.RequireRole("admin", "usuario", "padre"));
+    options.AddPolicy("SoloAdmin", policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.AddRequirements(new RolUsuarioRequirement("admin"));
+    });
+    options.AddPolicy("AdminOPadre", policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.AddRequirements(new RolUsuarioRequirement("admin", "padre"));
+    });
 });
 
 var app = builder.Build();
@@ -92,26 +128,27 @@ app.MapControllers();
 
 app.Run();
 
-static string? GetConfiguredValue(IConfiguration configuration, params string[] keys)
+static bool IsAllowedFrontendOrigin(
+    string origin,
+    IReadOnlySet<string> explicitAllowedOrigins,
+    string vercelPreviewHostPrefix,
+    string vercelPreviewHostSuffix
+)
 {
-    foreach (var key in keys)
+    if (explicitAllowedOrigins.Contains(origin.TrimEnd('/')))
     {
-        var value = configuration[key];
-
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            continue;
-        }
-
-        if (value.Contains("REEMPLAZAR", StringComparison.OrdinalIgnoreCase)
-            || value.Contains("TU-", StringComparison.OrdinalIgnoreCase)
-            || value.Contains("TU_", StringComparison.OrdinalIgnoreCase))
-        {
-            continue;
-        }
-
-        return value;
+        return true;
     }
 
-    return null;
+    return Uri.TryCreate(origin, UriKind.Absolute, out var uri)
+        && uri.Scheme == Uri.UriSchemeHttps
+        && uri.IsDefaultPort
+        && uri.AbsolutePath == "/"
+        && string.IsNullOrEmpty(uri.Query)
+        && string.IsNullOrEmpty(uri.Fragment)
+        && uri.Host.StartsWith(vercelPreviewHostPrefix, StringComparison.OrdinalIgnoreCase)
+        && uri.Host.EndsWith(vercelPreviewHostSuffix, StringComparison.OrdinalIgnoreCase)
+        && uri.Host.Length > vercelPreviewHostPrefix.Length + vercelPreviewHostSuffix.Length;
 }
+
+public partial class Program;

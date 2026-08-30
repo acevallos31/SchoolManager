@@ -1,9 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using SchoolManager.API.DTOs;
-using SchoolManager.API.Services;
 
 namespace SchoolManager.API.Controllers;
 
@@ -12,454 +9,61 @@ namespace SchoolManager.API.Controllers;
 [Authorize]
 public class AlumnosController : ControllerBase
 {
-    private const string TableName = "alumnos";
-    private readonly SupabaseTableService _tableService;
-    private readonly SupabaseAuthAdminService _authAdminService;
-
-    public AlumnosController(SupabaseTableService tableService, SupabaseAuthAdminService authAdminService)
-    {
-        _tableService = tableService;
-        _authAdminService = authAdminService;
-    }
-
+    // GET api/alumnos
     [HttpGet]
-    [Authorize(Policy = "AdminOOperador")]
-    public async Task<IActionResult> GetAll(
-        [FromQuery] string? buscar,
-        [FromQuery] string? estado,
-        CancellationToken cancellationToken)
+    public IActionResult GetAll([FromQuery] string? grado, [FromQuery] string? buscar)
     {
-        var query = new Dictionary<string, string?>
+        return Ok(new
         {
-            ["select"] = "*",
-            ["order"] = "nombres.asc"
-        };
-
-        if (!string.IsNullOrWhiteSpace(estado))
-        {
-            query["estado"] = $"eq.{estado.Trim().ToLowerInvariant()}";
-        }
-
-        if (!string.IsNullOrWhiteSpace(buscar))
-        {
-            var value = buscar.Trim();
-            query["or"] = $"(nombres.ilike.*{value}*,apellidos.ilike.*{value}*,dni.ilike.*{value}*)";
-        }
-
-        try
-        {
-            var alumnos = await _tableService.GetListAsync<AlumnoDto>(TableName, query, cancellationToken);
-            return Ok(alumnos);
-        }
-        catch (SupabaseTableException ex)
-        {
-            return StatusCode(ex.StatusCode, new { error = ex.Message });
-        }
+            mensaje = "Listado de alumnos",
+            grado,
+            buscar
+        });
     }
 
+    // GET api/alumnos/{id}
     [HttpGet("{id:guid}")]
-    [Authorize(Policy = "AdminOOperador")]
-    public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
+    public IActionResult GetById(Guid id)
     {
-        try
+        return Ok(new
         {
-            var alumno = await _tableService.GetSingleAsync<AlumnoDto>(
-                TableName,
-                new Dictionary<string, string?>
-                {
-                    ["select"] = "*",
-                    ["id"] = $"eq.{id}"
-                },
-                cancellationToken);
-
-            return alumno is null ? NotFound(new { error = "Alumno no encontrado." }) : Ok(alumno);
-        }
-        catch (SupabaseTableException ex)
-        {
-            return StatusCode(ex.StatusCode, new { error = ex.Message });
-        }
+            mensaje = "Detalle del alumno",
+            id
+        });
     }
 
-    [HttpGet("mis-alumnos")]
-    [Authorize(Policy = "AdminOPadre")]
-    public async Task<IActionResult> GetMisAlumnos(CancellationToken cancellationToken)
-    {
-        var usuarioId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        var supabaseUid = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
-        var possibleTutorIds = new[]
-            {
-                Guid.TryParse(usuarioId, out var profileId) ? profileId : (Guid?)null,
-                Guid.TryParse(supabaseUid, out var authId) ? authId : (Guid?)null
-            }
-            .Where(id => id.HasValue)
-            .Select(id => id!.Value)
-            .Distinct()
-            .ToList();
-
-        if (possibleTutorIds.Count == 0)
-        {
-            return Unauthorized(new { error = "No se pudo identificar el usuario actual." });
-        }
-
-        try
-        {
-            var tutorFilter = string.Join(",", possibleTutorIds.Select(id => $"tutor_id.eq.{id}"));
-            var alumnos = await _tableService.GetListAsync<AlumnoDto>(
-                TableName,
-                new Dictionary<string, string?>
-                {
-                    ["select"] = "*",
-                    ["or"] = $"({tutorFilter})",
-                    ["estado"] = "eq.activo",
-                    ["order"] = "nombres.asc"
-                },
-                cancellationToken);
-
-            return Ok(alumnos);
-        }
-        catch (SupabaseTableException ex)
-        {
-            return StatusCode(ex.StatusCode, new { error = ex.Message });
-        }
-    }
-
+    // POST api/alumnos
     [HttpPost]
-    [Authorize(Policy = "AdminOOperador")]
-    public async Task<IActionResult> Create([FromBody] AlumnoCreateDto dto, CancellationToken cancellationToken)
+    [Authorize(Policy = "SoloAdmin")]
+    public IActionResult Create([FromBody] AlumnoCreateDto dto)
     {
-        var validationErrors = Validate(dto, isCreate: true);
-        if (validationErrors.Count > 0)
-        {
-            return BadRequest(new { errors = validationErrors });
-        }
+        if (string.IsNullOrWhiteSpace(dto.Nombre) || string.IsNullOrWhiteSpace(dto.Identidad))
+            return BadRequest(new { error = "Nombre e identidad son obligatorios" });
 
-        try
-        {
-            var tutorId = dto.TutorId ?? await CreateAlumnoAccessUserAsync(dto, cancellationToken);
-            var payload = ToPayload(dto, useDefaultEstado: true);
-
-            if (tutorId.HasValue)
-            {
-                payload["tutor_id"] = tutorId.Value;
-                await ApplyTutorSnapshotAsync(payload, tutorId.Value, cancellationToken);
-            }
-
-            var alumno = await _tableService.InsertAsync<AlumnoDto>(TableName, payload, cancellationToken);
-            return CreatedAtAction(nameof(GetById), new { id = alumno.Id }, alumno);
-        }
-        catch (SupabaseAuthAdminException ex)
-        {
-            return StatusCode(ex.StatusCode, new { error = ex.Message });
-        }
-        catch (SupabaseTableException ex)
-        {
-            return StatusCode(ex.StatusCode, new { error = ex.Message });
-        }
+        return CreatedAtAction(nameof(GetById), new { id = Guid.NewGuid() }, dto);
     }
 
+    // PUT api/alumnos/{id}
     [HttpPut("{id:guid}")]
-    [Authorize(Policy = "AdminOOperador")]
-    public async Task<IActionResult> Update(Guid id, [FromBody] AlumnoUpdateDto dto, CancellationToken cancellationToken)
+    [Authorize(Policy = "SoloAdmin")]
+    public IActionResult Update(Guid id, [FromBody] AlumnoCreateDto dto)
     {
-        var validationErrors = Validate(dto, isCreate: false);
-        if (validationErrors.Count > 0)
+        return Ok(new
         {
-            return BadRequest(new { errors = validationErrors });
-        }
-
-        try
-        {
-            var payload = ToPayload(dto, useDefaultEstado: false);
-            if (dto.TutorId.HasValue)
-            {
-                payload["tutor_id"] = dto.TutorId.Value;
-                await ApplyTutorSnapshotAsync(payload, dto.TutorId.Value, cancellationToken);
-            }
-
-            var alumno = await _tableService.UpdateAsync<AlumnoDto>(TableName, id, payload, cancellationToken);
-            return alumno is null ? NotFound(new { error = "Alumno no encontrado." }) : Ok(alumno);
-        }
-        catch (SupabaseTableException ex)
-        {
-            return StatusCode(ex.StatusCode, new { error = ex.Message });
-        }
+            mensaje = "Alumno actualizado",
+            id
+        });
     }
 
+    // DELETE api/alumnos/{id}
     [HttpDelete("{id:guid}")]
     [Authorize(Policy = "SoloAdmin")]
-    public async Task<IActionResult> Delete(Guid id, [FromQuery] bool permanente, CancellationToken cancellationToken)
+    public IActionResult Delete(Guid id)
     {
-        try
+        return Ok(new
         {
-            if (permanente)
-            {
-                await _tableService.DeleteAsync(TableName, id, cancellationToken);
-                return NoContent();
-            }
-
-            var alumno = await _tableService.UpdateAsync<AlumnoDto>(
-                TableName,
-                id,
-                new
-                {
-                    estado = "inactivo",
-                    updated_at = DateTimeOffset.UtcNow
-                },
-                cancellationToken);
-
-            return alumno is null ? NotFound(new { error = "Alumno no encontrado." }) : Ok(alumno);
-        }
-        catch (SupabaseTableException ex)
-        {
-            return StatusCode(ex.StatusCode, new { error = ex.Message });
-        }
-    }
-
-    private static List<string> Validate(AlumnoCreateDto dto, bool isCreate)
-    {
-        var errors = new List<string>();
-        var nombres = FirstValue(dto.Nombres, dto.Nombre);
-        var apellidos = FirstValue(dto.Apellidos, dto.Apellido);
-        var dni = FirstValue(dto.Dni, dto.Identidad);
-
-        if (isCreate || !string.IsNullOrWhiteSpace(nombres))
-        {
-            if (string.IsNullOrWhiteSpace(nombres))
-            {
-                errors.Add("Los nombres del alumno son obligatorios.");
-            }
-        }
-
-        if (isCreate || !string.IsNullOrWhiteSpace(apellidos))
-        {
-            if (string.IsNullOrWhiteSpace(apellidos))
-            {
-                errors.Add("Los apellidos del alumno son obligatorios.");
-            }
-        }
-
-        if (isCreate || !string.IsNullOrWhiteSpace(dni))
-        {
-            if (string.IsNullOrWhiteSpace(dni))
-            {
-                errors.Add("El DNI del alumno es obligatorio.");
-            }
-            else if (dni.Trim().Length < 8)
-            {
-                errors.Add("El DNI debe tener al menos 8 caracteres.");
-            }
-        }
-
-        var fechaNacimiento = dto.FechaNacimiento ?? dto.FechaNacimientoSnake;
-
-        if (isCreate || fechaNacimiento.HasValue)
-        {
-            if (!fechaNacimiento.HasValue)
-            {
-                errors.Add("La fecha de nacimiento del alumno es obligatoria.");
-            }
-            else if (fechaNacimiento.Value > DateOnly.FromDateTime(DateTime.UtcNow))
-            {
-                errors.Add("La fecha de nacimiento no puede estar en el futuro.");
-            }
-        }
-
-        if (isCreate || !string.IsNullOrWhiteSpace(dto.Sexo))
-        {
-            var sexo = NormalizeSexo(dto.Sexo);
-            if (string.IsNullOrWhiteSpace(sexo))
-            {
-                errors.Add("El sexo del alumno es obligatorio.");
-            }
-            else if (sexo is not ("M" or "F" or "O"))
-            {
-                errors.Add("El sexo debe ser M, F u O.");
-            }
-        }
-
-        if (isCreate && string.IsNullOrWhiteSpace(dto.PadresEncargados))
-        {
-            errors.Add("Debes registrar padres o encargados.");
-        }
-
-        if (isCreate && string.IsNullOrWhiteSpace(dto.Direccion))
-        {
-            errors.Add("La direccion del alumno es obligatoria.");
-        }
-
-        if (isCreate)
-        {
-            if (!dto.TutorId.HasValue && (string.IsNullOrWhiteSpace(dto.CorreoAcceso) || !dto.CorreoAcceso.Contains('@')))
-            {
-                errors.Add("Selecciona un usuario existente o registra un correo para crear el usuario de acceso.");
-            }
-
-            var passwordInicial = string.IsNullOrWhiteSpace(dto.PasswordAcceso)
-                ? dni
-                : dto.PasswordAcceso.Trim();
-
-            if (!dto.TutorId.HasValue && (string.IsNullOrWhiteSpace(passwordInicial) || passwordInicial.Length < 8))
-            {
-                errors.Add("La contrasena de acceso debe tener al menos 8 caracteres. Si la dejas vacia se usara el DNI.");
-            }
-        }
-
-        return errors;
-    }
-
-    private async Task<Guid?> CreateAlumnoAccessUserAsync(AlumnoCreateDto dto, CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(dto.CorreoAcceso))
-        {
-            return null;
-        }
-
-        var nombres = FirstValue(dto.Nombres, dto.Nombre) ?? string.Empty;
-        var apellidos = FirstValue(dto.Apellidos, dto.Apellido) ?? string.Empty;
-        var nombreAlumno = $"{nombres} {apellidos}".Trim();
-        var nombreUsuario = BuildNombreUsuarioAcceso(dto, nombres, nombreAlumno);
-
-        var dni = FirstValue(dto.Dni, dto.Identidad) ?? string.Empty;
-        var usuarioAcceso = string.IsNullOrWhiteSpace(dto.UsuarioAcceso)
-            ? dni.Trim().ToLowerInvariant()
-            : dto.UsuarioAcceso.Trim().ToLowerInvariant();
-        var passwordAcceso = string.IsNullOrWhiteSpace(dto.PasswordAcceso)
-            ? dni.Trim()
-            : dto.PasswordAcceso.Trim();
-
-        var authUserId = await _authAdminService.CreateUserAsync(
-            dto.CorreoAcceso,
-            passwordAcceso,
-            nombreUsuario,
-            "usuario",
-            cancellationToken);
-
-        var usuario = await _tableService.InsertAsync<UsuarioDto>(
-            "usuarios",
-            new
-            {
-                id = Guid.Parse(authUserId),
-                usuario = usuarioAcceso,
-                nombre = nombreUsuario,
-                nombre_completo = nombreUsuario,
-                correo = dto.CorreoAcceso.Trim().ToLowerInvariant(),
-                rol = "usuario",
-                supabase_uid = Guid.Parse(authUserId),
-                created_at = DateTimeOffset.UtcNow,
-                updated_at = DateTimeOffset.UtcNow
-            },
-            cancellationToken);
-
-        return usuario.Id;
-    }
-
-    private async Task ApplyTutorSnapshotAsync(
-        Dictionary<string, object?> payload,
-        Guid tutorId,
-        CancellationToken cancellationToken)
-    {
-        var usuario = await _tableService.GetSingleAsync<UsuarioDto>(
-            "usuarios",
-            new Dictionary<string, string?>
-            {
-                ["select"] = "*",
-                ["id"] = $"eq.{tutorId}"
-            },
-            cancellationToken);
-
-        if (usuario is null)
-        {
-            throw new SupabaseTableException("El usuario de acceso seleccionado no existe.", 400);
-        }
-
-        payload["correo_acceso"] = usuario.Correo;
-    }
-
-    private static Dictionary<string, object?> ToPayload(AlumnoCreateDto dto, bool useDefaultEstado)
-    {
-        var payload = new Dictionary<string, object?>
-        {
-            ["updated_at"] = DateTimeOffset.UtcNow
-        };
-
-        AddIfHasValue(payload, "nombres", FirstValue(dto.Nombres, dto.Nombre));
-        AddIfHasValue(payload, "apellidos", FirstValue(dto.Apellidos, dto.Apellido));
-        AddIfHasValue(payload, "dni", FirstValue(dto.Dni, dto.Identidad));
-        AddIfHasValue(payload, "sexo", NormalizeSexo(dto.Sexo));
-        AddIfHasValue(payload, "padres_encargados", dto.PadresEncargados);
-        AddIfHasValue(payload, "direccion", dto.Direccion);
-        AddIfHasValue(payload, "correo_acceso", dto.CorreoAcceso?.Trim().ToLowerInvariant());
-
-        var nombres = FirstValue(dto.Nombres, dto.Nombre);
-        var apellidos = FirstValue(dto.Apellidos, dto.Apellido);
-        var dni = FirstValue(dto.Dni, dto.Identidad);
-
-        AddIfHasValue(payload, "usuario_acceso", string.IsNullOrWhiteSpace(dto.UsuarioAcceso) ? dni : dto.UsuarioAcceso);
-
-        AddIfHasValue(payload, "nombre", $"{nombres} {apellidos}".Trim());
-        AddIfHasValue(payload, "identidad", dni);
-        AddIfHasValue(payload, "grado", "Sin asignar");
-
-        var fechaNacimiento = dto.FechaNacimiento ?? dto.FechaNacimientoSnake;
-        if (fechaNacimiento.HasValue)
-        {
-            payload["fecha_nacimiento"] = fechaNacimiento.Value;
-        }
-
-        if (useDefaultEstado || !string.IsNullOrWhiteSpace(dto.Estado))
-        {
-            payload["estado"] = string.IsNullOrWhiteSpace(dto.Estado)
-                ? "activo"
-                : dto.Estado.Trim().ToLowerInvariant();
-        }
-
-        return payload;
-    }
-
-    private static void AddIfHasValue(Dictionary<string, object?> payload, string key, string? value)
-    {
-        if (!string.IsNullOrWhiteSpace(value))
-        {
-            payload[key] = value.Trim();
-        }
-    }
-
-    private static string? FirstValue(params string?[] values)
-    {
-        return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
-    }
-
-    private static string? NormalizeSexo(string? value)
-    {
-        var sexo = value?.Trim().ToUpperInvariant();
-
-        return sexo switch
-        {
-            "M" or "MASCULINO" => "M",
-            "F" or "FEMENINO" => "F",
-            "O" or "OTRO" or "OTRA" => "O",
-            _ => sexo
-        };
-    }
-
-    private static string BuildNombreUsuarioAcceso(AlumnoCreateDto dto, string nombres, string nombreAlumno)
-    {
-        if (!string.IsNullOrWhiteSpace(dto.NombreUsuarioAcceso))
-        {
-            return dto.NombreUsuarioAcceso.Trim();
-        }
-
-        var primerNombre = nombres
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .FirstOrDefault();
-
-        if (!string.IsNullOrWhiteSpace(primerNombre))
-        {
-            return $"Padre de {primerNombre}";
-        }
-
-        return string.IsNullOrWhiteSpace(dto.PadresEncargados)
-            ? $"Padre de {nombreAlumno}".Trim()
-            : dto.PadresEncargados.Trim();
+            mensaje = "Alumno desactivado",
+            id
+        });
     }
 }
