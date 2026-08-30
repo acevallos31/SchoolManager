@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Alumnos } from './alumnos';
 import { Router } from '@angular/router';
+import { vi } from 'vitest';
 
 describe('Alumnos', () => {
   let component: Alumnos;
@@ -21,7 +22,7 @@ describe('Alumnos', () => {
     fixture = TestBed.createComponent(Alumnos);
     component = fixture.componentInstance;
 
-    spyOn(component, 'cargarAlumnos').and.callFake(() => Promise.resolve());
+    vi.spyOn(component, 'cargarAlumnos').mockImplementation(() => Promise.resolve());
 
     fixture.detectChanges();
   });

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../core/services/auth';
@@ -10,16 +10,8 @@ import { AuthService } from '../../core/services/auth';
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css'
 })
-export class Dashboard implements OnInit {
+export class Dashboard {
   constructor(private auth: AuthService, private router: Router) {}
-
-  ngOnInit() {
-    const rol = this.auth.getRol();
-
-    if (rol === 'usuario' || rol === 'padre') {
-      this.router.navigate(['/portal-padre']);
-    }
-  }
 
   logout() {
     this.auth.logout();

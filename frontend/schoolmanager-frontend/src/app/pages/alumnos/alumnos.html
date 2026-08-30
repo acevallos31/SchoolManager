@@ -1,92 +1,57 @@
 <div class="page-container">
   <div class="page-header">
-    <button class="btn-volver" (click)="volver()">Volver</button>
-    <h1>Gestion de Alumnos</h1>
-    <button class="btn-nuevo" (click)="abrirNuevo()">
+    <button class="btn-volver" (click)="volver()">← Volver</button>
+    <h1>📋 Gestión de Alumnos</h1>
+    <button class="btn-nuevo" (click)="mostrarFormulario = !mostrarFormulario">
       + Nuevo Alumno
     </button>
   </div>
 
   @if (mensaje) {
-    <div class="mensaje toast" [class.toast-error]="mensajeTipo === 'error'" [class.toast-success]="mensajeTipo === 'success'">
-      {{ mensaje }}
-    </div>
+    <div class="mensaje">{{ mensaje }}</div>
   }
 
   @if (mostrarFormulario) {
     <div class="formulario">
-      <h3>{{ alumnoEditandoId ? 'Editar alumno' : 'Datos personales del alumno' }}</h3>
+      <h3>Registrar nuevo alumno</h3>
       <div class="form-grid">
         <div class="form-group">
-          <label>Nombres *</label>
-          <input type="text" [(ngModel)]="nuevoAlumno.nombres" (blur)="rellenarNombreUsuarioAcceso()" placeholder="Ej: Juan Carlos" />
+          <label>Nombre completo *</label>
+          <input type="text" [(ngModel)]="nuevoAlumno.nombre" placeholder="Ej: Juan Pérez" />
         </div>
         <div class="form-group">
-          <label>Apellidos *</label>
-          <input type="text" [(ngModel)]="nuevoAlumno.apellidos" placeholder="Ej: Perez Lopez" />
+          <label>Número de identidad *</label>
+          <input type="text" [(ngModel)]="nuevoAlumno.identidad" placeholder="Ej: 0801-2010-12345" />
         </div>
         <div class="form-group">
-          <label>Fecha de nacimiento *</label>
-          <input type="date" [(ngModel)]="nuevoAlumno.fechaNacimiento" />
-        </div>
-        <div class="form-group">
-          <label>Sexo *</label>
-          <select [(ngModel)]="nuevoAlumno.sexo">
-            <option value="">Seleccionar sexo</option>
-            <option value="M">Masculino</option>
-            <option value="F">Femenino</option>
-            <option value="O">Otro</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>DNI *</label>
-          <input type="text" [(ngModel)]="nuevoAlumno.dni" (blur)="rellenarAccesoConDni()" placeholder="Ej: 0801-2010-12345" />
-        </div>
-        <div class="form-group">
-          <label>Padres o encargados *</label>
-          <input type="text" [(ngModel)]="nuevoAlumno.padresEncargados" placeholder="Ej: Maria Lopez / Jose Perez" />
-        </div>
-        <div class="form-group">
-          <label>Direccion *</label>
-          <input type="text" [(ngModel)]="nuevoAlumno.direccion" placeholder="Ej: Colonia Centro, casa 12" />
-        </div>
-        <div class="form-group">
-          <label>Usuario existente</label>
-          <select [(ngModel)]="nuevoAlumno.tutorId">
-            <option value="">Crear nuevo usuario de acceso</option>
-            @for (usuario of usuariosAcceso; track usuario.id) {
-              <option [value]="usuario.id">{{ usuario.nombreCompleto || usuario.nombre_completo || usuario.nombre }} - {{ usuario.usuario }}</option>
+          <label>Grado *</label>
+          <select [(ngModel)]="nuevoAlumno.grado">
+            <option value="">Seleccionar grado</option>
+            @for (g of grados; track g) {
+              <option [value]="g">{{ g }}</option>
             }
           </select>
         </div>
         <div class="form-group">
-          <label>Usuario de acceso</label>
-          <input type="text" [(ngModel)]="nuevoAlumno.usuarioAcceso" placeholder="Se puede usar el DNI" [disabled]="!!nuevoAlumno.tutorId || !!alumnoEditandoId" />
+          <label>Sección</label>
+          <input type="text" [(ngModel)]="nuevoAlumno.seccion" placeholder="Ej: A" />
         </div>
         <div class="form-group">
-          <label>Nombre del usuario de acceso</label>
-          <input type="text" [(ngModel)]="nuevoAlumno.nombreUsuarioAcceso" placeholder="Ej: Padre de Edgar" [disabled]="!!nuevoAlumno.tutorId || !!alumnoEditandoId" />
-        </div>
-        <div class="form-group">
-          <label>{{ alumnoEditandoId ? 'Correo de acceso' : 'Correo de acceso *' }}</label>
-          <input type="email" [(ngModel)]="nuevoAlumno.correoAcceso" placeholder="Ej: padre@correo.com" [disabled]="!!nuevoAlumno.tutorId || !!alumnoEditandoId" />
-        </div>
-        <div class="form-group">
-          <label>Contrasena inicial</label>
-          <input type="password" [(ngModel)]="nuevoAlumno.passwordAcceso" placeholder="Si queda vacia se usara el DNI" [disabled]="!!nuevoAlumno.tutorId || !!alumnoEditandoId" />
+          <label>Fecha de nacimiento</label>
+          <input type="date" [(ngModel)]="nuevoAlumno.fecha_nacimiento" />
         </div>
       </div>
       <div class="form-actions">
-        <button class="btn-cancelar" (click)="cancelarEdicion()">Cancelar</button>
+        <button class="btn-cancelar" (click)="mostrarFormulario = false">Cancelar</button>
         <button class="btn-guardar" (click)="guardarAlumno()" [disabled]="cargando">
-          {{ cargando ? 'Guardando...' : (alumnoEditandoId ? 'Guardar cambios' : 'Guardar alumno') }}
+          {{ cargando ? 'Guardando...' : 'Guardar alumno' }}
         </button>
       </div>
     </div>
   }
 
   <div class="buscador">
-    <input type="text" [(ngModel)]="busqueda" placeholder="Buscar por nombre o DNI..." />
+    <input type="text" [(ngModel)]="busqueda" placeholder="🔍 Buscar por nombre, identidad o grado..." />
   </div>
 
   @if (cargando && !mostrarFormulario) {
@@ -96,14 +61,10 @@
       <thead>
         <tr>
           <th>Nombre</th>
-          <th>DNI</th>
-          <th>Nacimiento</th>
-          <th>Edad</th>
-          <th>Sexo</th>
-          <th>Encargados</th>
-          <th>Direccion</th>
+          <th>Identidad</th>
+          <th>Grado</th>
+          <th>Sección</th>
           <th>Estado</th>
-          <th>Usuario</th>
           <th>Acciones</th>
         </tr>
       </thead>
@@ -111,45 +72,29 @@
         @for (alumno of alumnosFiltrados; track alumno.id) {
           <tr>
             <td>{{ alumno.nombre }}</td>
-            <td>{{ alumno.identidad || alumno.dni }}</td>
-            <td>{{ alumno.fechaNacimiento || alumno.fecha_nacimiento }}</td>
-            <td>{{ alumno.edad || '-' }}</td>
-            <td>{{ alumno.sexo }}</td>
-            <td>{{ alumno.padresEncargados || '-' }}</td>
-            <td>{{ alumno.direccion || '-' }}</td>
+            <td>{{ alumno.identidad }}</td>
+            <td>{{ alumno.grado }}</td>
+            <td>{{ alumno.seccion || '-' }}</td>
             <td>
               <span [class]="alumno.estado === 'activo' ? 'badge-activo' : 'badge-inactivo'">
                 {{ alumno.estado }}
               </span>
             </td>
-            <td>{{ nombreUsuarioAlumno(alumno) }}</td>
             <td>
               @if (alumno.estado === 'activo') {
-                <button class="btn-activar" (click)="editarAlumno(alumno)">
-                  Editar
-                </button>
                 <button class="btn-desactivar" (click)="desactivarAlumno(alumno.id)">
                   Desactivar
                 </button>
-                <button class="btn-desactivar" (click)="eliminarAlumno(alumno.id)">
-                  Eliminar
-                </button>
               } @else {
-                <button class="btn-activar" (click)="editarAlumno(alumno)">
-                  Editar
-                </button>
                 <button class="btn-activar" (click)="activarAlumno(alumno.id)">
                   Activar
-                </button>
-                <button class="btn-desactivar" (click)="eliminarAlumno(alumno.id)">
-                  Eliminar
                 </button>
               }
             </td>
           </tr>
         } @empty {
           <tr>
-            <td colspan="10" class="sin-datos">No hay alumnos registrados</td>
+            <td colspan="6" class="sin-datos">No hay alumnos registrados</td>
           </tr>
         }
       </tbody>

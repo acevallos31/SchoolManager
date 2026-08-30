@@ -54,14 +54,10 @@ SchoolManager/
 
 ## Configuracion de Supabase
 
-1. Crear un proyecto en Supabase.
-2. Ejecutar `database/schema.sql` en el SQL Editor.
-3. Revisar los pasos de `database/GUIA_SUPABASE.md`.
-4. Copiar las credenciales necesarias:
-   - Supabase URL
-   - Publishable/anon key
-   - JWT secret
-   - Service/secret key, si aplica al backend
+1. Crear un proyecto nuevo en Supabase.
+2. Ejecutar `database/baseline/001_schoolmanager_fase1a.sql` una sola vez.
+3. Configurar en el frontend la URL y la publishable key del proyecto.
+4. Configurar en el backend la conexion PostgreSQL y el issuer de Supabase.
 
 ## Backend local
 
@@ -79,10 +75,9 @@ Variables recomendadas para produccion:
 
 ```txt
 ASPNETCORE_ENVIRONMENT=Production
-Supabase__Url=https://TU-PROYECTO.supabase.co
-Supabase__PublishableKey=TU_PUBLISHABLE_KEY
-Supabase__SecretKey=TU_SECRET_KEY
-Supabase__JwtSecret=TU_JWT_SECRET
+ConnectionStrings__PostgreSQL=Host=...;Database=postgres;Username=...;Password=...
+Jwt__Issuer=https://TU-PROYECTO.supabase.co/auth/v1
+Jwt__Audience=authenticated
 ```
 
 ## Frontend local

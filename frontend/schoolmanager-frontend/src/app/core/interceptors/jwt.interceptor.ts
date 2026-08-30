@@ -6,7 +6,8 @@ import {
   HttpRequest
 } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { AuthService } from '../services/auth.service';
+import { environment } from '../../environments/environment';
+import { AuthService } from '../services/auth';
 
 // Inyecta automáticamente el token JWT en cada petición saliente hacia la API
 @Injectable()
@@ -16,7 +17,7 @@ export class JwtInterceptor implements HttpInterceptor {
   intercept(req: HttpRequest<unknown>, next: HttpHandler): Observable<HttpEvent<unknown>> {
     const token = this.authService.getToken();
 
-    if (token) {
+    if (token && req.url.startsWith(environment.apiUrl)) {
       req = req.clone({
         setHeaders: { Authorization: `Bearer ${token}` }
       });

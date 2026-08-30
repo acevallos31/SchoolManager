@@ -31,14 +31,14 @@
 
       <form class="login-form" (ngSubmit)="login()">
         <div class="form-group">
-          <label for="correo">Correo o usuario</label>
+          <label for="correo">Correo electronico</label>
           <input
             id="correo"
             name="correo"
-            type="text"
+            type="email"
             [(ngModel)]="correo"
-            placeholder="admin@schoolmanager.com o DNI"
-            autocomplete="username"
+            placeholder="admin@schoolmanager.com"
+            autocomplete="email"
             required
             [disabled]="cargando"
           />
