@@ -8,7 +8,11 @@ import {
   AlumnoServiceError
 } from '../../core/services/alumno.service';
 import { AuthService } from '../../core/services/auth';
-import { ConfiguracionError, ConfiguracionService } from '../../core/services/configuracion.service';
+import {
+  ConfiguracionError,
+  ConfiguracionIdentificadores,
+  ConfiguracionService
+} from '../../core/services/configuracion.service';
 
 interface NuevoAlumnoForm {
   nombres: string;
@@ -37,6 +41,7 @@ export class Alumnos implements OnInit {
   esError = false;
   ultimoAlumnoCreadoId: string | null = null;
   private institucionCreacionId: string | null = null;
+  configuracionIdentificadores: ConfiguracionIdentificadores | null = null;
   nuevoAlumno = this.crearFormularioVacio();
 
   constructor(
@@ -104,10 +109,22 @@ export class Alumnos implements OnInit {
     this.mostrarFormulario = true;
     this.mensaje = '';
     try {
-      const institucion = await this.configuracionService.obtenerInstitucionActual();
-      this.institucionCreacionId = institucion.id;
+      const configuracion = await this.configuracionService.obtenerConfiguracionInstitucion();
+      if (!configuracion.institucion || !configuracion.identificadores) {
+        throw new ConfiguracionError(
+          'No hay un centro educativo configurado.',
+          'INSTITUTION_CONTEXT_REQUIRED'
+        );
+      }
+      this.institucionCreacionId = configuracion.institucion.id;
+      this.configuracionIdentificadores = configuracion.identificadores;
+      const tipos = configuracion.identificadores.tiposIdentificacionPermitidos;
+      if (tipos.length > 0 && !tipos.includes(this.nuevoAlumno.tipoIdentificacion)) {
+        this.nuevoAlumno.tipoIdentificacion = tipos[0];
+      }
     } catch (error) {
       this.institucionCreacionId = null;
+      this.configuracionIdentificadores = null;
       this.mostrarError(error, 'No se pudo determinar la institución del alumno.');
     }
   }
@@ -117,6 +134,7 @@ export class Alumnos implements OnInit {
     this.mostrarFormulario = false;
     this.nuevoAlumno = this.crearFormularioVacio();
     this.institucionCreacionId = null;
+    this.configuracionIdentificadores = null;
   }
 
   async guardarAlumno(): Promise<void> {
@@ -127,10 +145,12 @@ export class Alumnos implements OnInit {
       !this.nuevoAlumno.apellidos.trim() ||
       !this.nuevoAlumno.tipoIdentificacion.trim() ||
       !this.nuevoAlumno.numeroIdentificacion.trim() ||
+      (this.configuracionIdentificadores?.rneRequerido && !this.nuevoAlumno.rne.trim()) ||
+      (this.configuracionIdentificadores?.codigoInternoRequerido && !this.nuevoAlumno.codigoInterno.trim()) ||
       !this.institucionCreacionId
     ) {
       this.mostrarMensaje(
-        'Nombres, apellidos, tipo y número de documento son obligatorios.',
+        'Complete los campos obligatorios para registrar el alumno.',
         true
       );
       return;
@@ -154,6 +174,7 @@ export class Alumnos implements OnInit {
       this.mostrarFormulario = false;
       this.nuevoAlumno = this.crearFormularioVacio();
       this.institucionCreacionId = null;
+      this.configuracionIdentificadores = null;
       await this.cargarAlumnos();
     } catch (error) {
       this.mostrarError(error, 'No se pudo crear el alumno.');

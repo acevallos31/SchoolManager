@@ -26,11 +26,19 @@
       <div class="form-grid">
         <div class="form-group"><label for="nombres">Nombres *</label><input id="nombres" name="nombres" type="text" [(ngModel)]="nuevoAlumno.nombres" /></div>
         <div class="form-group"><label for="apellidos">Apellidos *</label><input id="apellidos" name="apellidos" type="text" [(ngModel)]="nuevoAlumno.apellidos" /></div>
-        <div class="form-group"><label for="tipoIdentificacion">Tipo de documento *</label><input id="tipoIdentificacion" name="tipoIdentificacion" type="text" [(ngModel)]="nuevoAlumno.tipoIdentificacion" /></div>
+        <div class="form-group"><label for="tipoIdentificacion">Tipo de documento *</label>
+          @if (configuracionIdentificadores?.tiposIdentificacionPermitidos?.length) {
+            <select id="tipoIdentificacion" name="tipoIdentificacion" [(ngModel)]="nuevoAlumno.tipoIdentificacion">
+              @for (tipo of configuracionIdentificadores!.tiposIdentificacionPermitidos; track tipo) { <option [value]="tipo">{{ tipo }}</option> }
+            </select>
+          } @else {
+            <input id="tipoIdentificacion" name="tipoIdentificacion" type="text" [(ngModel)]="nuevoAlumno.tipoIdentificacion" />
+          }
+        </div>
         <div class="form-group"><label for="numeroIdentificacion">Número de documento *</label><input id="numeroIdentificacion" name="numeroIdentificacion" type="text" [(ngModel)]="nuevoAlumno.numeroIdentificacion" /></div>
         <div class="form-group"><label for="fechaNacimiento">Fecha de nacimiento</label><input id="fechaNacimiento" name="fechaNacimiento" type="date" [(ngModel)]="nuevoAlumno.fechaNacimiento" /></div>
-        <div class="form-group"><label for="rne">RNE</label><input id="rne" name="rne" type="text" [(ngModel)]="nuevoAlumno.rne" /></div>
-        <div class="form-group"><label for="codigoInterno">Código interno</label><input id="codigoInterno" name="codigoInterno" type="text" [(ngModel)]="nuevoAlumno.codigoInterno" /></div>
+        <div class="form-group"><label for="rne">RNE{{ configuracionIdentificadores?.rneRequerido ? ' *' : '' }}</label><input id="rne" name="rne" type="text" [(ngModel)]="nuevoAlumno.rne" [required]="configuracionIdentificadores?.rneRequerido ?? false" /></div>
+        <div class="form-group"><label for="codigoInterno">Código interno{{ configuracionIdentificadores?.codigoInternoRequerido ? ' *' : '' }}</label><input id="codigoInterno" name="codigoInterno" type="text" [(ngModel)]="nuevoAlumno.codigoInterno" [required]="configuracionIdentificadores?.codigoInternoRequerido ?? false" /></div>
       </div>
 
       <div class="form-actions">

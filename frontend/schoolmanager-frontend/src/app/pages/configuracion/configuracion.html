@@ -1,51 +1,83 @@
 <main class="configuration-shell">
   <header>
-    <div>
-      <p class="eyebrow">Administración</p>
-      <h1>Configuración</h1>
-      <p>Define cómo esta implementación organiza sus centros educativos.</p>
-    </div>
+    <div><p class="eyebrow">Administración</p><h1>Configuración</h1><p>Datos y reglas funcionales de esta implementación.</p></div>
     <button type="button" class="secondary" (click)="volver()">Volver</button>
   </header>
 
-  @if (mensaje) {
-    <p class="message" [class.error]="esError">{{ mensaje }}</p>
-  }
+  @if (mensaje) { <p class="message" [class.error]="esError" role="status">{{ mensaje }}</p> }
 
   @if (cargando) {
     <p>Cargando configuración...</p>
-  } @else if (contexto) {
+  } @else if (configuracion) {
     <section class="card">
-      <h2>Centro educativo</h2>
-      <p class="institution-name">
-        {{ contexto.institucion?.nombre || 'Requiere selección de institución' }}
-      </p>
+      <div class="section-heading">
+        <div><h2>Centro educativo</h2><p>Información general de la institución.</p></div>
+        @if (!editando && puedeEditarInstitucion) {
+          <button type="button" class="primary" (click)="iniciarEdicion()">{{ creando ? 'Configurar centro educativo' : 'Editar' }}</button>
+        }
+      </div>
 
-      <hr>
+      @if (editando) {
+        <form (ngSubmit)="guardarInstitucion()">
+          <div class="form-grid">
+            <label>Nombre *<input name="nombre" [(ngModel)]="formulario.nombre" required></label>
+            <label>Nombre corto<input name="nombreCorto" [(ngModel)]="formulario.nombreCorto"></label>
+            <label class="wide">Dirección<input name="direccion" [(ngModel)]="formulario.direccion"></label>
+            <label>Teléfono<input name="telefono" [(ngModel)]="formulario.telefono"></label>
+            <label>Correo<input name="correo" type="email" [(ngModel)]="formulario.correo"></label>
+            <label class="wide">URL del logo<input name="logoUrl" type="url" [(ngModel)]="formulario.logoUrl"></label>
+          </div>
 
-      <h2>Modo de instituciones</h2>
-      <label class="toggle-row">
-        <input
-          type="checkbox"
-          [ngModel]="contexto.multiplesInstituciones"
-          (ngModelChange)="cambiarModo($event)"
-          [disabled]="!puedeEditar || guardando"
-        >
-        <span>
-          <strong>Habilitar múltiples instituciones</strong>
-          <small>El selector global de institución se incorporará en un bloque posterior.</small>
-        </span>
-      </label>
+          <hr><h3>Identificación de alumnos</h3>
+          <div class="checks">
+            <label><input type="checkbox" name="rneRequerido" [(ngModel)]="formulario.identificadores.rneRequerido"> RNE obligatorio</label>
+            <label><input type="checkbox" name="identificacionCivilRequerida" [(ngModel)]="formulario.identificadores.identificacionCivilRequerida"> Identificación civil obligatoria</label>
+            <label><input type="checkbox" name="codigoInternoRequerido" [(ngModel)]="formulario.identificadores.codigoInternoRequerido"> Código interno obligatorio</label>
+          </div>
+          <fieldset>
+            <legend>Tipos de identificación permitidos</legend>
+            @for (tipo of tiposDisponibles; track tipo) {
+              <label><input type="checkbox" [checked]="tipoSeleccionado(tipo)" (change)="alternarTipo(tipo, $any($event.target).checked)"> {{ tipo }}</label>
+            }
+          </fieldset>
 
-      @if (!puedeEditar) {
-        <p class="read-only">Tu acceso a esta configuración es de solo lectura.</p>
+          <div class="actions">
+            <button type="button" class="secondary" (click)="cancelarEdicion()" [disabled]="guardando">Cancelar</button>
+            <button type="submit" class="primary" [disabled]="guardando">{{ guardando ? 'Guardando...' : 'Guardar' }}</button>
+          </div>
+        </form>
+      } @else if (configuracion.institucion; as institucion) {
+        <dl class="details">
+          <div><dt>Nombre</dt><dd>{{ institucion.nombre }}</dd></div>
+          <div><dt>Nombre corto</dt><dd>{{ institucion.nombreCorto || '—' }}</dd></div>
+          <div><dt>Dirección</dt><dd>{{ institucion.direccion || '—' }}</dd></div>
+          <div><dt>Teléfono</dt><dd>{{ institucion.telefono || '—' }}</dd></div>
+          <div><dt>Correo</dt><dd>{{ institucion.correo || '—' }}</dd></div>
+          <div><dt>Logo</dt><dd>{{ institucion.logoUrl || '—' }}</dd></div>
+        </dl>
+        @if (configuracion.identificadores; as ids) {
+          <hr><h3>Identificación de alumnos</h3>
+          <ul class="identifier-summary">
+            <li>RNE: {{ ids.rneRequerido ? 'obligatorio' : 'opcional' }}</li>
+            <li>Identificación civil: {{ ids.identificacionCivilRequerida ? 'obligatoria' : 'opcional' }}</li>
+            <li>Código interno: {{ ids.codigoInternoRequerido ? 'obligatorio' : 'opcional' }}</li>
+            <li>Tipos permitidos: {{ ids.tiposIdentificacionPermitidos.join(', ') || 'sin restricción' }}</li>
+          </ul>
+        }
+      } @else if (configuracion.multiplesInstituciones) {
+        <p class="empty">Seleccione una institución para continuar. El selector multi-institución se implementará posteriormente.</p>
+      } @else {
+        <p class="empty">No hay un centro educativo configurado.</p>
       }
     </section>
 
-    <section class="future">
-      <h2>Próximos apartados</h2>
-      <span>Instituciones</span><span>Ciclos escolares</span><span>Grados</span>
-      <span>Jornadas</span><span>Secciones</span>
+    <section class="card mode-card">
+      <h2>Modo de instituciones</h2>
+      <label class="toggle-row">
+        <input type="checkbox" [ngModel]="configuracion.multiplesInstituciones"
+          (ngModelChange)="cambiarModo($event)" [disabled]="!puedeEditarModo || guardando">
+        <span><strong>Habilitar múltiples instituciones</strong><small>No selecciona una institución automáticamente.</small></span>
+      </label>
     </section>
   }
 </main>

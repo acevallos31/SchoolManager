@@ -55,4 +55,49 @@ describe('ConfiguracionService', () => {
       code: 'SM001', message: 'No hay un centro educativo configurado.'
     } satisfies Partial<ConfiguracionError>));
   });
+
+  it('obtiene configuración institucional tipada en una RPC', async () => {
+    rpc.mockResolvedValue({ data: {
+      multiplesInstituciones: false,
+      institucion: {
+        id: 'institucion-1', nombre: 'Centro', nombreCorto: null,
+        direccion: null, telefono: null, correo: null, logoUrl: null
+      },
+      identificadores: {
+        rneRequerido: true, identificacionCivilRequerida: false,
+        codigoInternoRequerido: false, tiposIdentificacionPermitidos: ['identidad']
+      }
+    }, error: null });
+
+    const resultado = await service.obtenerConfiguracionInstitucion();
+    expect(resultado.identificadores?.rneRequerido).toBe(true);
+    expect(rpc).toHaveBeenCalledWith('rpc_obtener_configuracion_institucion', undefined);
+  });
+
+  it('crear y actualizar institución usan RPC seguras', async () => {
+    const respuesta = {
+      multiplesInstituciones: false,
+      institucion: {
+        id: 'institucion-1', nombre: 'Centro', nombreCorto: null,
+        direccion: null, telefono: null, correo: null, logoUrl: null
+      },
+      identificadores: {
+        rneRequerido: false, identificacionCivilRequerida: false,
+        codigoInternoRequerido: false, tiposIdentificacionPermitidos: ['identidad']
+      }
+    };
+    rpc.mockResolvedValue({ data: respuesta, error: null });
+    const input = {
+      nombre: ' Centro ', nombreCorto: null, direccion: null, telefono: null,
+      correo: null, logoUrl: null, identificadores: respuesta.identificadores
+    };
+
+    await service.crearInstitucion(input);
+    await service.actualizarInstitucion('institucion-1', input);
+
+    expect(rpc).toHaveBeenNthCalledWith(1, 'rpc_crear_institucion',
+      expect.objectContaining({ p_nombre: 'Centro', p_rne_requerido: false }));
+    expect(rpc).toHaveBeenNthCalledWith(2, 'rpc_actualizar_institucion',
+      expect.objectContaining({ p_institucion_id: 'institucion-1', p_nombre: 'Centro' }));
+  });
 });

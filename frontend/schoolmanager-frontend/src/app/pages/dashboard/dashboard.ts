@@ -18,7 +18,8 @@ export class Dashboard {
   }
 
   get puedeVerConfiguracion(): boolean {
-    return this.auth.tienePermiso('configuracion.sistema.ver');
+    return this.auth.tienePermiso('configuracion.sistema.ver')
+      || this.auth.tienePermiso('configuracion.instituciones.ver');
   }
 
   logout() {

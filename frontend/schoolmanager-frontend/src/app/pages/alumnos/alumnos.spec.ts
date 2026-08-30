@@ -26,8 +26,13 @@ describe('Alumnos', () => {
     ]);
     navigate = vi.fn();
     configuracionService = {
-      obtenerInstitucionActual: vi.fn().mockResolvedValue({
-        id: 'institucion-1', nombre: 'Centro educativo'
+      obtenerConfiguracionInstitucion: vi.fn().mockResolvedValue({
+        multiplesInstituciones: false,
+        institucion: { id: 'institucion-1', nombre: 'Centro educativo' },
+        identificadores: {
+          rneRequerido: false, identificacionCivilRequerida: true,
+          codigoInternoRequerido: false, tiposIdentificacionPermitidos: ['identidad']
+        }
       })
     };
     alumnoService = {
@@ -72,8 +77,29 @@ describe('Alumnos', () => {
 
   it('resuelve institución desde configuración y no desde ciclos', async () => {
     await component.abrirFormulario();
-    expect(configuracionService['obtenerInstitucionActual']).toHaveBeenCalledOnce();
+    expect(configuracionService['obtenerConfiguracionInstitucion']).toHaveBeenCalledOnce();
     expect(alumnoService['cargarCiclos']).toBeUndefined();
+  });
+
+  it('exige campos configurados como obligatorios', async () => {
+    configuracionService['obtenerConfiguracionInstitucion'].mockResolvedValueOnce({
+      multiplesInstituciones: false,
+      institucion: { id: 'institucion-1', nombre: 'Centro educativo' },
+      identificadores: {
+        rneRequerido: true, identificacionCivilRequerida: true,
+        codigoInternoRequerido: true, tiposIdentificacionPermitidos: ['identidad']
+      }
+    });
+    await component.abrirFormulario();
+    component.nuevoAlumno = {
+      nombres: 'Ana', apellidos: 'López', tipoIdentificacion: 'identidad',
+      numeroIdentificacion: '0801', fechaNacimiento: '', rne: '', codigoInterno: ''
+    };
+
+    await component.guardarAlumno();
+
+    expect(alumnoService['crear']).not.toHaveBeenCalled();
+    expect(component.mensaje).toContain('campos obligatorios');
   });
 
   it('sin permiso crear oculta el botón Nuevo Alumno', () => {
