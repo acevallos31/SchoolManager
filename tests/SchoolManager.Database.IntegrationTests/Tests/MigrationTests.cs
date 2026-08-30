@@ -6,7 +6,7 @@ namespace SchoolManager.Database.IntegrationTests.Tests;
 public sealed class MigrationTests(PostgreSqlFixture fixture) : IClassFixture<PostgreSqlFixture>
 {
     [Fact]
-    public void Migraciones_activas_estan_ordenadas_de_001_a_010()
+    public void Migraciones_activas_estan_ordenadas_de_001_a_011()
     {
         var names = MigrationRunner.GetActiveMigrationPaths().Select(Path.GetFileName).ToArray();
         Assert.Equal(new[]
@@ -20,7 +20,8 @@ public sealed class MigrationTests(PostgreSqlFixture fixture) : IClassFixture<Po
             "007_crear_rbac_base.sql",
             "008_normalizar_modelo_academico.sql",
             "009_seguridad_rls_rpc.sql",
-            "010_retirar_rol_legacy_y_consolidar_identidad.sql"
+            "010_retirar_rol_legacy_y_consolidar_identidad.sql",
+            "011_extender_creacion_alumno_con_documento.sql"
         }, names);
     }
 

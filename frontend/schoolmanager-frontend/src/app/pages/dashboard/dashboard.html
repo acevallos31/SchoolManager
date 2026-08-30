@@ -7,7 +7,9 @@
     </div>
 
     <nav>
-      <a routerLink="/alumnos" routerLinkActive="active">Alumnos</a>
+      @if (puedeVerAlumnos) {
+        <a routerLink="/alumnos" routerLinkActive="active">Alumnos</a>
+      }
       <a routerLink="/matriculas" routerLinkActive="active">Matrículas</a>
       <a routerLink="/mensualidades" routerLinkActive="active">Mensualidades</a>
     </nav>
@@ -29,7 +31,9 @@
       </div>
 
       <div class="hero-actions">
-        <a routerLink="/alumnos">Ver alumnos</a>
+        @if (puedeVerAlumnos) {
+          <a routerLink="/alumnos">Ver alumnos</a>
+        }
         <a routerLink="/mensualidades" class="secondary">Revisar mensualidades</a>
       </div>
     </section>

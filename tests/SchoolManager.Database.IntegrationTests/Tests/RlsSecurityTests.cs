@@ -175,6 +175,28 @@ public sealed class RlsSecurityTests(PostgreSqlFixture fixture) : IClassFixture<
             "select public.rpc_reactivar_alumno($1)", Guid.NewGuid()));
     }
 
+    [Fact]
+    public async Task Rpc_crea_persona_y_alumno_con_documento_de_forma_atomica()
+    {
+        var institucion = await InsertInstitucionAsync();
+        var operador = await InsertUsuarioAsync("operador", institucion);
+        var documento = $"0801-{Guid.NewGuid():N}";
+
+        var alumnoId = await AuthScalarGuidAsync(
+            operador.AuthUserId,
+            "select public.rpc_crear_alumno_nueva_persona_con_documento($1, $2, $3, $4, $5)",
+            institucion, "Ana", "Lopez", "identidad", documento);
+
+        Assert.Equal(1, await ScalarLongAsync("""
+            select count(*)
+            from public.alumnos a
+            join public.personas p on p.id = a.persona_id
+            where a.id = $1
+              and p.numero_identificacion = $2
+              and p.numero_identificacion_normalizado = lower(regexp_replace($2, '[^[:alnum:]]', '', 'g'))
+            """, alumnoId, documento));
+    }
+
     private async Task<Contexto> CreateContextAsync()
     {
         var institucion = await InsertInstitucionAsync();
