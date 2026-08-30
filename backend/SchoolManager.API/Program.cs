@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
+using SchoolManager.API.Authorization;
 using SchoolManager.API.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -71,11 +73,20 @@ builder.Services.AddSingleton(sp =>
     return NpgsqlDataSource.Create(connectionString);
 });
 builder.Services.AddScoped<IUsuarioActualService, UsuarioActualService>();
+builder.Services.AddScoped<IAuthorizationHandler, RolUsuarioHandler>();
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("SoloAdmin", policy => policy.RequireRole("admin"));
-    options.AddPolicy("AdminOPadre", policy => policy.RequireRole("admin", "padre"));
+    options.AddPolicy("SoloAdmin", policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.AddRequirements(new RolUsuarioRequirement("admin"));
+    });
+    options.AddPolicy("AdminOPadre", policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.AddRequirements(new RolUsuarioRequirement("admin", "padre"));
+    });
 });
 
 var app = builder.Build();
