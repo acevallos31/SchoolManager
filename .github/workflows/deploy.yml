@@ -25,6 +25,12 @@ jobs:
           dotnet restore backend/SchoolManager.API/SchoolManager.API.csproj
           dotnet build backend/SchoolManager.API/SchoolManager.API.csproj --configuration Release
 
+      - name: Ejecutar tests de identidad y autorizacion
+        run: dotnet test tests/SchoolManager.API.IntegrationTests/SchoolManager.API.IntegrationTests.csproj --configuration Release
+
+      - name: Ejecutar tests de base de datos
+        run: dotnet test tests/SchoolManager.Database.IntegrationTests/SchoolManager.Database.IntegrationTests.csproj --configuration Release
+
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
