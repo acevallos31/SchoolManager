@@ -56,7 +56,7 @@ export class PortalPadre implements OnInit {
       this.router.navigate(['/login']);
       return;
     }
-    this.nombrePadre = usuario.nombre;
+    this.nombrePadre = 'Usuario';
 
     const { data: hijosData } = await this.auth.supabase
       .from('alumnos')

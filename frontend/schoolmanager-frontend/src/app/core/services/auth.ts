@@ -1,19 +1,27 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable, InjectionToken } from '@angular/core';
 import { createClient, SupabaseClient, Session } from '@supabase/supabase-js';
 import { BehaviorSubject } from 'rxjs';
+import { environment } from '../../environments/environment';
 
-const SUPABASE_URL = 'https://nphvszugtwumeeegvahu.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_MYmRr445RYIKhQ6JK6Gv4Q_Q68L2Eas';
 const REQUEST_TIMEOUT_MS = 12000;
 
-export type RolUsuario = 'admin' | 'padre';
+export const SUPABASE_CLIENT = new InjectionToken<SupabaseClient>('SUPABASE_CLIENT', {
+  providedIn: 'root',
+  factory: () =>
+    createClient(environment.supabaseUrl, environment.supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        storageKey: 'schoolmanager-auth',
+        storage: window.localStorage
+      }
+    })
+});
+
+export type RolUsuario = 'admin' | 'operador' | 'usuario' | 'padre';
 
 export interface UsuarioActual {
   id: string;
-  supabase_uid: string;
-  nombre: string;
-  nombre_completo?: string;
-  correo?: string;
+  personaId: string;
   rol: RolUsuario;
 }
 
@@ -36,31 +44,28 @@ export class AuthAppError extends Error {
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  public supabase: SupabaseClient;
+  public supabase = inject(SUPABASE_CLIENT);
   private sessionSubject = new BehaviorSubject<Session | null>(null);
+  private usuarioSubject = new BehaviorSubject<UsuarioActual | null>(null);
   session$ = this.sessionSubject.asObservable();
+  usuarioActual$ = this.usuarioSubject.asObservable();
 
   constructor() {
-    this.supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
-      auth: {
-        persistSession: true,
-        storageKey: 'schoolmanager-auth',
-        storage: window.localStorage
-      }
-    });
-
     this.supabase.auth
       .getSession()
-      .then(({ data }) => {
-        this.sessionSubject.next(data.session);
+      .then(async ({ data }) => {
+        await this.restaurarSesion(data.session);
       })
-      .catch(error => {
+      .catch(async error => {
         console.error('No se pudo recuperar la sesion existente:', error);
-        this.sessionSubject.next(null);
+        await this.limpiarSesionInvalida();
       });
 
     this.supabase.auth.onAuthStateChange((_, session) => {
       this.sessionSubject.next(session);
+      if (!session) {
+        this.usuarioSubject.next(null);
+      }
     });
   }
 
@@ -85,8 +90,14 @@ export class AuthService {
       }
 
       this.sessionSubject.next(data.session);
-      return await this.getUsuarioActual(data.session);
+      const usuario = await this.getUsuarioActual(data.session);
+      this.usuarioSubject.next(usuario);
+      return usuario;
     } catch (error) {
+      if (this.sessionSubject.value) {
+        await this.limpiarSesionInvalida();
+      }
+
       if (error instanceof AuthAppError) {
         throw error;
       }
@@ -101,6 +112,7 @@ export class AuthService {
       await this.supabase.auth.signOut();
     } finally {
       this.sessionSubject.next(null);
+      this.usuarioSubject.next(null);
     }
   }
 
@@ -112,6 +124,10 @@ export class AuthService {
     return this.sessionSubject.value?.access_token ?? null;
   }
 
+  getRol(): RolUsuario | null {
+    return this.usuarioSubject.value?.rol ?? null;
+  }
+
   async getUsuarioActual(sessionOverride?: Session): Promise<UsuarioActual> {
     const session = sessionOverride ?? this.sessionSubject.value;
 
@@ -119,35 +135,48 @@ export class AuthService {
       throw new AuthAppError('No hay una sesion activa.', 'SESSION_NOT_FOUND');
     }
 
-    const { data, error } = await this.withTimeout(
-      this.supabase
-        .from('usuarios')
-        .select('id, supabase_uid, nombre_completo, correo, rol')
-        .eq('supabase_uid', session.user.id)
-        .maybeSingle(),
+    const response = await this.withTimeout(
+      fetch(`${environment.apiUrl.replace(/\/$/, '')}/auth/me`, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      }),
       'La consulta del perfil esta tardando demasiado. Intenta otra vez.'
     );
 
-    if (error) {
-      console.error('Error obteniendo usuario:', error);
+    if (!response.ok) {
       throw new AuthAppError('No se pudo consultar tu perfil de usuario.', 'USER_PROFILE_ERROR');
     }
 
-    if (!data) {
-      throw new AuthAppError(
-        'Tu cuenta existe en Supabase Auth, pero no esta registrada en la tabla usuarios.',
-        'USER_PROFILE_NOT_FOUND'
-      );
-    }
+    const data = (await response.json()) as UsuarioActual;
 
-    if (data.rol !== 'admin' && data.rol !== 'padre') {
+    if (!data.id || !data.personaId || !this.esRolUsuario(data.rol)) {
       throw new AuthAppError('Tu usuario tiene un rol no reconocido.', 'USER_PROFILE_ERROR');
     }
 
-    return {
-      ...(data as UsuarioActual),
-      nombre: data.nombre_completo ?? data.correo ?? 'Usuario'
-    };
+    return data;
+  }
+
+  private async restaurarSesion(session: Session | null): Promise<void> {
+    this.sessionSubject.next(session);
+    if (!session) {
+      this.usuarioSubject.next(null);
+      return;
+    }
+
+    this.usuarioSubject.next(await this.getUsuarioActual(session));
+  }
+
+  private async limpiarSesionInvalida(): Promise<void> {
+    try {
+      await this.supabase.auth.signOut();
+    } finally {
+      this.sessionSubject.next(null);
+      this.usuarioSubject.next(null);
+    }
+  }
+
+  private esRolUsuario(rol: string): rol is RolUsuario {
+    return rol === 'admin' || rol === 'operador' || rol === 'usuario' || rol === 'padre';
   }
 
   private async withTimeout<T>(promise: PromiseLike<T>, timeoutMessage: string): Promise<T> {
