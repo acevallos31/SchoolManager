@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import {
@@ -26,7 +26,8 @@ export class Configuracion implements OnInit {
   constructor(
     private readonly router: Router,
     private readonly auth: AuthService,
-    private readonly configuracionService: ConfiguracionService
+    private readonly configuracionService: ConfiguracionService,
+    private readonly cdr: ChangeDetectorRef
   ) {}
 
   get puedeEditar(): boolean {
@@ -41,6 +42,7 @@ export class Configuracion implements OnInit {
       this.mostrarError(error);
     } finally {
       this.cargando = false;
+      this.cdr.detectChanges();
     }
   }
 
@@ -54,11 +56,14 @@ export class Configuracion implements OnInit {
       this.contexto = await this.configuracionService.actualizarModo(habilitado);
       this.mensaje = 'Configuración actualizada correctamente.';
       this.esError = false;
+      this.cdr.detectChanges();
     } catch (error) {
       this.contexto = { ...this.contexto, multiplesInstituciones: anterior };
       this.mostrarError(error);
+      this.cdr.detectChanges();
     } finally {
       this.guardando = false;
+      this.cdr.detectChanges();
     }
   }
 
