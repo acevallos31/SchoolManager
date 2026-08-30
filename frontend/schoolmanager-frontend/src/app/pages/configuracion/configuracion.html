@@ -9,7 +9,15 @@
   @if (cargando) {
     <p>Cargando configuración...</p>
   } @else if (configuracion) {
-    <p><a class="configuration-link" routerLink="/configuracion/ciclos">Gestionar ciclos escolares y períodos de matrícula</a></p>
+    @if (puedeVerCiclos) {
+      <section class="card navigation-card">
+        <div>
+          <h2>Ciclos escolares y períodos de matrícula</h2>
+          <p>Administra los ciclos escolares y sus períodos de matrícula.</p>
+        </div>
+        <a class="configuration-link" routerLink="/configuracion/ciclos">Gestionar ciclos</a>
+      </section>
+    }
     <section class="card">
       <div class="section-heading">
         <div><h2>Centro educativo</h2><p>Información general de la institución.</p></div>

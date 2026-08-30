@@ -54,6 +54,10 @@ export class Configuracion implements OnInit {
     return this.auth.tienePermiso('configuracion.sistema.editar');
   }
 
+  get puedeVerCiclos(): boolean {
+    return this.auth.tienePermiso('configuracion.ciclos.ver');
+  }
+
   get creando(): boolean {
     return this.configuracion?.institucion === null;
   }

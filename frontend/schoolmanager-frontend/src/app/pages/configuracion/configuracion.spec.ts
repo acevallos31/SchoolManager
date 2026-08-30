@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { vi } from 'vitest';
 import { AuthService } from '../../core/services/auth';
 import { ConfiguracionError, ConfiguracionService } from '../../core/services/configuracion.service';
@@ -24,7 +24,7 @@ describe('Configuracion', () => {
   };
 
   beforeEach(async () => {
-    permisos = new Set(['configuracion.instituciones.editar', 'configuracion.sistema.editar']);
+    permisos = new Set(['configuracion.instituciones.editar', 'configuracion.sistema.editar', 'configuracion.ciclos.ver']);
     service = {
       obtenerConfiguracionInstitucion: vi.fn().mockResolvedValue(configuracion),
       crearInstitucion: vi.fn().mockResolvedValue(configuracion),
@@ -34,7 +34,7 @@ describe('Configuracion', () => {
     await TestBed.configureTestingModule({
       imports: [Configuracion],
       providers: [
-        provideRouter([]),
+        provideRouter([{ path: 'configuracion/ciclos', component: Configuracion }]),
         { provide: AuthService, useValue: { tienePermiso: (p: string) => permisos.has(p) } },
         { provide: ConfiguracionService, useValue: service }
       ]
@@ -48,6 +48,26 @@ describe('Configuracion', () => {
     expect(texto).toContain('Centro educativo');
     expect(texto).toContain('Tegucigalpa');
     expect(texto).toContain('RNE: obligatorio');
+  });
+
+  it('muestra la tarjeta de ciclos con permiso y navega a su ruta', async () => {
+    const tarjeta = fixture.nativeElement.querySelector('.navigation-card') as HTMLElement;
+    const enlace = tarjeta.querySelector('a') as HTMLAnchorElement;
+    expect(tarjeta.textContent).toContain('Ciclos escolares y períodos de matrícula');
+    expect(tarjeta.textContent).toContain('Administra los ciclos escolares y sus períodos de matrícula.');
+    expect(enlace.textContent).toContain('Gestionar ciclos');
+    expect(enlace.getAttribute('href')).toBe('/configuracion/ciclos');
+
+    enlace.click();
+    await vi.waitFor(() => expect(TestBed.inject(Router).url).toBe('/configuracion/ciclos'));
+  });
+
+  it('oculta la tarjeta de ciclos sin permiso de lectura', async () => {
+    fixture.destroy();
+    permisos.delete('configuracion.ciclos.ver');
+    await crearComponente();
+    expect(fixture.nativeElement.querySelector('.navigation-card')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('Gestionar ciclos');
   });
 
   it('permite editar, guardar por RPC y cancelar restaura el formulario', async () => {
