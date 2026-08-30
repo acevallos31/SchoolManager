@@ -13,6 +13,10 @@ import { AuthService } from '../../core/services/auth';
 export class Dashboard {
   constructor(private auth: AuthService, private router: Router) {}
 
+  get puedeVerAlumnos(): boolean {
+    return this.auth.tienePermiso('academico.alumnos.ver');
+  }
+
   logout() {
     this.auth.logout();
     this.router.navigate(['/login']);

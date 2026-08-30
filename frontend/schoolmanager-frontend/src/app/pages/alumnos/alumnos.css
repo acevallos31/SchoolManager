@@ -57,6 +57,15 @@
   border-radius: 1rem;
   background: #edf8f1;
   color: var(--sm-success);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.mensaje-error {
+  background: #fff0ed;
+  color: var(--sm-danger);
 }
 
 .formulario {
@@ -68,6 +77,16 @@
 
 .formulario h3 {
   margin: 0 0 1rem;
+}
+
+.btn-matricular {
+  padding: 0.65rem 0.9rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--sm-primary);
+  color: white;
+  cursor: pointer;
+  font-weight: 700;
 }
 
 .form-grid {
@@ -115,6 +134,15 @@
   overflow: hidden;
   border-radius: 1.5rem;
   background: rgba(255, 255, 255, 0.84);
+}
+
+.tabla-contenedor {
+  overflow-x: auto;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .tabla thead {

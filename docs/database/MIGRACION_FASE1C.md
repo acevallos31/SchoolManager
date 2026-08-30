@@ -15,6 +15,9 @@ La contracción final elimina `usuarios.rol`; la autoridad queda en
 - Instalación existente compatible: aplicar 007, 008, 009 y 010, en ese orden.
   Las migraciones legacy 001–006 no se vuelven a ejecutar.
 
+La evolución funcional posterior del módulo Alumnos aplica 011 después de 010.
+Esta añade la RPC de creación con documento y no modifica datos existentes.
+
 ## Prechecks
 
 1. Crear backup verificable y registrar el commit desplegado.

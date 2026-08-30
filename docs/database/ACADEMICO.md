@@ -95,3 +95,16 @@ negocio diferente.
 Las funciones internas permanecen `SECURITY INVOKER` y no son ejecutables por
 `authenticated`. Las RPC públicas son wrappers `SECURITY DEFINER`: resuelven el
 actor con `auth.uid()`, validan permiso/Institución y reutilizan estas operaciones.
+
+### Gestión de alumnos desde Angular
+
+La lista y los catálogos usan PostgREST bajo RLS. Crear, desactivar y reactivar
+usan RPC; Angular no ejecuta DML directo. La migración 011 agrega
+`rpc_crear_alumno_nueva_persona_con_documento`, que guarda el documento civil
+normalizado en `personas` y el perfil institucional en `alumnos` dentro de una
+sola transacción.
+
+La creación y la matrícula inicial permanecen separadas. Encadenar la RPC de
+creación y `rpc_matricular_alumno` desde el navegador no sería atómico. El
+formulario de alta no solicita ciclo, grado ni sección; tras crear ofrece
+navegar al módulo de Matrículas, sin registrar matrícula automáticamente.
