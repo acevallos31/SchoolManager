@@ -86,20 +86,18 @@ builder.Services.AddSingleton(sp =>
     return NpgsqlDataSource.Create(connectionString);
 });
 builder.Services.AddScoped<IUsuarioActualService, UsuarioActualService>();
-builder.Services.AddScoped<IAuthorizationHandler, RolUsuarioHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, PermisoAuthorizationHandler>();
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("SoloAdmin", policy =>
+    foreach (var permiso in Permisos.Todos)
     {
-        policy.RequireAuthenticatedUser();
-        policy.AddRequirements(new RolUsuarioRequirement("admin"));
-    });
-    options.AddPolicy("AdminOPadre", policy =>
-    {
-        policy.RequireAuthenticatedUser();
-        policy.AddRequirements(new RolUsuarioRequirement("admin", "padre"));
-    });
+        options.AddPolicy(permiso, policy =>
+        {
+            policy.RequireAuthenticatedUser();
+            policy.AddRequirements(new PermisoRequirement(permiso));
+        });
+    }
 });
 
 var app = builder.Build();

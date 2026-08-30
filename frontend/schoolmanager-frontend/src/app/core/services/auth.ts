@@ -5,24 +5,36 @@ import { environment } from '../../environments/environment';
 
 const REQUEST_TIMEOUT_MS = 30000;
 
+function getBrowserStorage(): Storage | undefined {
+  try {
+    const storage = window.localStorage;
+    return typeof storage?.getItem === 'function' && typeof storage?.setItem === 'function'
+      ? storage
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export const SUPABASE_CLIENT = new InjectionToken<SupabaseClient>('SUPABASE_CLIENT', {
   providedIn: 'root',
-  factory: () =>
-    createClient(environment.supabaseUrl, environment.supabaseAnonKey, {
+  factory: () => {
+    const storage = getBrowserStorage();
+    return createClient(environment.supabaseUrl, environment.supabaseAnonKey, {
       auth: {
-        persistSession: true,
+        persistSession: storage !== undefined,
         storageKey: 'schoolmanager-auth',
-        storage: window.localStorage
+        storage
       }
-    })
+    });
+  }
 });
-
-export type RolUsuario = 'admin' | 'operador' | 'usuario' | 'padre';
 
 export interface UsuarioActual {
   id: string;
   personaId: string;
-  rol: RolUsuario;
+  roles: string[];
+  permisos: string[];
 }
 
 export class AuthAppError extends Error {
@@ -124,8 +136,12 @@ export class AuthService {
     return this.sessionSubject.value?.access_token ?? null;
   }
 
-  getRol(): RolUsuario | null {
-    return this.usuarioSubject.value?.rol ?? null;
+  tieneRol(rol: string): boolean {
+    return this.usuarioSubject.value?.roles.includes(rol) ?? false;
+  }
+
+  tienePermiso(permiso: string): boolean {
+    return this.usuarioSubject.value?.permisos.includes(permiso) ?? false;
   }
 
   async getUsuarioActual(sessionOverride?: Session): Promise<UsuarioActual> {
@@ -149,8 +165,15 @@ export class AuthService {
 
     const data = (await response.json()) as UsuarioActual;
 
-    if (!data.id || !data.personaId || !this.esRolUsuario(data.rol)) {
-      throw new AuthAppError('Tu usuario tiene un rol no reconocido.', 'USER_PROFILE_ERROR');
+    if (
+      !data.id ||
+      !data.personaId ||
+      !Array.isArray(data.roles) ||
+      !data.roles.every(rol => typeof rol === 'string') ||
+      !Array.isArray(data.permisos) ||
+      !data.permisos.every(permiso => typeof permiso === 'string')
+    ) {
+      throw new AuthAppError('El perfil de usuario recibido no es valido.', 'USER_PROFILE_ERROR');
     }
 
     return data;
@@ -173,10 +196,6 @@ export class AuthService {
       this.sessionSubject.next(null);
       this.usuarioSubject.next(null);
     }
-  }
-
-  private esRolUsuario(rol: string): rol is RolUsuario {
-    return rol === 'admin' || rol === 'operador' || rol === 'usuario' || rol === 'padre';
   }
 
   private async withTimeout<T>(promise: PromiseLike<T>, timeoutMessage: string): Promise<T> {

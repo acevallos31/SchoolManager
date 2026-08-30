@@ -50,13 +50,19 @@ public sealed class AuthControllerTests : IClassFixture<AuthControllerTests.ApiF
     }
 
     [Fact]
-    public async Task Respuesta_contiene_solo_id_personaId_y_rol()
+    public async Task Respuesta_contiene_id_personaId_roles_y_permisos_sin_rol_legacy()
     {
         var response = await GetMeAsync("admin");
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var propiedades = json.RootElement.EnumerateObject().Select(x => x.Name).Order().ToArray();
 
-        Assert.Equal(["id", "personaId", "rol"], propiedades);
+        Assert.Equal(["id", "permisos", "personaId", "roles"], propiedades);
+        Assert.Equal("admin", json.RootElement.GetProperty("roles")[0].GetString());
+        Assert.Contains(
+            json.RootElement.GetProperty("permisos").EnumerateArray(),
+            permiso => permiso.GetString() == "academico.alumnos.ver"
+        );
+        Assert.False(json.RootElement.TryGetProperty("rol", out _));
     }
 
     [Fact]
@@ -123,7 +129,12 @@ public sealed class AuthControllerTests : IClassFixture<AuthControllerTests.ApiF
             }
 
             var rol = identidad == "padre" ? "padre" : "admin";
-            return Task.FromResult(new UsuarioActual(Guid.NewGuid(), Guid.NewGuid(), rol));
+            return Task.FromResult(new UsuarioActual(
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                [rol],
+                rol == "admin" ? ["academico.alumnos.ver"] : []
+            ));
         }
     }
 

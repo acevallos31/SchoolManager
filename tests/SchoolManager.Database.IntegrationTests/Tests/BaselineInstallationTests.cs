@@ -20,6 +20,16 @@ public sealed class BaselineInstallationTests
             await container.StartAsync();
             await using var dataSource = NpgsqlDataSource.Create(container.GetConnectionString());
 
+            var securityBootstrapPath = Path.Combine(
+                AppContext.BaseDirectory,
+                "Infrastructure",
+                "SupabaseSecurityBootstrap.sql");
+            await using (var command = dataSource.CreateCommand(
+                await File.ReadAllTextAsync(securityBootstrapPath)))
+            {
+                await command.ExecuteNonQueryAsync();
+            }
+
             var baselinePath = Path.Combine(
                 FindRepositoryRoot(),
                 "database",
@@ -40,13 +50,18 @@ public sealed class BaselineInstallationTests
                 "grados",
                 "instituciones",
                 "jornadas",
+                "matricula_estado_historial",
                 "matriculas",
                 "periodos_matricula",
+                "permisos",
                 "personas",
                 "responsables",
+                "roles",
+                "roles_permisos",
                 "schema_migrations",
                 "secciones",
-                "usuarios"
+                "usuarios",
+                "usuarios_roles"
             };
 
             await using (var command = dataSource.CreateCommand("""
@@ -75,9 +90,18 @@ public sealed class BaselineInstallationTests
             {
                 Assert.True(await reader.ReadAsync());
                 Assert.Equal("baseline-001-fase1a", reader.GetString(0));
-                Assert.Equal("schoolmanager_fase1a", reader.GetString(1));
+                Assert.Equal("schoolmanager_fase1c_consolidado", reader.GetString(1));
                 Assert.Equal("NULL", reader.GetString(2));
                 Assert.False(await reader.ReadAsync());
+            }
+
+            await using (var command = dataSource.CreateCommand("""
+                select count(*)
+                from information_schema.columns
+                where table_schema = 'public' and table_name = 'usuarios' and column_name = 'rol'
+                """))
+            {
+                Assert.Equal(0L, (long)(await command.ExecuteScalarAsync())!);
             }
         }
         finally

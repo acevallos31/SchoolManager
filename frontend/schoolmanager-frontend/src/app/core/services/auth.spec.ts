@@ -39,13 +39,14 @@ describe('AuthService', () => {
     vi.restoreAllMocks();
   });
 
-  it('usa el rol devuelto por api/auth/me y no consulta public.usuarios', async () => {
+  it('usa RBAC devuelto por api/auth/me y no consulta public.usuarios', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(
         JSON.stringify({
           id: 'usuario-id',
           personaId: 'persona-id',
-          rol: 'admin'
+          roles: ['admin'],
+          permisos: ['academico.alumnos.ver']
         }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       )
@@ -56,7 +57,8 @@ describe('AuthService', () => {
     expect(usuario).toEqual({
       id: 'usuario-id',
       personaId: 'persona-id',
-      rol: 'admin'
+      roles: ['admin'],
+      permisos: ['academico.alumnos.ver']
     });
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(fetchMock.mock.calls[0][0]).toContain('/api/auth/me');
@@ -66,7 +68,12 @@ describe('AuthService', () => {
   it('envia el access token a api/auth/me', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(
-        JSON.stringify({ id: 'usuario-id', personaId: 'persona-id', rol: 'padre' }),
+        JSON.stringify({
+          id: 'usuario-id',
+          personaId: 'persona-id',
+          roles: ['padre'],
+          permisos: []
+        }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       )
     );
@@ -86,6 +93,6 @@ describe('AuthService', () => {
     );
     expect(signOut).toHaveBeenCalledOnce();
     expect(service.getToken()).toBeNull();
-    expect(service.getRol()).toBeNull();
+    expect(service.tieneRol('padre')).toBe(false);
   });
 });

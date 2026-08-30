@@ -127,8 +127,13 @@ public sealed class SchemaConstraintsTests(PostgreSqlFixture fixture) : IClassFi
         var context = await CreateContextAsync();
         var alumnoId = await InsertAlumnoAsync(context.InstitucionId);
         await Assert.ThrowsAsync<PostgresException>(() => ExecuteAsync($"""
-            insert into public.matriculas (alumno_id, ciclo_id, grado_id, seccion_id, fecha_anulacion)
-            values ('{alumnoId}', '{context.CicloId}', '{context.GradoId}', '{context.SeccionId}', now())
+            insert into public.matriculas (
+              alumno_id, institucion_id, ciclo_id, seccion_id, periodo_matricula_id,
+              estado, fecha_anulacion
+            ) values (
+              '{alumnoId}', '{context.InstitucionId}', '{context.CicloId}',
+              '{context.SeccionId}', '{context.PeriodoId}', 'anulada', now()
+            )
             """));
     }
 
@@ -175,18 +180,29 @@ public sealed class SchemaConstraintsTests(PostgreSqlFixture fixture) : IClassFi
     private Task InsertRelacionAsync(Guid alumnoId, Guid responsableId, bool principal = false) => ExecuteAsync(
         $"insert into public.alumno_responsable (alumno_id, responsable_id, es_principal) values ('{alumnoId}', '{responsableId}', {principal.ToString().ToLowerInvariant()})");
 
-    private async Task<(Guid InstitucionId, Guid CicloId, Guid GradoId, Guid SeccionId)> CreateContextAsync()
+    private async Task<(
+        Guid InstitucionId,
+        Guid CicloId,
+        Guid GradoId,
+        Guid SeccionId,
+        Guid PeriodoId)> CreateContextAsync()
     {
         var institucionId = await InsertInstitucionAsync();
         var cicloId = await ScalarGuidAsync($"insert into public.ciclos_escolares (nombre, institucion_id) values ('Ciclo {Guid.NewGuid()}', '{institucionId}') returning id");
         var gradoId = await ScalarGuidAsync($"insert into public.grados (nombre) values ('Grado {Guid.NewGuid()}') returning id");
-        var seccionId = await ScalarGuidAsync($"insert into public.secciones (nombre, grado_id) values ('Seccion {Guid.NewGuid()}', '{gradoId}') returning id");
-        return (institucionId, cicloId, gradoId, seccionId);
+        var seccionId = await ScalarGuidAsync($"insert into public.secciones (nombre, institucion_id, ciclo_id, grado_id) values ('Seccion {Guid.NewGuid()}', '{institucionId}', '{cicloId}', '{gradoId}') returning id");
+        var periodoId = await ScalarGuidAsync($"insert into public.periodos_matricula (ciclo_id, nombre, fecha_inicio, fecha_fin) values ('{cicloId}', 'Periodo {Guid.NewGuid()}', current_date, current_date + 30) returning id");
+        return (institucionId, cicloId, gradoId, seccionId, periodoId);
     }
 
-    private async Task InsertMatriculaAsync((Guid InstitucionId, Guid CicloId, Guid GradoId, Guid SeccionId) context, Guid alumnoId)
+    private async Task InsertMatriculaAsync((
+        Guid InstitucionId,
+        Guid CicloId,
+        Guid GradoId,
+        Guid SeccionId,
+        Guid PeriodoId) context, Guid alumnoId)
     {
-        await ExecuteAsync($"insert into public.matriculas (alumno_id, ciclo_id, grado_id, seccion_id) values ('{alumnoId}', '{context.CicloId}', '{context.GradoId}', '{context.SeccionId}')");
+        await ExecuteAsync($"insert into public.matriculas (alumno_id, institucion_id, ciclo_id, seccion_id, periodo_matricula_id) values ('{alumnoId}', '{context.InstitucionId}', '{context.CicloId}', '{context.SeccionId}', '{context.PeriodoId}')");
     }
 
     private async Task ExecuteAsync(string sql)

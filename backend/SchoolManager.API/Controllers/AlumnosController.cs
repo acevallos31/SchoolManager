@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SchoolManager.API.Authorization;
 using SchoolManager.API.DTOs;
 
 namespace SchoolManager.API.Controllers;
@@ -11,6 +12,7 @@ public class AlumnosController : ControllerBase
 {
     // GET api/alumnos
     [HttpGet]
+    [Authorize(Policy = Permisos.Alumnos.Ver)]
     public IActionResult GetAll([FromQuery] string? grado, [FromQuery] string? buscar)
     {
         return Ok(new
@@ -23,6 +25,7 @@ public class AlumnosController : ControllerBase
 
     // GET api/alumnos/{id}
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = Permisos.Alumnos.Ver)]
     public IActionResult GetById(Guid id)
     {
         return Ok(new
@@ -34,7 +37,7 @@ public class AlumnosController : ControllerBase
 
     // POST api/alumnos
     [HttpPost]
-    [Authorize(Policy = "SoloAdmin")]
+    [Authorize(Policy = Permisos.Alumnos.Crear)]
     public IActionResult Create([FromBody] AlumnoCreateDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.Nombre) || string.IsNullOrWhiteSpace(dto.Identidad))
@@ -45,7 +48,7 @@ public class AlumnosController : ControllerBase
 
     // PUT api/alumnos/{id}
     [HttpPut("{id:guid}")]
-    [Authorize(Policy = "SoloAdmin")]
+    [Authorize(Policy = Permisos.Alumnos.Editar)]
     public IActionResult Update(Guid id, [FromBody] AlumnoCreateDto dto)
     {
         return Ok(new
@@ -57,7 +60,7 @@ public class AlumnosController : ControllerBase
 
     // DELETE api/alumnos/{id}
     [HttpDelete("{id:guid}")]
-    [Authorize(Policy = "SoloAdmin")]
+    [Authorize(Policy = Permisos.Alumnos.Desactivar)]
     public IActionResult Delete(Guid id)
     {
         return Ok(new
