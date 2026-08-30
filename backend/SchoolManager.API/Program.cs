@@ -19,12 +19,25 @@ var allowedOrigins = builder.Configuration
         "http://localhost:4200",
         "https://schoolmanager.vercel.app"
     };
+var explicitAllowedOrigins = allowedOrigins
+    .Select(origin => origin.TrimEnd('/'))
+    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+var vercelPreviewHostPrefix = builder.Configuration["Cors:VercelPreviewHostPrefix"]
+    ?? "school-manager-";
+var vercelPreviewHostSuffix = builder.Configuration["Cors:VercelPreviewHostSuffix"]
+    ?? "-acevallos31s-projects.vercel.app";
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendPolicy", policy =>
     {
-        policy.WithOrigins(allowedOrigins)
+        policy.SetIsOriginAllowed(origin =>
+                  IsAllowedFrontendOrigin(
+                      origin,
+                      explicitAllowedOrigins,
+                      vercelPreviewHostPrefix,
+                      vercelPreviewHostSuffix
+                  ))
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -107,5 +120,28 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+static bool IsAllowedFrontendOrigin(
+    string origin,
+    IReadOnlySet<string> explicitAllowedOrigins,
+    string vercelPreviewHostPrefix,
+    string vercelPreviewHostSuffix
+)
+{
+    if (explicitAllowedOrigins.Contains(origin.TrimEnd('/')))
+    {
+        return true;
+    }
+
+    return Uri.TryCreate(origin, UriKind.Absolute, out var uri)
+        && uri.Scheme == Uri.UriSchemeHttps
+        && uri.IsDefaultPort
+        && uri.AbsolutePath == "/"
+        && string.IsNullOrEmpty(uri.Query)
+        && string.IsNullOrEmpty(uri.Fragment)
+        && uri.Host.StartsWith(vercelPreviewHostPrefix, StringComparison.OrdinalIgnoreCase)
+        && uri.Host.EndsWith(vercelPreviewHostSuffix, StringComparison.OrdinalIgnoreCase)
+        && uri.Host.Length > vercelPreviewHostPrefix.Length + vercelPreviewHostSuffix.Length;
+}
 
 public partial class Program;
