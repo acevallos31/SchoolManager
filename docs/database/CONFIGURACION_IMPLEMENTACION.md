@@ -31,3 +31,11 @@ El cambio de multi a single se rechaza si existen varias instituciones activas. 
 ## Alcance pendiente
 
 Este bloque no incluye CRUD de instituciones, selector global, cambio de institución durante una sesión ni configuración académica o financiera.
+
+## Configuración del centro educativo
+
+La migración 013 reutiliza `instituciones`; no crea otra entidad ni agrega campos fiscales sin un consumidor definido. La pantalla administra `nombre`, `nombre_corto`, `direccion`, `telefono`, `correo` y `logo_url` mediante RPC tipadas. No existe eliminación física.
+
+`rpc_obtener_configuracion_institucion(uuid)` devuelve en una operación los datos institucionales y `configuracion_identificadores`. En modo single resuelve la institución activa o devuelve un estado sin institución para permitir configurar la primera. En modo multi exige el UUID explícito y responde `SM003` si falta.
+
+Las escrituras se realizan exclusivamente mediante `rpc_crear_institucion` y `rpc_actualizar_institucion`. Requieren `configuracion.instituciones.editar`, validan el nombre y correo, normalizan textos y mantienen una sola configuración de identificadores por institución. La creación de una segunda institución activa en modo single responde `SM004`.
