@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { vi } from 'vitest';
 import { AlumnoListado, AlumnoService, AlumnoServiceError } from '../../core/services/alumno.service';
 import { AuthService } from '../../core/services/auth';
+import { ConfiguracionService } from '../../core/services/configuracion.service';
 import { Alumnos } from './alumnos';
 
 describe('Alumnos', () => {
@@ -11,6 +12,7 @@ describe('Alumnos', () => {
   let alumnoService: Record<string, ReturnType<typeof vi.fn>>;
   let navigate: ReturnType<typeof vi.fn>;
   let permisos: Set<string>;
+  let configuracionService: Record<string, ReturnType<typeof vi.fn>>;
 
   const alumnoSinMatricula: AlumnoListado = {
     id: 'alumno-1', personaId: 'persona-1', nombreCompleto: 'Ana López',
@@ -23,14 +25,16 @@ describe('Alumnos', () => {
       'academico.alumnos.editar', 'academico.alumnos.desactivar'
     ]);
     navigate = vi.fn();
+    configuracionService = {
+      obtenerInstitucionActual: vi.fn().mockResolvedValue({
+        id: 'institucion-1', nombre: 'Centro educativo'
+      })
+    };
     alumnoService = {
       listar: vi.fn().mockResolvedValue([alumnoSinMatricula]),
       crear: vi.fn().mockResolvedValue('alumno-nuevo'),
       desactivar: vi.fn().mockResolvedValue(undefined),
-      reactivar: vi.fn().mockResolvedValue(undefined),
-      cargarCiclos: vi.fn().mockResolvedValue([
-        { id: 'ciclo-1', institucionId: 'institucion-1', nombre: '2026' }
-      ])
+      reactivar: vi.fn().mockResolvedValue(undefined)
     };
 
     await TestBed.configureTestingModule({
@@ -38,7 +42,8 @@ describe('Alumnos', () => {
       providers: [
         { provide: Router, useValue: { navigate } },
         { provide: AuthService, useValue: { tienePermiso: (p: string) => permisos.has(p) } },
-        { provide: AlumnoService, useValue: alumnoService }
+        { provide: AlumnoService, useValue: alumnoService },
+        { provide: ConfiguracionService, useValue: configuracionService }
       ]
     }).compileComponents();
 
@@ -63,6 +68,12 @@ describe('Alumnos', () => {
     expect(texto).not.toContain('Ciclo escolar');
     expect(texto).not.toContain('Seleccionar grado');
     expect(texto).not.toContain('Seleccionar sección');
+  });
+
+  it('resuelve institución desde configuración y no desde ciclos', async () => {
+    await component.abrirFormulario();
+    expect(configuracionService['obtenerInstitucionActual']).toHaveBeenCalledOnce();
+    expect(alumnoService['cargarCiclos']).toBeUndefined();
   });
 
   it('sin permiso crear oculta el botón Nuevo Alumno', () => {

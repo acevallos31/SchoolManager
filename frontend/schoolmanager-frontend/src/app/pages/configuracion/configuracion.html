@@ -1,0 +1,51 @@
+<main class="configuration-shell">
+  <header>
+    <div>
+      <p class="eyebrow">Administración</p>
+      <h1>Configuración</h1>
+      <p>Define cómo esta implementación organiza sus centros educativos.</p>
+    </div>
+    <button type="button" class="secondary" (click)="volver()">Volver</button>
+  </header>
+
+  @if (mensaje) {
+    <p class="message" [class.error]="esError">{{ mensaje }}</p>
+  }
+
+  @if (cargando) {
+    <p>Cargando configuración...</p>
+  } @else if (contexto) {
+    <section class="card">
+      <h2>Centro educativo</h2>
+      <p class="institution-name">
+        {{ contexto.institucion?.nombre || 'Requiere selección de institución' }}
+      </p>
+
+      <hr>
+
+      <h2>Modo de instituciones</h2>
+      <label class="toggle-row">
+        <input
+          type="checkbox"
+          [ngModel]="contexto.multiplesInstituciones"
+          (ngModelChange)="cambiarModo($event)"
+          [disabled]="!puedeEditar || guardando"
+        >
+        <span>
+          <strong>Habilitar múltiples instituciones</strong>
+          <small>El selector global de institución se incorporará en un bloque posterior.</small>
+        </span>
+      </label>
+
+      @if (!puedeEditar) {
+        <p class="read-only">Tu acceso a esta configuración es de solo lectura.</p>
+      }
+    </section>
+
+    <section class="future">
+      <h2>Próximos apartados</h2>
+      <span>Instituciones</span><span>Ciclos escolares</span><span>Grados</span>
+      <span>Jornadas</span><span>Secciones</span>
+    </section>
+  }
+</main>

@@ -18,12 +18,6 @@ export interface AlumnoListado {
   matriculaActual: MatriculaActualAlumno | null;
 }
 
-export interface CicloEscolarOpcion {
-  id: string;
-  institucionId: string;
-  nombre: string;
-}
-
 export interface CrearAlumnoInput {
   institucionId: string;
   nombres: string;
@@ -173,23 +167,6 @@ export class AlumnoService {
     if (error) {
       throw this.mapError(error, 'No se pudo reactivar el alumno.');
     }
-  }
-
-  async cargarCiclos(): Promise<CicloEscolarOpcion[]> {
-    const { data, error } = await this.supabase
-      .from('ciclos_escolares')
-      .select('id, institucion_id, nombre')
-      .eq('activo', true)
-      .order('fecha_inicio', { ascending: false });
-    if (error) {
-      throw this.mapError(error, 'No se pudieron cargar los ciclos escolares.');
-    }
-
-    return (data ?? []).map(row => ({
-      id: row.id,
-      institucionId: row.institucion_id,
-      nombre: row.nombre
-    }));
   }
 
   private nullIfBlank(value: string | null): string | null {
