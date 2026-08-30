@@ -18,7 +18,15 @@ public sealed class PostgreSqlFixture : IAsyncLifetime
     {
         await _container.StartAsync();
         DataSource = NpgsqlDataSource.Create(_container.GetConnectionString());
+        await ExecuteScriptAsync("SupabaseSecurityBootstrap.sql");
         await ExecuteScriptAsync("LegacySchemaBootstrap.sql");
+        await using (var legacyUser = DataSource.CreateCommand("""
+            insert into public.usuarios (usuario, rol)
+            values ('fixture-backfill-007', 'padre')
+            """))
+        {
+            await legacyUser.ExecuteNonQueryAsync();
+        }
         await MigrationRunner.ApplyActiveAsync(DataSource);
     }
 

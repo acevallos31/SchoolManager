@@ -8,6 +8,11 @@ public static class MigrationRunner
     {
         foreach (var path in GetActiveMigrationPaths())
         {
+            if (await IsAppliedAsync(dataSource, path, cancellationToken))
+            {
+                continue;
+            }
+
             await ExecuteFileAsync(dataSource, path, cancellationToken);
         }
     }
@@ -38,6 +43,27 @@ public static class MigrationRunner
     {
         await using var command = dataSource.CreateCommand(File.ReadAllText(path));
         await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task<bool> IsAppliedAsync(
+        NpgsqlDataSource dataSource,
+        string path,
+        CancellationToken cancellationToken)
+    {
+        var version = Path.GetFileName(path).Split('_', 2)[0];
+        await using (var existenceCommand = dataSource.CreateCommand(
+            "select to_regclass('public.schema_migrations') is not null"))
+        {
+            if (!(bool)(await existenceCommand.ExecuteScalarAsync(cancellationToken))!)
+            {
+                return false;
+            }
+        }
+
+        await using var command = dataSource.CreateCommand(
+            "select exists (select 1 from public.schema_migrations where version = $1)");
+        command.Parameters.AddWithValue(version);
+        return (bool)(await command.ExecuteScalarAsync(cancellationToken))!;
     }
 
     private static string GetRollbackPath(string migrationPath) => Path.Combine(

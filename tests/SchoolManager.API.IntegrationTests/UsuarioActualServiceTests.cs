@@ -29,6 +29,18 @@ public sealed class UsuarioActualServiceTests : IAsyncLifetime
             "baseline",
             "001_schoolmanager_fase1a.sql"
         );
+        var securityBootstrapPath = Path.Combine(
+            FindRepositoryRoot(),
+            "tests",
+            "SchoolManager.Database.IntegrationTests",
+            "Infrastructure",
+            "SupabaseSecurityBootstrap.sql"
+        );
+        await using (var securityCommand = _dataSource.CreateCommand(
+            await File.ReadAllTextAsync(securityBootstrapPath)))
+        {
+            await securityCommand.ExecuteNonQueryAsync();
+        }
         await using var command = _dataSource.CreateCommand(await File.ReadAllTextAsync(baselinePath));
         await command.ExecuteNonQueryAsync();
     }
@@ -77,7 +89,7 @@ public sealed class UsuarioActualServiceTests : IAsyncLifetime
     public async Task Rechaza_usuario_inactivo()
     {
         var authUserId = Guid.NewGuid();
-        await InsertarUsuarioAsync(authUserId, "padre", activo: false);
+        await InsertarUsuarioAsync(authUserId, ["padre"], activo: false);
 
         await Assert.ThrowsAsync<UnauthorizedAccessException>(
             () => _service.ObtenerAsync(CrearPrincipal(authUserId.ToString()))
@@ -85,32 +97,52 @@ public sealed class UsuarioActualServiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Resuelve_usuario_admin_activo()
+    public async Task Resuelve_usuario_con_un_rol_y_sus_permisos()
     {
         var authUserId = Guid.NewGuid();
-        var esperado = await InsertarUsuarioAsync(authUserId, "admin", activo: true);
+        var esperado = await InsertarUsuarioAsync(authUserId, ["operador"], activo: true);
 
         var actual = await _service.ObtenerAsync(CrearPrincipal(authUserId.ToString()));
 
         Assert.Equal(esperado.Id, actual.Id);
         Assert.Equal(esperado.PersonaId, actual.PersonaId);
-        Assert.Equal("admin", actual.Rol);
+        Assert.Equal(["operador"], actual.Roles);
+        Assert.Contains("academico.alumnos.ver", actual.Permisos);
+        Assert.Contains("academico.matriculas.crear", actual.Permisos);
     }
 
     [Fact]
-    public async Task Resuelve_usuario_padre_activo()
+    public async Task Resuelve_usuario_multirol_y_combina_permisos_sin_duplicados()
     {
         var authUserId = Guid.NewGuid();
-        var esperado = await InsertarUsuarioAsync(authUserId, "padre", activo: true);
+        var esperado = await InsertarUsuarioAsync(authUserId, ["consulta", "operador"], activo: true);
 
         var actual = await _service.ObtenerAsync(CrearPrincipal(authUserId.ToString()));
 
         Assert.Equal(esperado.Id, actual.Id);
         Assert.Equal(esperado.PersonaId, actual.PersonaId);
-        Assert.Equal("padre", actual.Rol);
+        Assert.Equal(["consulta", "operador"], actual.Roles);
+        Assert.Equal(actual.Permisos.Distinct(StringComparer.Ordinal), actual.Permisos);
+        Assert.Contains("academico.alumnos.ver", actual.Permisos);
     }
 
-    private async Task<UsuarioActual> InsertarUsuarioAsync(Guid authUserId, string rol, bool activo)
+    [Fact]
+    public async Task Rol_inactivo_no_retorna_rol_ni_concede_permisos()
+    {
+        var authUserId = Guid.NewGuid();
+        await InsertarUsuarioAsync(authUserId, ["operador"], activo: true, rolActivo: false);
+
+        var actual = await _service.ObtenerAsync(CrearPrincipal(authUserId.ToString()));
+
+        Assert.Empty(actual.Roles);
+        Assert.Empty(actual.Permisos);
+    }
+
+    private async Task<UsuarioActual> InsertarUsuarioAsync(
+        Guid authUserId,
+        IReadOnlyList<string> roles,
+        bool activo,
+        bool rolActivo = true)
     {
         var personaId = Guid.NewGuid();
         var usuarioId = Guid.NewGuid();
@@ -121,18 +153,37 @@ public sealed class UsuarioActualServiceTests : IAsyncLifetime
               values ($1, 'Usuario', 'Prueba')
               returning id
             )
-            insert into public.usuarios (id, persona_id, auth_user_id, rol, activo)
-            select $2, id, $3, $4, $5
+            insert into public.usuarios (id, persona_id, auth_user_id, activo)
+            select $2, id, $3, $4
             from persona_insertada;
             """);
         command.Parameters.AddWithValue(personaId);
         command.Parameters.AddWithValue(usuarioId);
         command.Parameters.AddWithValue(authUserId);
-        command.Parameters.AddWithValue(rol);
         command.Parameters.AddWithValue(activo);
         await command.ExecuteNonQueryAsync();
 
-        return new UsuarioActual(usuarioId, personaId, rol);
+        foreach (var rol in roles)
+        {
+            await using var roleCommand = _dataSource.CreateCommand("""
+                insert into public.usuarios_roles (usuario_id, rol_id)
+                select $1, id from public.roles where codigo = $2;
+                """);
+            roleCommand.Parameters.AddWithValue(usuarioId);
+            roleCommand.Parameters.AddWithValue(rol);
+            await roleCommand.ExecuteNonQueryAsync();
+
+            if (!rolActivo)
+            {
+                await using var deactivateCommand = _dataSource.CreateCommand("""
+                    update public.roles set activo = false where codigo = $1
+                    """);
+                deactivateCommand.Parameters.AddWithValue(rol);
+                await deactivateCommand.ExecuteNonQueryAsync();
+            }
+        }
+
+        return new UsuarioActual(usuarioId, personaId, roles, []);
     }
 
     private static ClaimsPrincipal CrearPrincipal(string? sub = null)

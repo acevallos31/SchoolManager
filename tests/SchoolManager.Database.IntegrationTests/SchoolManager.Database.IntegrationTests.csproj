@@ -16,5 +16,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Update="Infrastructure\LegacySchemaBootstrap.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Infrastructure\SupabaseSecurityBootstrap.sql" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
