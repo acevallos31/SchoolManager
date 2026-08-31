@@ -34,7 +34,7 @@ describe('Configuracion', () => {
     await TestBed.configureTestingModule({
       imports: [Configuracion],
       providers: [
-        provideRouter([{ path: 'configuracion/ciclos', component: Configuracion }]),
+        provideRouter([{ path: 'configuracion/ciclos', component: Configuracion }, { path: 'configuracion/estructura-academica', component: Configuracion }]),
         { provide: AuthService, useValue: { tienePermiso: (p: string) => permisos.has(p) } },
         { provide: ConfiguracionService, useValue: service }
       ]
@@ -68,6 +68,14 @@ describe('Configuracion', () => {
     await crearComponente();
     expect(fixture.nativeElement.querySelector('.navigation-card')).toBeNull();
     expect(fixture.nativeElement.textContent).not.toContain('Gestionar ciclos');
+  });
+
+  it('muestra la estructura académica con cualquier permiso de lectura y la oculta sin ellos', async () => {
+    fixture.destroy(); permisos.add('configuracion.grados.ver'); await crearComponente();
+    const enlaces = Array.from(fixture.nativeElement.querySelectorAll('a')) as HTMLAnchorElement[];
+    expect(enlaces.some(enlace => enlace.getAttribute('href') === '/configuracion/estructura-academica')).toBe(true);
+    fixture.destroy(); permisos.delete('configuracion.grados.ver'); permisos.delete('configuracion.jornadas.ver'); permisos.delete('configuracion.secciones.ver'); await crearComponente();
+    expect(fixture.nativeElement.textContent).not.toContain('Gestionar estructura académica');
   });
 
   it('permite editar, guardar por RPC y cancelar restaura el formulario', async () => {

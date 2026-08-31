@@ -26,6 +26,10 @@ estable. No contiene secciones ni institución. Si una institución requiere una
 taxonomía incompatible se evaluará una configuración adicional, no duplicación
 anticipada.
 
+Grados y jornadas son catálogos globales por ahora. Sus nombres tienen índices
+únicos normalizados; se administran mediante RPC con permisos de configuración
+y se desactivan, nunca se eliminan físicamente.
+
 ### Ciclo escolar
 
 Es una edición temporal de una Institución. Se mantiene `activo` más fechas;
@@ -45,6 +49,11 @@ La unicidad usa dos índices estructurales:
 
 Una sección inactiva se conserva y tampoco puede duplicarse con el mismo
 contexto. Para reutilizarla se reactiva el registro histórico adecuado.
+
+No se crean ni se mueven secciones a ciclos inactivos. La jornada es opcional,
+pero al crear, mover o reactivar debe existir y estar activa cuando se indique.
+Una sección con matrículas puede cambiar nombre o cupo, pero no ciclo, grado ni
+jornada. Estas verificaciones son responsabilidad de las RPC de configuración.
 
 ### Periodo de matrícula
 
