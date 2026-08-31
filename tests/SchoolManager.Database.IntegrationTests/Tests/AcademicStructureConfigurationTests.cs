@@ -110,6 +110,21 @@ public sealed class AcademicStructureConfigurationTests(PostgreSqlFixture fixtur
             "select public.rpc_actualizar_seccion($1, $2, $3, null, $4, $5, $6)", sectionId, context.CycleId, context.GradeId, "A historica", 6, context.InstitutionId);
     }
 
+    [Fact]
+    public async Task Listar_secciones_por_rpc_autenticada_devuelve_contexto_y_jornadas()
+    {
+        var context = await ContextAsync();
+        var sinJornadaId = await CreateSectionAsync(context, "Sin jornada", null);
+        var conJornadaId = await AuthScalarAsync<Guid>(context.AdminAuthId,
+            "select public.rpc_crear_seccion($1,$2,$3,$4,$5,$6)", context.InstitutionId, context.CycleId, context.GradeId, context.JornadaId, "Con jornada", 25);
+
+        var rows = await AuthRowsAsync(context.AdminAuthId,
+            "select id, institucion_id, ciclo_id, grado_id, jornada_id, nombre from public.rpc_listar_secciones($1,$2)", context.CycleId, context.InstitutionId);
+
+        Assert.Contains(rows, row => row.Id == sinJornadaId && row.InstitutionId == context.InstitutionId && row.CycleId == context.CycleId && row.GradeId == context.GradeId && row.JornadaId is null && row.Name == "Sin jornada");
+        Assert.Contains(rows, row => row.Id == conJornadaId && row.InstitutionId == context.InstitutionId && row.CycleId == context.CycleId && row.GradeId == context.GradeId && row.JornadaId == context.JornadaId && row.Name == "Con jornada");
+    }
+
     private async Task<Context> ContextAsync()
     {
         var institutionId = await InstitutionAsync();
@@ -164,6 +179,26 @@ public sealed class AcademicStructureConfigurationTests(PostgreSqlFixture fixtur
         catch { await transaction.RollbackAsync(); throw; }
     }
 
+    private async Task<List<SectionRow>> AuthRowsAsync(Guid authId, string sql, params object[] values)
+    {
+        await using var connection = await fixture.DataSource.OpenConnectionAsync();
+        await using var transaction = await connection.BeginTransactionAsync();
+        try
+        {
+            await using (var role = new NpgsqlCommand("set local role authenticated", connection, transaction)) await role.ExecuteNonQueryAsync();
+            await using (var claim = new NpgsqlCommand("select set_config('request.jwt.claim.sub',$1,true)", connection, transaction)) { claim.Parameters.AddWithValue(authId.ToString()); await claim.ExecuteNonQueryAsync(); }
+            await using var command = new NpgsqlCommand(sql, connection, transaction);
+            AddParameters(command, values);
+            await using var reader = await command.ExecuteReaderAsync();
+            var rows = new List<SectionRow>();
+            while (await reader.ReadAsync()) rows.Add(new SectionRow(reader.GetGuid(0), reader.GetGuid(1), reader.GetGuid(2), reader.GetGuid(3), reader.IsDBNull(4) ? null : reader.GetGuid(4), reader.GetString(5)));
+            await reader.CloseAsync();
+            await transaction.CommitAsync();
+            return rows;
+        }
+        catch { await transaction.RollbackAsync(); throw; }
+    }
+
     private static async Task AssertStateAsync(string state, Func<Task> action)
     {
         var exception = await Assert.ThrowsAsync<PostgresException>(action);
@@ -181,4 +216,5 @@ public sealed class AcademicStructureConfigurationTests(PostgreSqlFixture fixtur
     private async Task<Guid> ScalarGuidAsync(string sql, params object[] values) => await ScalarAsync<Guid>(sql, values);
     private static void AddParameters(NpgsqlCommand command, IEnumerable<object> values) { foreach (var value in values) command.Parameters.AddWithValue(value); }
     private sealed record Context(Guid InstitutionId, Guid AdminAuthId, Guid CycleId, Guid GradeId, Guid JornadaId);
+    private sealed record SectionRow(Guid Id, Guid InstitutionId, Guid CycleId, Guid GradeId, Guid? JornadaId, string Name);
 }

@@ -79,7 +79,7 @@ create or replace function public.rpc_reactivar_jornada(p_jornada_id uuid,p_inst
 create or replace function public.rpc_listar_secciones(p_ciclo_id uuid,p_institucion_id uuid default null)
 returns table(id uuid,institucion_id uuid,ciclo_id uuid,grado_id uuid,grado_nombre text,jornada_id uuid,jornada_nombre text,nombre text,cupo integer,activo boolean,fecha_desactivacion timestamptz,motivo_desactivacion text)
 language plpgsql security definer set search_path=pg_catalog,public,pg_temp as $$declare v uuid;begin
- v:=public.resolver_institucion_operacion(p_institucion_id);if not exists(select 1 from public.ciclos_escolares where id=p_ciclo_id and institucion_id=v) then raise exception 'El ciclo no pertenece a la institucion actual.' using errcode='P0002';end if;
+ v:=public.resolver_institucion_operacion(p_institucion_id);if not exists(select 1 from public.ciclos_escolares ce where ce.id=p_ciclo_id and ce.institucion_id=v) then raise exception 'El ciclo no pertenece a la institucion actual.' using errcode='P0002';end if;
  if public.usuario_actual_id() is null or not public.usuario_tiene_permiso_actual('configuracion.secciones.ver',v) then raise exception 'Permiso denegado.' using errcode='42501';end if;
  return query select s.id,s.institucion_id,s.ciclo_id,s.grado_id,g.nombre,s.jornada_id,j.nombre,s.nombre,s.cupo,s.activo,s.fecha_desactivacion,s.motivo_desactivacion from public.secciones s join public.grados g on g.id=s.grado_id left join public.jornadas j on j.id=s.jornada_id where s.ciclo_id=p_ciclo_id and s.institucion_id=v order by g.orden,g.nombre,j.nombre nulls first,s.nombre;
 end $$;
