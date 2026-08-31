@@ -1794,9 +1794,6 @@ begin
     raise exception 'Nombre y rango de fechas del ciclo no son validos.' using errcode='22023'; end if;
   if v_activo and not p_activo and btrim(coalesce(p_motivo_desactivacion,''))='' then
     raise exception 'El motivo de desactivacion es obligatorio.' using errcode='22023'; end if;
-  if exists(select 1 from public.periodos_matricula pm where pm.ciclo_id=p_ciclo_id
-    and (pm.fecha_inicio<p_fecha_inicio or pm.fecha_fin>p_fecha_fin)) then
-    raise exception 'El nuevo rango excluye periodos de matricula existentes.' using errcode='22023'; end if;
   update public.ciclos_escolares set nombre=btrim(p_nombre),fecha_inicio=p_fecha_inicio,
     fecha_fin=p_fecha_fin,activo=p_activo,updated_at=now(),
     fecha_desactivacion=case when p_activo then null when v_activo then now() else fecha_desactivacion end,
@@ -1849,10 +1846,10 @@ begin
   if public.usuario_actual_id() is null or not public.usuario_tiene_permiso_actual(
     'configuracion.periodos_matricula.crear',c.institucion_id) then
     raise exception 'Permiso denegado.' using errcode='42501'; end if;
-  if btrim(coalesce(p_nombre,''))='' or p_fecha_inicio is null or p_fecha_fin is null
-    or p_fecha_inicio>p_fecha_fin then raise exception 'Datos del periodo no validos.' using errcode='22023'; end if;
-  if c.fecha_inicio is null or c.fecha_fin is null or p_fecha_inicio<c.fecha_inicio or p_fecha_fin>c.fecha_fin then
-    raise exception 'El periodo debe estar dentro de las fechas del ciclo.' using errcode='22023'; end if;
+  if btrim(coalesce(p_nombre,''))='' or p_fecha_inicio is null or p_fecha_fin is null then
+    raise exception 'Nombre y fechas del periodo son obligatorios.' using errcode='22023'; end if;
+  if p_fecha_inicio>p_fecha_fin then
+    raise exception 'La fecha de inicio del periodo no puede ser posterior a la fecha de fin.' using errcode='22023'; end if;
   insert into public.periodos_matricula(ciclo_id,nombre,tipo,fecha_inicio,fecha_fin)
   values(p_ciclo_id,btrim(p_nombre),nullif(btrim(p_tipo),''),p_fecha_inicio,p_fecha_fin) returning id into v_id;
   return v_id;
@@ -1872,9 +1869,10 @@ begin
     case when p.activo and not p_activo then 'configuracion.periodos_matricula.desactivar'
       else 'configuracion.periodos_matricula.editar' end,c.institucion_id) then
     raise exception 'Permiso denegado.' using errcode='42501'; end if;
-  if btrim(coalesce(p_nombre,''))='' or p_fecha_inicio is null or p_fecha_fin is null
-    or p_fecha_inicio>p_fecha_fin or p_fecha_inicio<c.fecha_inicio or p_fecha_fin>c.fecha_fin then
-    raise exception 'El periodo debe tener fechas validas dentro del ciclo.' using errcode='22023'; end if;
+  if btrim(coalesce(p_nombre,''))='' or p_fecha_inicio is null or p_fecha_fin is null then
+    raise exception 'Nombre y fechas del periodo son obligatorios.' using errcode='22023'; end if;
+  if p_fecha_inicio>p_fecha_fin then
+    raise exception 'La fecha de inicio del periodo no puede ser posterior a la fecha de fin.' using errcode='22023'; end if;
   update public.periodos_matricula set nombre=btrim(p_nombre),tipo=nullif(btrim(p_tipo),''),
     fecha_inicio=p_fecha_inicio,fecha_fin=p_fecha_fin,activo=p_activo,updated_at=now()
   where id=p_periodo_id;

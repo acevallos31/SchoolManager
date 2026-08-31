@@ -42,6 +42,8 @@ Las escrituras se realizan exclusivamente mediante `rpc_crear_institucion` y `rp
 
 ## Ciclos y períodos de matrícula
 
-La migración 014 reutiliza `ciclos_escolares` y `periodos_matricula`. Se permiten varios ciclos activos para preparar el siguiente año sin cerrar el actual; la vigencia se expresa mediante `activo` y el rango de fechas. Todo período debe quedar dentro de las fechas de su ciclo.
+Las migraciones 014 y 015 reutilizan `ciclos_escolares` y `periodos_matricula`. Se permiten varios ciclos activos para preparar el siguiente año sin cerrar el actual; la vigencia se expresa mediante `activo` y el rango de fechas.
+
+Las fechas de un período de matrícula representan la ventana durante la cual se aceptan matrículas para un ciclo y no están limitadas por las fechas académicas del ciclo. Un período puede ocurrir antes, durante o después del inicio académico del ciclo. SchoolManager no impide actualmente el solapamiento entre períodos de matrícula ni limita los valores configurables de `tipo`.
 
 Las lecturas y escrituras usan RPC separadas y permisos `configuracion.ciclos.*` y `configuracion.periodos_matricula.*`. En single la institución se resuelve automáticamente; en multi es obligatoria de forma explícita. No existe eliminación física y la configuración está disponible en `/configuracion/ciclos`.

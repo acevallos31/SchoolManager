@@ -10,7 +10,15 @@ public sealed class CyclesPeriodsConfigurationTests(PostgreSqlFixture f):IClassF
   await Auth<object>(admin,"select public.rpc_actualizar_ciclo_escolar($1,'2026 actualizado','2026-01-01','2026-12-31',true)",ciclo);
   var periodo=await Auth<Guid>(admin,"select public.rpc_crear_periodo_matricula($1,'Ordinaria','regular','2026-01-10','2026-02-10')",ciclo);
   Assert.Equal(ciclo,await S<Guid>("select ciclo_id from public.periodos_matricula where id=$1",periodo));
-  await Assert.ThrowsAsync<PostgresException>(()=>Auth<Guid>(admin,"select public.rpc_crear_periodo_matricula($1,'Fuera',null,'2025-12-01','2026-01-02')",ciclo));
+  var anticipado=await Auth<Guid>(admin,"select public.rpc_crear_periodo_matricula($1,'Anticipada','anticipada','2025-09-01','2025-10-31')",ciclo);Assert.NotEqual(Guid.Empty,anticipado);
+  Assert.NotEqual(Guid.Empty,await Auth<Guid>(admin,"select public.rpc_crear_periodo_matricula($1,'Normal','normal','2025-11-01','2025-12-31')",ciclo));
+  Assert.NotEqual(Guid.Empty,await Auth<Guid>(admin,"select public.rpc_crear_periodo_matricula($1,'Extraordinaria','extraordinaria','2026-01-15','2026-02-15')",ciclo));
+  Assert.NotEqual(Guid.Empty,await Auth<Guid>(admin,"select public.rpc_crear_periodo_matricula($1,'Tardia','tardía','2026-02-01','2026-03-01')",ciclo));
+  Assert.NotEqual(Guid.Empty,await Auth<Guid>(admin,"select public.rpc_crear_periodo_matricula($1,'Reingreso','reingreso','2025-12-15','2026-01-20')",ciclo));
+  Assert.NotEqual(Guid.Empty,await Auth<Guid>(admin,"select public.rpc_crear_periodo_matricula($1,'Traslado','traslado','2026-01-10','2026-01-25')",ciclo));
+  await Assert.ThrowsAsync<PostgresException>(()=>Auth<Guid>(admin,"select public.rpc_crear_periodo_matricula($1,'Rango invalido',null,'2026-02-10','2026-02-01')",ciclo));
+  await Auth<object>(admin,"select public.rpc_actualizar_periodo_matricula($1,'Anticipada ajustada','personalizado','2025-08-01','2025-10-15',true)",anticipado);
+  await Auth<object>(admin,"select public.rpc_actualizar_ciclo_escolar($1,'2026 ajustado','2026-02-01','2026-11-30',true)",ciclo);
   await Assert.ThrowsAsync<PostgresException>(()=>Auth<Guid>(admin,"select public.rpc_crear_periodo_matricula($1,'Ordinaria',null,'2026-03-01','2026-03-10')",ciclo));
   var ciclo2=await Auth<Guid>(admin,"select public.rpc_crear_ciclo_escolar('2027','2027-01-01','2027-12-31')");
   Assert.NotEqual(Guid.Empty,await Auth<Guid>(admin,"select public.rpc_crear_periodo_matricula($1,'Ordinaria',null,'2027-01-01','2027-02-01')",ciclo2));
