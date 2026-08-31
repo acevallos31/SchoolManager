@@ -32,7 +32,7 @@ public sealed class AcademicModelTests(PostgreSqlFixture fixture) : IClassFixtur
         var exception = await Assert.ThrowsAsync<PostgresException>(() =>
             CrearSeccionAsync(contexto.InstitucionId, contexto.CicloId, contexto.GradoId, "a"));
         Assert.Equal("23505", exception.SqlState);
-        Assert.Equal("ux_secciones_contexto_sin_jornada_nombre", exception.ConstraintName);
+        Assert.Equal("ux_secciones_contexto_nombre", exception.ConstraintName);
     }
 
     [Fact]

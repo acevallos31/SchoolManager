@@ -367,12 +367,8 @@ create unique index ux_alumnos_codigo_interno_por_institucion
 create unique index ux_alumnos_persona_institucion
   on public.alumnos (persona_id, institucion_id);
 
-create unique index ux_secciones_contexto_jornada_nombre
-  on public.secciones (institucion_id, ciclo_id, grado_id, jornada_id, lower(nombre))
-  where jornada_id is not null;
-create unique index ux_secciones_contexto_sin_jornada_nombre
-  on public.secciones (institucion_id, ciclo_id, grado_id, lower(nombre))
-  where jornada_id is null;
+create unique index if not exists ux_secciones_contexto_nombre
+  on public.secciones(institucion_id,ciclo_id,grado_id,lower(btrim(nombre)));
 
 create unique index ux_alumno_responsable_principal_activo
   on public.alumno_responsable (alumno_id)

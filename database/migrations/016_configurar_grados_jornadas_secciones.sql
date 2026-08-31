@@ -5,6 +5,27 @@ do $$ begin if not exists(select 1 from public.schema_migrations where version='
 create unique index if not exists ux_grados_nombre_normalizado on public.grados(lower(btrim(nombre)));
 create unique index if not exists ux_jornadas_nombre_normalizado on public.jornadas(lower(btrim(nombre)));
 
+-- El nombre de la seccion es unico por institucion, ciclo y grado,
+-- independientemente de la jornada.
+do $$
+begin
+  if exists (
+    select 1
+    from public.secciones s
+    group by s.institucion_id,s.ciclo_id,s.grado_id,lower(btrim(s.nombre))
+    having count(*)>1
+  ) then
+    raise exception 'Migracion 016: existen secciones duplicadas por institucion, ciclo, grado y nombre. Corrija los datos antes de continuar.';
+  end if;
+end
+$$;
+
+drop index if exists public.ux_secciones_contexto_jornada_nombre;
+drop index if exists public.ux_secciones_contexto_sin_jornada_nombre;
+
+create unique index if not exists ux_secciones_contexto_nombre
+  on public.secciones(institucion_id,ciclo_id,grado_id,lower(btrim(nombre)));
+
 insert into public.permisos(codigo,modulo,nombre) values
  ('configuracion.grados.ver','configuracion','Ver grados'),('configuracion.grados.crear','configuracion','Crear grados'),
  ('configuracion.grados.editar','configuracion','Editar grados'),('configuracion.grados.desactivar','configuracion','Desactivar grados'),

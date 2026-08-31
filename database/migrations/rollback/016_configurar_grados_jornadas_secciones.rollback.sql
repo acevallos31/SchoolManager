@@ -1,4 +1,5 @@
 begin;
+
 drop function if exists public.rpc_listar_grados(uuid),public.rpc_crear_grado(text,integer,uuid),public.rpc_actualizar_grado(uuid,text,integer,uuid),public.rpc_cambiar_estado_grado(uuid,boolean,uuid),public.rpc_desactivar_grado(uuid,uuid),public.rpc_reactivar_grado(uuid,uuid);
 drop function if exists public.rpc_listar_jornadas(uuid),public.rpc_crear_jornada(text,uuid),public.rpc_actualizar_jornada(uuid,text,uuid),public.rpc_cambiar_estado_jornada(uuid,boolean,uuid),public.rpc_desactivar_jornada(uuid,uuid),public.rpc_reactivar_jornada(uuid,uuid);
 drop function if exists public.rpc_listar_secciones(uuid,uuid),public.rpc_actualizar_seccion(uuid,uuid,uuid,uuid,text,integer,uuid),public.rpc_reactivar_seccion(uuid,uuid);
@@ -39,7 +40,45 @@ $$;
 
 drop index if exists public.ux_grados_nombre_normalizado;
 drop index if exists public.ux_jornadas_nombre_normalizado;
-delete from public.roles_permisos rp using public.permisos p where rp.permiso_id=p.id and (p.codigo like 'configuracion.grados.%' or p.codigo like 'configuracion.jornadas.%' or p.codigo like 'configuracion.secciones.%');
-delete from public.permisos where codigo like 'configuracion.grados.%' or codigo like 'configuracion.jornadas.%' or codigo like 'configuracion.secciones.%';
-delete from public.schema_migrations where version='016';
+
+-- Revierte la regla de unicidad introducida por 016.
+drop index if exists public.ux_secciones_contexto_nombre;
+
+-- Restaura los indices originales definidos antes de 016.
+create unique index if not exists ux_secciones_contexto_jornada_nombre
+  on public.secciones(
+    institucion_id,
+    ciclo_id,
+    grado_id,
+    jornada_id,
+    lower(nombre)
+  )
+  where jornada_id is not null;
+
+create unique index if not exists ux_secciones_contexto_sin_jornada_nombre
+  on public.secciones(
+    institucion_id,
+    ciclo_id,
+    grado_id,
+    lower(nombre)
+  )
+  where jornada_id is null;
+
+delete from public.roles_permisos rp
+using public.permisos p
+where rp.permiso_id=p.id
+  and (
+    p.codigo like 'configuracion.grados.%'
+    or p.codigo like 'configuracion.jornadas.%'
+    or p.codigo like 'configuracion.secciones.%'
+  );
+
+delete from public.permisos
+where codigo like 'configuracion.grados.%'
+   or codigo like 'configuracion.jornadas.%'
+   or codigo like 'configuracion.secciones.%';
+
+delete from public.schema_migrations
+where version='016';
+
 commit;

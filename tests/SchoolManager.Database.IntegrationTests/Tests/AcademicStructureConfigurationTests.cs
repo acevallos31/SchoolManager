@@ -84,6 +84,47 @@ public sealed class AcademicStructureConfigurationTests(PostgreSqlFixture fixtur
     }
 
     [Fact]
+    public async Task Secciones_nombre_es_unico_por_institucion_ciclo_y_grado_sin_importar_jornada()
+    {
+        var context = await ContextAsync();
+
+        await CreateSectionAsync(context, "Primero B", 20);
+
+        await AssertStateAsync("23505", () =>
+            AuthScalarAsync<Guid>(
+                context.AdminAuthId,
+                "select public.rpc_crear_seccion($1,$2,$3,$4,$5,$6)",
+                context.InstitutionId,
+                context.CycleId,
+                context.GradeId,
+                context.JornadaId,
+                "Primero B",
+                25));
+
+        await AssertStateAsync("23505", () =>
+            AuthScalarAsync<Guid>(
+                context.AdminAuthId,
+                "select public.rpc_crear_seccion($1,$2,$3,$4,$5,$6)",
+                context.InstitutionId,
+                context.CycleId,
+                context.GradeId,
+                context.JornadaId,
+                "primero b",
+                25));
+
+        await AssertStateAsync("23505", () =>
+            AuthScalarAsync<Guid>(
+                context.AdminAuthId,
+                "select public.rpc_crear_seccion($1,$2,$3,$4,$5,$6)",
+                context.InstitutionId,
+                context.CycleId,
+                context.GradeId,
+                context.JornadaId,
+                "  Primero B  ",
+                25));
+    }
+
+    [Fact]
     public async Task Secciones_respetan_contexto_multi_reactivacion_e_historial()
     {
         var context = await ContextAsync();
