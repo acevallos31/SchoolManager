@@ -18,6 +18,12 @@
         <a class="configuration-link" routerLink="/configuracion/ciclos">Gestionar ciclos</a>
       </section>
     }
+    @if (puedeVerEstructuraAcademica) {
+      <section class="card navigation-card">
+        <div><h2>Grados, jornadas y secciones</h2><p>Configura la estructura académica utilizada para organizar las secciones de cada ciclo.</p></div>
+        <a class="configuration-link" routerLink="/configuracion/estructura-academica">Gestionar estructura académica</a>
+      </section>
+    }
     <section class="card">
       <div class="section-heading">
         <div><h2>Centro educativo</h2><p>Información general de la institución.</p></div>

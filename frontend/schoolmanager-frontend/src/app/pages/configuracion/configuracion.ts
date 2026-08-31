@@ -58,6 +58,12 @@ export class Configuracion implements OnInit {
     return this.auth.tienePermiso('configuracion.ciclos.ver');
   }
 
+  get puedeVerEstructuraAcademica(): boolean {
+    return this.auth.tienePermiso('configuracion.grados.ver')
+      || this.auth.tienePermiso('configuracion.jornadas.ver')
+      || this.auth.tienePermiso('configuracion.secciones.ver');
+  }
+
   get creando(): boolean {
     return this.configuracion?.institucion === null;
   }

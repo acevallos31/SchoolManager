@@ -143,3 +143,10 @@ académicas del diagrama tienen RLS habilitada para lecturas de
 `usuarios_roles.institucion_id`. Las escrituras transaccionales y la gestión de
 roles se realizan mediante las funciones `rpc_*`, no con DML directo desde el
 cliente. El detalle está en [SUPABASE_SECURITY.md](SUPABASE_SECURITY.md).
+
+## Configuración académica
+
+`GRADOS` y `JORNADAS` son catálogos globales reutilizables. `SECCIONES` sí se
+contextualiza por institución y ciclo; la jornada es opcional. No hay DELETE
+físico mediante las RPC de configuración. Una sección con matrículas conserva
+su ciclo, grado y jornada históricos; solo nombre y cupo pueden editarse.
