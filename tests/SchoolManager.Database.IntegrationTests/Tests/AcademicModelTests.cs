@@ -223,6 +223,45 @@ public sealed class AcademicModelTests(PostgreSqlFixture fixture) : IClassFixtur
     }
 
     [Fact]
+    public async Task Consulta_con_varias_matriculas_devuelve_todas_las_filas()
+    {
+        // Un mismo alumno puede tener una matricula por ciclo distinto, asi que
+        // creamos tres ciclos y matricula al alumno una vez en cada uno. La
+        // consulta de listado debe devolver todas las filas: un error clasico
+        // (avanzar el reader dos veces por fila) devolveria una de cada dos.
+        var contexto = await CreateContextAsync();
+        var alumno = await CrearAlumnoAsync(contexto.InstitucionId);
+        await MatricularAsync(alumno, contexto.SeccionId, contexto.PeriodoId);
+
+        var ciclo2 = await InsertCicloAsync(contexto.InstitucionId);
+        var matricula2 = await MatricularAsync(alumno,
+            await CrearSeccionAsync(contexto.InstitucionId, ciclo2, contexto.GradoId, "B"),
+            await InsertPeriodoAsync(ciclo2));
+
+        var ciclo3 = await InsertCicloAsync(contexto.InstitucionId);
+        var matricula3 = await MatricularAsync(alumno,
+            await CrearSeccionAsync(contexto.InstitucionId, ciclo3, contexto.GradoId, "C"),
+            await InsertPeriodoAsync(ciclo3));
+
+        var ids = new List<Guid>();
+        await using (var command = fixture.DataSource.CreateCommand(
+            "select id from public.matriculas where alumno_id = $1 order by id"))
+        {
+            command.Parameters.AddWithValue(alumno);
+            await using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                // El reader ya esta sobre la fila actual; mapear sin avanzar.
+                ids.Add(reader.GetGuid(0));
+            }
+        }
+
+        Assert.Equal(3, ids.Count);
+        Assert.Contains(matricula2, ids);
+        Assert.Contains(matricula3, ids);
+    }
+
+    [Fact]
     public async Task Crear_persona_y_alumno_es_atomico_si_alumno_falla()
     {
         var institucion = await InsertInstitucionAsync();

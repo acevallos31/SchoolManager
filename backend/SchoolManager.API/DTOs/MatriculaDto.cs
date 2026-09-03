@@ -1,7 +1,7 @@
 namespace SchoolManager.API.DTOs;
 
 // Respuesta de solo lectura para una matrícula, alineada con el modelo
-// académico vigente (mocke -> alumno + sección + periodo). Los nombres y el
+// académico vigente (mapea alumno + sección + periodo). Los nombres y el
 // contexto se resuelven por JOIN para presentación sin duplicar la entidad.
 public class MatriculaDto
 {

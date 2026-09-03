@@ -65,7 +65,6 @@ public class MatriculasController(NpgsqlDataSource dataSource) : ControllerBase
 
     private MatriculaDto? Leer(NpgsqlDataReader r)
     {
-        if (!r.Read()) return null;
         return new MatriculaDto
         {
             Id = r.GetGuid(0),
@@ -134,7 +133,7 @@ public class MatriculasController(NpgsqlDataSource dataSource) : ControllerBase
         cmd.Parameters.AddWithValue("institucionId", DBNull.Value);
         cmd.Parameters.AddWithValue("id", id);
         await using var r3 = await cmd.ExecuteReaderAsync(ct);
-        var dto = Leer(r3);
+        MatriculaDto? dto = await r3.ReadAsync(ct) ? Leer(r3) : null;
         await tx.CommitAsync(ct);
         return dto is null ? NotFound() : Ok(dto);
     }
