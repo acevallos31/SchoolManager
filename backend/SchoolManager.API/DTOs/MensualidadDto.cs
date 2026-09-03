@@ -49,10 +49,3 @@ public class PagoCreateDto
     public decimal MontoPagado { get; set; }
     public string MetodoPago { get; set; } = "efectivo";
 }
-
-public class MatriculaCreateDto
-{
-    public Guid AlumnoId { get; set; }
-    public Guid CicloId { get; set; }
-    public decimal Monto { get; set; }
-}
