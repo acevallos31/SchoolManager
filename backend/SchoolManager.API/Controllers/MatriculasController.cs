@@ -43,8 +43,13 @@ public class MatriculasController(NpgsqlDataSource dataSource) : ControllerBase
         left join public.jornadas j on j.id = s.jornada_id
         join public.periodos_matricula pm on pm.id = m.periodo_matricula_id
         join public.ciclos_escolares c on c.id = m.ciclo_id
-        where m.institucion_id = public.resolver_institucion_operacion(@institucionId)
     """;
+
+    // Toda lectura filtra cada fila contra el ambito institucional real del
+    // usuario que actua, en lugar de confiar solo en el codigo global del
+    // AuthorizationHandler. Reutiliza la funcion SECURITY DEFINER existente.
+    private const string FiltroContextoInstitucional =
+        " and public.usuario_tiene_permiso_actual('academico.matriculas.ver', m.institucion_id)";
 
     private async Task<NpgsqlConnection> AbrirComoUsuarioAsync(CancellationToken ct)
     {
@@ -91,10 +96,14 @@ public class MatriculasController(NpgsqlDataSource dataSource) : ControllerBase
     private ObjectResult ToError(PostgresException ex) =>
         new ObjectResult(new { error = ex.MessageText ?? "Error en base de datos" })
         {
+            // P0001 (raise_exception generico) no se trata como 403: cae en el default.
+            // "SM001"/"SM003" son codigos de contexto de la implementacion.
             StatusCode = ex.SqlState switch
             {
-                "23505" => StatusCodes.Status409Conflict,
-                "P0001" or "P0002" or "42501" => StatusCodes.Status403Forbidden,
+                "42501" => StatusCodes.Status403Forbidden,
+                "P0002" => StatusCodes.Status404NotFound,
+                "23505" or "23514" => StatusCodes.Status409Conflict,
+                "22023" or "23503" or "SM001" or "SM003" => StatusCodes.Status400BadRequest,
                 _ => StatusCodes.Status400BadRequest
             }
         };
@@ -103,21 +112,28 @@ public class MatriculasController(NpgsqlDataSource dataSource) : ControllerBase
     [Authorize(Policy = Permisos.Matriculas.Ver)]
     public async Task<IActionResult> GetAll([FromQuery] Guid? alumnoId, [FromQuery] Guid? institucionId, CancellationToken ct)
     {
-        await using var c1 = await AbrirComoUsuarioAsync(ct);
-        await using var tx = await c1.BeginTransactionAsync(ct);
-        await FijarClaimAsync(c1, tx, User.FindFirstValue("sub")!, ct);
-        string sql = LecturaBase;
-        if (alumnoId.HasValue) sql += " and m.alumno_id = @alumnoId";
-        await using var cmd = c1.CreateCommand();
-        cmd.Transaction = tx;
-        cmd.CommandText = sql;
-        cmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
-        if (alumnoId.HasValue) cmd.Parameters.AddWithValue("alumnoId", alumnoId.Value);
-        await using var r2 = await cmd.ExecuteReaderAsync(ct);
-        var lista = new List<MatriculaDto>();
-        while (await r2.ReadAsync(ct)) lista.Add(Leer(r2)!);
-        await tx.CommitAsync(ct);
-        return Ok(lista);
+        try
+        {
+            await using var c1 = await AbrirComoUsuarioAsync(ct);
+            await using var tx = await c1.BeginTransactionAsync(ct);
+            await FijarClaimAsync(c1, tx, User.FindFirstValue("sub")!, ct);
+            string sql = LecturaBase
+                + " where m.institucion_id = public.resolver_institucion_operacion(@institucionId)"
+                + FiltroContextoInstitucional;
+            if (alumnoId.HasValue) sql += " and m.alumno_id = @alumnoId";
+            await using var cmd = c1.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = sql;
+            cmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
+            if (alumnoId.HasValue) cmd.Parameters.AddWithValue("alumnoId", alumnoId.Value);
+            await using var r2 = await cmd.ExecuteReaderAsync(ct);
+            var lista = new List<MatriculaDto>();
+            while (await r2.ReadAsync(ct)) lista.Add(Leer(r2)!);
+            await r2.DisposeAsync();
+            await tx.CommitAsync(ct);
+            return Ok(lista);
+        }
+        catch (PostgresException ex) { return ToError(ex); }
     }
 
     [HttpGet("{id:guid}")]
@@ -129,11 +145,11 @@ public class MatriculasController(NpgsqlDataSource dataSource) : ControllerBase
         await FijarClaimAsync(c2, tx, User.FindFirstValue("sub")!, ct);
         await using var cmd = c2.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = LecturaBase + " and m.id = @id";
-        cmd.Parameters.AddWithValue("institucionId", DBNull.Value);
+        cmd.CommandText = LecturaBase + " where m.id = @id" + FiltroContextoInstitucional;
         cmd.Parameters.AddWithValue("id", id);
         await using var r3 = await cmd.ExecuteReaderAsync(ct);
         MatriculaDto? dto = await r3.ReadAsync(ct) ? Leer(r3) : null;
+        await r3.DisposeAsync();
         await tx.CommitAsync(ct);
         return dto is null ? NotFound() : Ok(dto);
     }
@@ -203,12 +219,12 @@ public class MatriculasController(NpgsqlDataSource dataSource) : ControllerBase
         await FijarClaimAsync(c6, tx, User.FindFirstValue("sub")!, ct);
         await using var cmd = c6.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = LecturaBase + " and m.alumno_id = @alumnoId";
-        cmd.Parameters.AddWithValue("institucionId", DBNull.Value);
+        cmd.CommandText = LecturaBase + " where m.alumno_id = @alumnoId" + FiltroContextoInstitucional;
         cmd.Parameters.AddWithValue("alumnoId", alumnoId);
         await using var r8 = await cmd.ExecuteReaderAsync(ct);
         var lista = new List<MatriculaDto>();
         while (await r8.ReadAsync(ct)) lista.Add(Leer(r8)!);
+        await r8.DisposeAsync();
         await tx.CommitAsync(ct);
         return Ok(lista);
     }
