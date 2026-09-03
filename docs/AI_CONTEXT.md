@@ -12,7 +12,7 @@
 
 ## Migraciones
 - 007 RBAC base; 008 modelo académico histórico; 009 RLS y RPC; 010 identidad; 011 creación alumno con documento; 012 configuración de implementación; 013 centro educativo; 014 ciclos/períodos; 015 períodos anticipados.
-- 016 grados, jornadas y secciones: en desarrollo, no aplicada en producción.
+- 016 grados, jornadas y secciones: implementada en el repositorio; aplicación en producción no verificada.
 
 ## Modelo académico
 Institución -> Ciclo -> Período matrícula -> Grado -> Jornada opcional -> Sección -> Matrícula -> Alumno.
@@ -26,6 +26,4 @@ Institución -> Ciclo -> Período matrícula -> Grado -> Jornada opcional -> Sec
 - Próximo bloque: Matrículas Fase 1C.
 
 ## Git y validación
-- Conventional Commits en español. No commit, push ni PR automático.
-- Migraciones manuales en Supabase después de revisión y CI.
-- Validar con `dotnet build -c Release`, `dotnet test`, `npm test`, `npm run build` y `git diff --check`.
+Las reglas operativas de Git, migraciones y validación están en `AGENTS.md`.
