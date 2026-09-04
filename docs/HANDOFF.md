@@ -1,10 +1,8 @@
 # HANDOFF — Matrículas Fase 1C (frontend)
 
-> Nota: la sección 17 de `AGENTS.md` continúa siendo el handoff canónico, pero ese archivo está protegido contra escritura por agentes. Este documento es el handoff operativo de la presente sesión; consolidar en `AGENTS.md`/`AI_CONTEXT.md` cuando la persona responsable pueda editarlo.
-
 ## Fecha y hora
 
-2026-09-04 00:20 -06:00 (UTC-6).
+2026-09-04 07:00 -06:00 (UTC-6).
 
 ## Rama
 
@@ -16,44 +14,63 @@ Implementar la Fase 1C de Matrículas en el frontend Angular sobre la API .NET y
 
 ## Estado
 
-Completado. PR #28 abierto en `draft` y revisado; todos los checks en verde. Sin merge. Los cambios son frontend-only.
+Completado a nivel de implementación. PR #28 abierto y Ready for review, sin merge. La revisión posterior reforzó tipado estricto y restringió las transiciones de estado del frontend al contrato permitido por backend.
 
 ## Completado
 
-- `core/services/matriculas.service.ts` (nuevo): consume `/api/matriculas` vía `HttpClient` — listar, crear y cambiar estado, con mapeo de errores (400/403/404/409). Patrón según `mensualidad.service.ts`.
-- `pages/matriculas/*` (reescritos): tabla (alumno, ciclo, grado, sección, jornada, período, fecha, estado con badge), filtros por alumno/ciclo/estado, formulario de alta guiado (alumno + ciclo → sección y período, sin monto) y modal de cambio de estado con motivo obligatorio para estados terminales.
-- `pages/alumnos/*`: getter `puedeMatricular` (permiso `academico.matriculas.crear`) y botón "Matricular" que navega a `/matriculas?alumnoId=...` con el alumno preseleccionado.
-- Tests: `matriculas.service.spec.ts` (HttpTestingController) y `matriculas.spec.ts` (servicios mockeados, `ActivatedRoute`/`Router` provistos).
+- `core/services/matriculas.service.ts`: consume `/api/matriculas` vía `HttpClient` — listar, crear y cambiar estado, con mapeo de errores (400/403/404/409).
+- `pages/matriculas/*`: tabla con alumno, ciclo, grado, sección, jornada, período, fecha y estado; filtros por alumno/ciclo/estado; formulario de alta guiado (alumno + ciclo → sección y período, sin monto); modal de cambio de estado con motivo obligatorio para retirada/anulada/trasladada.
+- Transiciones UI alineadas con backend: `pendiente -> activa|anulada`; `activa -> finalizada|retirada|anulada|trasladada`; estados terminales sin nuevas transiciones.
+- `pages/alumnos/*`: getter `puedeMatricular` y botón "Matricular" para alumnos activos con permiso `academico.matriculas.crear`.
+- Tests: `matriculas.service.spec.ts` con HttpTestingController y `matriculas.spec.ts` con servicios mockeados, incluyendo cobertura de transiciones.
+- Accesibilidad: controles asociados a sus labels mediante `id`/`for`.
+- `AGENTS.md`: autonomía nocturna aclarada, regla de salida truncada añadida y HANDOFF canónico actualizado.
 
 ## Archivos
 
-- Frontend (9): `core/services/matriculas.service.ts` (+spec), `pages/matriculas/matriculas.{ts,html,css,spec.ts}`, `pages/alumnos/alumnos.{ts,html,css}`.
-- Docs: `docs/AI_CONTEXT.md` (estado frontend actualizado).
+- Frontend: `core/services/matriculas.service.ts` (+spec), `pages/matriculas/matriculas.{ts,html,css,spec.ts}`, `pages/alumnos/alumnos.{ts,html,css}`.
+- Docs: `docs/AI_CONTEXT.md`, `docs/HANDOFF.md`, `AGENTS.md`.
 
 ## Validaciones
+
+Antes de la revisión adicional:
 
 - `npm run build`: correcto, sin errores (warnings preexistentes canvg/jspdf).
 - `npx ng test --watch=false`: 17 archivos / 61 tests en verde.
 - `git diff --check`: correcto.
 - CI GitHub Actions: pass.
-- SonarCloud: pass, 0 issues (se corrigió `Web:InputWithoutLabelCheck` con `id`/`for` en matriculas.html).
-- Vercel: pass (preview); "Desplegar a Producción" `skipping` en draft.
+- SonarCloud: pass, 0 issues.
+- Vercel: pass (preview).
+
+Después de la revisión adicional se modificaron tipado y transiciones y se agregaron tests; por lo tanto los checks del HEAD actualizado del PR #28 deben volver a completarse antes del merge.
 
 ## Commits / Git
 
+Commits originales de Hermes:
+
 - `921915e` feat(matriculas): conectar frontend Matriculas a la API de Fase 1C...
 - `9a9ddc7` fix(matriculas): asociar labels con sus controles vía id/for (Sonar)
-- Push: realizado a `origin/feature/matriculas-fase-1c-frontend`. PR #28 (draft). Merge: no realizado.
+- `dfb6305` docs: actualizar estado frontend + HANDOFF
+
+Revisión posterior:
+
+- tipado estricto de estados;
+- limitación de transiciones válidas;
+- cobertura de tests adicional;
+- actualización de `AI_CONTEXT.md`, `HANDOFF.md` y `AGENTS.md`.
+
+PR #28: Ready for review. Merge: no realizado.
 
 ## Pendientes
 
-- Aprobación humana del PR #28 y merge a `main`.
-- Verificación E2E del flujo real frontend ↔ API con datos de prueba tras el merge (los tests usan mocks).
+- Esperar CI/Sonar/Vercel del HEAD actualizado.
+- Revisión humana final del PR #28 y merge a `main` si todo permanece verde.
+- Verificación E2E del flujo real frontend ↔ API con datos de prueba controlados tras el merge.
 
 ## Riesgos
 
-- Contrato con la API no ejecutado contra una instancia en vivo; confirmar en preview tras el merge.
+- El contrato frontend ↔ API no se ha ejecutado aún contra una instancia viva con datos de prueba; los tests del frontend usan mocks.
 
-## Protección
+## Política de AGENTS.md
 
-La escritura automática sobre `AGENTS.md` está bloqueada (archivo de instrucciones del agente); el handoff canónico debe actualizarse manualmente por la persona responsable cuando lo estime.
+`AGENTS.md` es el handoff operativo canónico y puede/debe ser actualizado por agentes cuando la tarea autoriza documentación o handoff. Si el runtime de un agente protege ese archivo y exige aprobación, eso es una restricción de la herramienta, no una prohibición del repositorio.
