@@ -71,6 +71,9 @@
                   } @else if (alumno.estado === 'inactivo' && puedeEditar) {
                     <button class="btn-activar" type="button" [disabled]="guardando" (click)="reactivarAlumno(alumno)">Reactivar</button>
                   }
+                  @if (alumno.estado === 'activo' && puedeMatricular) {
+                    <button class="btn-matricular-fila" type="button" (click)="matricularAlumnoId(alumno.id)">Matricular</button>
+                  }
                 </td>
               </tr>
             } @empty {

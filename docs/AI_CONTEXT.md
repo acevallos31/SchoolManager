@@ -23,7 +23,8 @@ Institución -> Ciclo -> Período matrícula -> Grado -> Jornada opcional -> Sec
 
 ## Estado frontend
 - `/configuracion`, `/configuracion/ciclos` y `/configuracion/estructura-academica`.
-- Próximo bloque: Matrículas Fase 1C.
+- Matrículas Fase 1C (frontend): página `/matriculas` conectada a la API .NET para listar, crear y cambiar estado, con acción "Matricular" desde Alumnos.
+- PR #28 en estado Ready for review, pendiente de aprobación/merge a `main`; no considerar 17C integrado hasta que el merge ocurra.
 
 ## Git y validación
 Las reglas operativas de Git, migraciones y validación están en `AGENTS.md`.

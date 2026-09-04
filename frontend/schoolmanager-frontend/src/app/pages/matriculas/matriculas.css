@@ -19,33 +19,52 @@
 }
 
 .btn-volver,
+.btn-cancelar,
+.btn-nuevo,
+.btn-cambio,
+.btn-guardar {
+  border: none;
+  cursor: pointer;
+  font-weight: 700;
+  padding: 0.8rem 1rem;
+  border-radius: 999px;
+}
+
+.btn-volver {
+  border: 1px solid var(--sm-border);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--sm-text);
+}
+
+.btn-nuevo,
+.btn-guardar {
+  background: linear-gradient(135deg, var(--sm-accent), #8e521c);
+  color: #fffef9;
+}
+
+.btn-cambio {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(19, 43, 71, 0.18);
+  color: var(--sm-primary);
+  font-size: 0.85rem;
+  padding: 0.45rem 0.85rem;
+}
+
 .btn-cancelar {
   border: 1px solid var(--sm-border);
   background: rgba(255, 255, 255, 0.72);
   color: var(--sm-text);
 }
 
-.btn-volver,
-.btn-nuevo,
-.btn-cancelar,
-.btn-guardar,
-.btn-pagar {
-  padding: 0.8rem 1rem;
-  border-radius: 999px;
-  cursor: pointer;
-  font-weight: 700;
-  border: none;
-}
-
-.btn-nuevo,
-.btn-guardar {
-  background: linear-gradient(135deg, var(--sm-primary), var(--sm-primary-strong));
-  color: #fffef9;
+.btn-guardar:disabled,
+.btn-cancelar:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .mensaje,
-.formulario,
-.tabla {
+.tabla,
+.modal {
   border: 1px solid var(--sm-border);
   box-shadow: var(--sm-shadow);
 }
@@ -58,20 +77,27 @@
   color: var(--sm-success);
 }
 
+.mensaje.mensaje-error {
+  background: #fff0ed;
+  color: var(--sm-danger);
+}
+
 .formulario {
-  margin-bottom: 1.25rem;
-  padding: 1.5rem;
-  border-radius: 1.5rem;
-  background: rgba(255, 255, 255, 0.82);
+  margin-bottom: 1.5rem;
+  padding: 1.25rem;
+  border: 1px solid var(--sm-border);
+  border-radius: 1.25rem;
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .formulario h3 {
-  margin: 0 0 1rem;
+  margin: 0 0 0.9rem;
+  color: var(--sm-text);
 }
 
 .form-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 1rem;
 }
 
@@ -88,12 +114,21 @@
 }
 
 .form-group input,
-.form-group select {
+.form-group select,
+.form-group textarea,
+.filtro-grupo select,
+.filtro-grupo input {
   width: 100%;
+  min-width: 0;
   padding: 0.9rem 1rem;
   border: 1px solid rgba(19, 43, 71, 0.12);
   border-radius: 1rem;
   background: rgba(255, 255, 255, 0.94);
+}
+
+.form-group select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .form-actions {
@@ -101,6 +136,30 @@
   justify-content: flex-end;
   gap: 0.8rem;
   margin-top: 1rem;
+}
+
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.filtro-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 11rem;
+}
+
+.filtro-grupo label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--sm-text-soft);
+}
+
+.tabla-contenedor {
+  overflow-x: auto;
 }
 
 .tabla {
@@ -130,40 +189,54 @@
   background: rgba(15, 95, 168, 0.05);
 }
 
-.badge-pagada,
-.badge-pendiente {
+.badge-estado {
   display: inline-flex;
-  padding: 0.35rem 0.7rem;
+  padding: 0.3rem 0.7rem;
   border-radius: 999px;
   font-size: 0.78rem;
   font-weight: 800;
+  text-transform: capitalize;
 }
 
-.badge-pagada {
-  background: #edf8f1;
-  color: var(--sm-success);
-}
+.badge-pendiente { background: #fff5e9; color: var(--sm-warning); }
+.badge-activa { background: #eaf3ff; color: var(--sm-primary); }
+.badge-finalizada { background: #edf8f1; color: var(--sm-success); }
+.badge-retirada { background: #f0f3fa; color: #6b7280; }
+.badge-anulada { background: #fff0ed; color: var(--sm-danger); }
+.badge-trasladada { background: #eef1fb; color: #5b4b9e; }
 
-.badge-pendiente {
-  background: #fff5e9;
-  color: var(--sm-warning);
-}
-
-.btn-pagar {
-  background: #edf8f1;
-  color: var(--sm-success);
-}
-
-.pagado-texto,
 .sin-datos,
 .cargando {
   color: var(--sm-text-soft);
-}
-
-.sin-datos,
-.cargando {
   padding: 2rem;
   text-align: center;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(11, 24, 39, 0.45);
+  backdrop-filter: blur(6px);
+}
+
+.modal {
+  width: min(100%, 30rem);
+  padding: 1.8rem;
+  border-radius: 1.6rem;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.modal h3 {
+  margin: 0 0 0.75rem;
+}
+
+.modal-detalle {
+  margin: 0 0 0.75rem;
+  color: var(--sm-text-soft);
 }
 
 @media (max-width: 900px) {
@@ -172,8 +245,12 @@
   }
 
   .page-header,
+  .filtros {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
   .form-grid {
     grid-template-columns: 1fr;
-    display: grid;
   }
 }

@@ -1,32 +1,34 @@
 <div class="page-container">
   <div class="page-header">
-    <button class="btn-volver" (click)="volver()">← Volver</button>
+    <button class="btn-volver" type="button" (click)="volver()">← Volver</button>
     <h1>🎓 Gestión de Matrículas</h1>
-    <button class="btn-nuevo" (click)="mostrarFormulario = !mostrarFormulario">
-      + Nueva Matrícula
-    </button>
+    @if (puedeCrear) {
+      <button class="btn-nuevo" type="button" (click)="abrirFormulario()" [disabled]="guardando">
+        + Nueva Matrícula
+      </button>
+    }
   </div>
 
   @if (mensaje) {
-    <div class="mensaje">{{ mensaje }}</div>
+    <div class="mensaje" [class.mensaje-error]="esError" role="status">{{ mensaje }}</div>
   }
 
-  @if (mostrarFormulario) {
+  @if (mostrarFormulario && puedeCrear) {
     <div class="formulario">
       <h3>Registrar nueva matrícula</h3>
       <div class="form-grid">
         <div class="form-group">
-          <label>Alumno *</label>
-          <select [(ngModel)]="nuevaMatricula.alumno_id">
+          <label for="nuevaAlumno">Alumno *</label>
+          <select id="nuevaAlumno" [(ngModel)]="nueva.alumnoId" name="nuevaAlumno">
             <option value="">Seleccionar alumno</option>
             @for (a of alumnos; track a.id) {
-              <option [value]="a.id">{{ a.nombre }}</option>
+              <option [value]="a.id">{{ a.nombreCompleto }}</option>
             }
           </select>
         </div>
         <div class="form-group">
-          <label>Ciclo escolar *</label>
-          <select [(ngModel)]="nuevaMatricula.ciclo_id">
+          <label for="nuevaCiclo">Ciclo escolar *</label>
+          <select id="nuevaCiclo" [(ngModel)]="nueva.cicloId" name="nuevaCiclo" (ngModelChange)="alSeleccionarCiclo()">
             <option value="">Seleccionar ciclo</option>
             @for (c of ciclos; track c.id) {
               <option [value]="c.id">{{ c.nombre }}</option>
@@ -34,66 +36,146 @@
           </select>
         </div>
         <div class="form-group">
-          <label>Monto de matrícula *</label>
-          <input type="number" [(ngModel)]="nuevaMatricula.monto" placeholder="Ej: 1500" />
+          <label for="nuevaSeccion">Sección *</label>
+          <select id="nuevaSeccion" [(ngModel)]="nueva.seccionId" name="nuevaSeccion" [disabled]="!nueva.cicloId">
+            <option value="">Seleccionar sección</option>
+            @for (s of secciones; track s.id) {
+              <option [value]="s.id">{{ s.nombre }} ({{ s.gradoNombre }}{{ s.jornadaNombre ? ' · ' + s.jornadaNombre : '' }})</option>
+            }
+          </select>
         </div>
         <div class="form-group">
-          <label>Estado</label>
-          <select [(ngModel)]="nuevaMatricula.estado">
-            <option value="pendiente">Pendiente</option>
-            <option value="pagada">Pagada</option>
+          <label for="nuevaPeriodo">Período de matrícula *</label>
+          <select id="nuevaPeriodo" [(ngModel)]="nueva.periodoMatriculaId" name="nuevaPeriodo" [disabled]="!nueva.cicloId">
+            <option value="">Seleccionar período</option>
+            @for (p of periodos; track p.id) {
+              <option [value]="p.id">{{ p.nombre }}</option>
+            }
           </select>
         </div>
       </div>
       <div class="form-actions">
-        <button class="btn-cancelar" (click)="mostrarFormulario = false">Cancelar</button>
-        <button class="btn-guardar" (click)="guardarMatricula()" [disabled]="cargando">
-          {{ cargando ? 'Guardando...' : 'Guardar matrícula' }}
+        <button class="btn-cancelar" type="button" (click)="cerrarFormulario()" [disabled]="guardando">Cancelar</button>
+        <button class="btn-guardar" type="button" (click)="crearMatricula()" [disabled]="guardando">
+          {{ guardando ? 'Registrando...' : 'Guardar matrícula' }}
         </button>
       </div>
     </div>
   }
 
-  @if (cargando && !mostrarFormulario) {
-    <p class="cargando">Cargando matrículas...</p>
-  } @else {
-    <table class="tabla">
-      <thead>
-        <tr>
-          <th>Alumno</th>
-          <th>Ciclo escolar</th>
-          <th>Monto</th>
-          <th>Estado</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (m of matriculas; track m.id) {
-          <tr>
-            <td>{{ m.alumnos?.nombre }}</td>
-            <td>{{ m.ciclos_escolares?.nombre }}</td>
-            <td>L. {{ m.monto | number:'1.2-2' }}</td>
-            <td>
-              <span [class]="m.estado === 'pagada' ? 'badge-pagada' : 'badge-pendiente'">
-                {{ m.estado }}
-              </span>
-            </td>
-            <td>
-              @if (m.estado === 'pendiente') {
-                <button class="btn-pagar" (click)="marcarPagada(m.id)">
-                  Marcar pagada
-                </button>
-              } @else {
-                <span class="pagado-texto">✅ Pagada</span>
+  @if (puedeVer) {
+    <div class="filtros">
+      <div class="filtro-grupo">
+        <label for="filtroAlumno">Alumno</label>
+        <select id="filtroAlumno" [(ngModel)]="filtros.alumnoId" name="filtroAlumno">
+          <option value="">Todos</option>
+          @for (a of alumnos; track a.id) {
+            <option [value]="a.id">{{ a.nombreCompleto }}</option>
+          }
+        </select>
+      </div>
+      <div class="filtro-grupo">
+        <label for="filtroCiclo">Ciclo escolar</label>
+        <select id="filtroCiclo" [(ngModel)]="filtros.cicloId" name="filtroCiclo">
+          <option value="">Todos</option>
+          @for (c of ciclosDisponibles; track c.id) {
+            <option [value]="c.id">{{ c.nombre }}</option>
+          }
+        </select>
+      </div>
+      <div class="filtro-grupo">
+        <label for="filtroEstado">Estado</label>
+        <select id="filtroEstado" [(ngModel)]="filtros.estado" name="filtroEstado">
+          <option value="">Todos</option>
+          @for (e of estados; track e) {
+            <option [value]="e">{{ e }}</option>
+          }
+        </select>
+      </div>
+    </div>
+
+    @if (cargando) {
+      <p class="cargando">Cargando matrículas...</p>
+    } @else {
+      <div class="tabla-contenedor">
+        <table class="tabla">
+          <thead>
+            <tr>
+              <th>Alumno</th>
+              <th>Ciclo</th>
+              <th>Grado</th>
+              <th>Sección</th>
+              <th>Jornada</th>
+              <th>Período</th>
+              <th>Fecha</th>
+              <th>Estado</th>
+              @if (puedeCambiarEstado) {
+                <th>Acciones</th>
               }
-            </td>
-          </tr>
-        } @empty {
-          <tr>
-            <td colspan="5" class="sin-datos">No hay matrículas registradas</td>
-          </tr>
+            </tr>
+          </thead>
+          <tbody>
+            @for (m of matriculasFiltradas; track m.id) {
+              <tr>
+                <td>{{ m.nombreAlumno }}</td>
+                <td>{{ m.cicloNombre }}</td>
+                <td>{{ m.nombreGrado || '—' }}</td>
+                <td>{{ m.nombreSeccion }}</td>
+                <td>{{ m.nombreJornada || '—' }}</td>
+                <td>{{ m.nombrePeriodo }}</td>
+                <td>{{ m.fechaMatricula }}</td>
+                <td>
+                  <span [class]="claseEstado(m.estado)">{{ m.estado }}</span>
+                </td>
+                @if (puedeCambiarEstado) {
+                  <td>
+                    @if (puedeTransicionar(m)) {
+                      <button class="btn-cambio" type="button" (click)="abrirCambioEstado(m)">
+                        Cambiar
+                      </button>
+                    } @else {
+                      <span aria-label="Estado terminal">—</span>
+                    }
+                  </td>
+                }
+              </tr>
+            } @empty {
+              <tr>
+                <td [attr.colspan]="puedeCambiarEstado ? 9 : 8" class="sin-datos">No hay matrículas registradas</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+
+  @if (cambioDe.matricula) {
+    <div class="modal-overlay">
+      <div class="modal">
+        <h3>Cambiar estado — {{ cambioDe.matricula.nombreAlumno }}</h3>
+        <p class="modal-detalle">Estado actual: <strong>{{ cambioDe.matricula.estado }}</strong></p>
+        <div class="form-group">
+          <label for="cambioEstado">Nuevo estado *</label>
+          <select id="cambioEstado" [(ngModel)]="cambioDe.estado" name="cambioEstado">
+            @for (e of estadosDisponiblesCambio; track e) {
+              <option [value]="e">{{ e }}</option>
+            }
+          </select>
+        </div>
+        @if (requiereMotivo) {
+          <div class="form-group">
+            <label for="cambioMotivo">Motivo * (obligatorio para este estado)</label>
+            <textarea id="cambioMotivo" [(ngModel)]="cambioDe.motivo" name="cambioMotivo" rows="3"></textarea>
+          </div>
         }
-      </tbody>
-    </table>
+        <div class="form-actions">
+          <button class="btn-cancelar" type="button" (click)="cerrarCambioEstado()" [disabled]="guardando">Cancelar</button>
+          <button class="btn-guardar" type="button" (click)="aplicarCambioEstado()" [disabled]="guardando || !cambioDe.estado">
+            {{ guardando ? 'Guardando...' : 'Aplicar' }}
+          </button>
+        </div>
+      </div>
+    </div>
   }
 </div>

@@ -67,6 +67,10 @@ export class Alumnos implements OnInit {
     return this.auth.tienePermiso('academico.alumnos.desactivar');
   }
 
+  get puedeMatricular(): boolean {
+    return this.auth.tienePermiso('academico.matriculas.crear');
+  }
+
   get alumnosFiltrados(): AlumnoListado[] {
     const termino = this.normalizar(this.busqueda);
     if (!termino) return this.alumnos;
@@ -208,10 +212,14 @@ export class Alumnos implements OnInit {
 
   matricularAlumno(): void {
     if (this.ultimoAlumnoCreadoId) {
-      void this.router.navigate(['/matriculas'], {
-        queryParams: { alumnoId: this.ultimoAlumnoCreadoId }
-      });
+      this.matricularAlumnoId(this.ultimoAlumnoCreadoId);
     }
+  }
+
+  matricularAlumnoId(alumnoId: string): void {
+    void this.router.navigate(['/matriculas'], {
+      queryParams: { alumnoId }
+    });
   }
 
   private async ejecutarCambioEstado(operacion: () => Promise<void>, exito: string): Promise<void> {
