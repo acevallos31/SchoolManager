@@ -4,6 +4,14 @@ import { Observable, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
+export type EstadoMatricula =
+  | 'pendiente'
+  | 'activa'
+  | 'finalizada'
+  | 'retirada'
+  | 'anulada'
+  | 'trasladada';
+
 // Respuesta de solo lectura del backend (MatriculaDto) — los nombres siguen la
 // serialización camelCase del API, no el modelo de base de datos.
 export interface Matricula {
@@ -15,7 +23,7 @@ export interface Matricula {
   periodoMatriculaId: string;
   registradoPor: string | null;
   fechaMatricula: string;
-  estado: string;
+  estado: EstadoMatricula;
   fechaAnulacion: string | null;
   motivoAnulacion: string | null;
   createdAt: string;
@@ -34,15 +42,20 @@ export interface MatriculaInput {
 }
 
 export interface CambioEstadoMatricula {
-  estado: string;
+  estado: EstadoMatricula;
   motivo?: string | null;
 }
 
-// Estados terminales: exigen motivo obligatorio antes de aplicar el cambio.
-// Coincide con "EstadosTerminales" del MatriculasController y con la RPC
-// rpc_cambiar_estado_matricula.
-export const ESTADOS_TERMINALES = ['retirada', 'anulada', 'trasladada'];
-export const ESTADOS_MATRICULA = ['pendiente', 'activa', 'finalizada', 'retirada', 'anulada', 'trasladada'];
+// Estados terminales que requieren motivo en el contrato vigente.
+export const ESTADOS_TERMINALES: readonly EstadoMatricula[] = ['retirada', 'anulada', 'trasladada'];
+export const ESTADOS_MATRICULA: readonly EstadoMatricula[] = [
+  'pendiente',
+  'activa',
+  'finalizada',
+  'retirada',
+  'anulada',
+  'trasladada'
+];
 
 export class MatriculaError extends Error {
   constructor(
