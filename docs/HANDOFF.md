@@ -73,4 +73,33 @@ PR #28: Ready for review. Merge: no realizado.
 
 ## Política de AGENTS.md
 
-`AGENTS.md` es el handoff operativo canónico y puede/debe ser actualizado por agentes cuando la tarea autoriza documentación o handoff. Si el runtime de un agente protege ese archivo y exige aprobación, eso es una restricción de la herramienta, no una prohibición del repositorio.
+`AGENTS.md` es el handoff operativo canónico y puede/debe ser actualizado por agentes cuando la tarea autoriza documentación o handoff. Si el runtime de un agente protege ese archivo y exige aprobación, eso es una restricción de la herramienta, no una prohibición del repositorio. En esta sesión de cierre, el runtime bloqueó la escritura a `AGENTS.md` (sin usuario interactivo para aprobar); por ello el handoff de cierre vive en `docs/handoffs/017D-integracion-alumnos.md`, `017E-tests.md` y `017F-cierre.md`, y queda pendiente que un humano consolide el HANDOFF canónico de `AGENTS.md` si lo desea.
+
+---
+
+# HANDOFF — Cierre Matrículas Fase 1C (017D–017F)
+
+## Agente, fecha y rama
+
+Hermes Agent (cron), 2026-09-04 11:58 -06:00 (UTC-6). Rama `feature/matriculas-fase-1c-cierre` desde `main` (`2c5f866`, merge de PR #28).
+
+## Estado
+
+17D y 17E completos. 17F parcial: pendiente auditoría remota read-only de Supabase (sin credenciales de auditor en esta sesión) y E2E real de escritura (sin entorno desechable seguro). Todas las validaciones locales en verde.
+
+## Completado
+
+- 17D: integración Alumnos → Matricular auditada (ya correcta de 17C): botón solo activos + permiso `academico.matriculas.crear`, navegación a `/matriculas?alumnoId=<id>`, preselección, sin `cancelada`/`pagada`, sin duplicar reglas backend. Solo se añadieron tests.
+- 17E: tests añadidos para vacío, error de listado, preselección por query param (con/sin permiso crear) y limpieza de filtro obsoleto en `matriculas.spec.ts`; acción Matricular activo/sin permiso/inactivo en `alumnos.spec.ts`. Sin duplicar cobertura existente del servicio ni backend/DB.
+- Validaciones: frontend 17 archivos / 71 tests; API 28 tests; DB 80 tests; `dotnet build -c Release` OK; `npm run build` OK (warnings preexistentes canvg/jspdf); `git diff --check` OK.
+- Docs: `docs/AI_CONTEXT.md` + `docs/handoffs/{017D,017E,017F}*.md`.
+
+## Pendientes
+
+- Auditoría remota read-only de Supabase cuando haya credenciales de auditor.
+- Esperar CI/Sonar/Vercel del HEAD del PR de cierre.
+- E2E real de escritura con datos de prueba controlados.
+
+## Deliverable
+
+Rama con commits de tests y docs; PR hacia `main`, Ready for review, sin merge (no autorizado).
