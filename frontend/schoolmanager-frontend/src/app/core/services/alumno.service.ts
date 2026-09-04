@@ -53,6 +53,14 @@ interface AlumnoRow {
   matriculas: MatriculaRelacion[] | null;
 }
 
+interface AlumnoBasicoRow {
+  id: string;
+  persona_id: string;
+  rne: string | null;
+  estado: 'activo' | 'inactivo';
+  persona: PersonaRelacion | null;
+}
+
 interface SupabaseErrorLike {
   code?: string;
   message?: string;
@@ -123,6 +131,42 @@ export class AlumnoService {
           : null
       };
     });
+  }
+
+  async obtenerPorId(alumnoId: string): Promise<AlumnoListado | null> {
+    const { data, error } = await this.supabase
+      .from('alumnos')
+      .select(`
+        id,
+        persona_id,
+        rne,
+        estado,
+        persona:personas!alumnos_persona_id_fkey(
+          nombres,
+          apellidos,
+          numero_identificacion
+        )
+      `)
+      .eq('id', alumnoId)
+      .maybeSingle();
+
+    if (error) {
+      throw this.mapError(error, 'No se pudo cargar el alumno.');
+    }
+    if (!data) return null;
+
+    const row = data as unknown as AlumnoBasicoRow;
+    return {
+      id: row.id,
+      personaId: row.persona_id,
+      nombreCompleto: [row.persona?.nombres, row.persona?.apellidos]
+        .filter(Boolean)
+        .join(' '),
+      identidad: row.persona?.numero_identificacion ?? null,
+      rne: row.rne,
+      estado: row.estado,
+      matriculaActual: null
+    };
   }
 
   async crear(input: CrearAlumnoInput): Promise<string> {
