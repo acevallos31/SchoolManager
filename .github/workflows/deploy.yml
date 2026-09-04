@@ -11,6 +11,7 @@ jobs:
   validate-code:
     name: Validar Compilación del Proyecto
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout del código
         uses: actions/checkout@v4
@@ -35,12 +36,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22.22.3
+          cache: npm
+          cache-dependency-path: frontend/schoolmanager-frontend/package-lock.json
+
+      - name: Configurar npm
+        run: npm install -g npm@11.13.0 --ignore-scripts
 
       - name: Validar Frontend (Angular)
         run: |
           cd frontend/schoolmanager-frontend
-          npm install
-          npx ng build --configuration production
+          npm ci --ignore-scripts
+          npm run build -- --configuration production
 
   # ETAPA 2: DESPLIEGUE (Solo se ejecuta si la etapa anterior pasa Y estamos en la rama main)
   deploy:
@@ -48,6 +54,7 @@ jobs:
     needs: validate-code
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout del código
         uses: actions/checkout@v4
