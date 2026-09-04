@@ -40,12 +40,12 @@ jobs:
           cache-dependency-path: frontend/schoolmanager-frontend/package-lock.json
 
       - name: Configurar npm
-        run: npm install -g npm@11.13.0
+        run: npm install -g npm@11.13.0 --ignore-scripts
 
       - name: Validar Frontend (Angular)
         run: |
           cd frontend/schoolmanager-frontend
-          npm ci
+          npm ci --ignore-scripts
           npm run build -- --configuration production
 
   # ETAPA 2: DESPLIEGUE (Solo se ejecuta si la etapa anterior pasa Y estamos en la rama main)
