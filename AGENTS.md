@@ -113,6 +113,7 @@ Formato recomendado de ramas:
 - Ejecutar migraciones, rollbacks y pruebas destructivas solo en bases locales o contenedores desechables. No ejecutar rollbacks en Supabase ni en bases remotas/compartidas sin autorización humana explícita, plan verificado y respaldo.
 - Tratar todo rollback como potencialmente destructivo: revisar sus precondiciones y verificar la preservación de históricos antes de usarlo.
 - Toda escritura crítica debe respetar RLS/RPC y contexto de institución según el diseño vigente.
+- Toda operación transaccional debe preservar ACID cuando aplique: atomicidad, consistencia, aislamiento y durabilidad. No trasladar al frontend responsabilidades transaccionales que pertenecen al backend o a PostgreSQL.
 - No introducir identificadores secuenciales como sustituto de UUID internos.
 - Mantener la estrategia vigente de estados, desactivación e históricos; no sustituirla por borrado físico.
 
@@ -206,6 +207,7 @@ No ocultar warnings nuevos.
 - Mantener compatibilidad con decisiones actuales de despliegue en Render, Vercel y Supabase.
 - Los comentarios deben explicar decisiones no obvias, no describir código evidente.
 - Tests deben validar comportamiento observable, no detalles internos frágiles.
+- Aplicar SOLID de forma pragmática: responsabilidades claras, contratos coherentes, interfaces enfocadas y dependencias bien delimitadas; no crear abstracciones artificiales solo para aparentar cumplimiento.
 - Nunca reemplazar un archivo del repositorio a partir de una salida de herramienta marcada como `truncated`, `partial output`, `omitted lines` o equivalente. En ese caso, leer el archivo real completo desde disco o Git antes de modificarlo.
 
 ## 13. Trabajo autónomo de larga duración
@@ -241,15 +243,23 @@ No delegar exclusivamente a modelos pequeños/locales:
 
 El modelo principal conserva responsabilidad sobre herramientas, ejecución y decisión final.
 
-## 15. Documentación de contexto
+## 15. Documentación de contexto y trazabilidad entre agentes
 
 Actualizar `docs/AI_CONTEXT.md` solo cuando cambie realmente el estado arquitectónico, funcional o del roadmap.
 
 No usar `AI_CONTEXT.md` como diario de cada sesión.
 
-`AGENTS.md` es un archivo operativo del repositorio y puede/debe ser actualizado por Hermes, Codex, Copilot u otro agente cuando la tarea autorice documentación o HANDOFF. La protección interactiva que una herramienta pueda aplicar sobre archivos de instrucciones es una restricción del runtime, no una política del repositorio. Si el runtime exige aprobación y esta no está disponible, registrar el bloqueo; no interpretar esa protección como prohibición permanente de modificar `AGENTS.md`.
+`AGENTS.md` es un archivo operativo compartido del repositorio y puede/debe ser actualizado por Hermes, Codex, Copilot u otro agente cuando la tarea autorice documentación o HANDOFF. La protección interactiva que una herramienta pueda aplicar sobre archivos de instrucciones es una restricción del runtime, no una política del repositorio. Si el runtime exige aprobación y esta no está disponible, registrar el bloqueo; no interpretar esa protección como prohibición permanente de modificar `AGENTS.md`.
 
-Este `AGENTS.md` contiene el handoff operativo más reciente, pero no debe convertirse en un log histórico ilimitado. Al iniciar un nuevo bloque, reemplazar el handoff anterior una vez que su información relevante haya sido consolidada en commits, PR o `AI_CONTEXT.md`.
+### Regla de preservación
+
+- Un agente puede agregar reglas nuevas autorizadas, agregar su propio HANDOFF y actualizar contenido creado por él mismo durante la sesión actual.
+- Un agente no debe borrar, reemplazar ni reescribir silenciosamente contenido creado por otro agente.
+- Si una entrada anterior parece incorrecta, obsoleta o contradictoria, conservarla y documentar la contradicción o marcarla como sustituida mediante una nota explícita con referencia a la nueva decisión.
+- Eliminar o consolidar aportes históricos de otros agentes requiere una tarea explícita de mantenimiento documental o autorización humana específica.
+- Toda contribución nueva de HANDOFF debe identificar, cuando sea posible: agente, fecha, bloque, rama y HEAD/commit.
+
+`AGENTS.md` no debe convertirse en un log histórico ilimitado. El historial detallado debe vivir preferentemente en `docs/handoffs/` o en un documento de HANDOFF dedicado. Las entradas previas de otros agentes no se eliminan de forma automática; su consolidación se hace únicamente mediante mantenimiento documental explícito.
 
 ## 16. Criterio de finalización
 
@@ -266,7 +276,11 @@ Una tarea solo puede declararse terminada cuando:
 
 ## 17. HANDOFF operativo
 
-Al finalizar una sesión larga, completar o reemplazar esta sección.
+Al finalizar una sesión larga, agregar una nueva entrada o actualizar la entrada propia de la sesión actual. No borrar ni reemplazar entradas creadas por otros agentes salvo autorización explícita de mantenimiento documental.
+
+### Agente
+
+Hermes Agent.
 
 ### Fecha y hora
 
@@ -321,7 +335,7 @@ La revisión adicional modificó tipado/transiciones y agregó cobertura; los ch
 - No duplicar reglas ACID ni de persistencia en frontend; backend/DB siguen siendo autoridad.
 - El frontend restringe opciones de transición para evitar ofrecer operaciones que el backend rechazará.
 - `EstadoMatricula` usa unión TypeScript en vez de `string` genérico.
-- `AGENTS.md` es deliberadamente actualizable por agentes autorizados para conservar HANDOFF y reglas operativas.
+- `AGENTS.md` es deliberadamente actualizable por agentes autorizados para conservar HANDOFF y reglas operativas, preservando aportes de otros agentes.
 
 ### Pendientes
 
