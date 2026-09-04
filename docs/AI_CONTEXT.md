@@ -23,8 +23,9 @@ Institución -> Ciclo -> Período matrícula -> Grado -> Jornada opcional -> Sec
 
 ## Estado frontend
 - `/configuracion`, `/configuracion/ciclos` y `/configuracion/estructura-academica`.
-- Matrículas Fase 1C (frontend): página `/matriculas` conectada a la API .NET para listar, crear y cambiar estado, con acción "Matricular" desde Alumnos.
-- PR #28 en estado Ready for review, pendiente de aprobación/merge a `main`; no considerar 17C integrado hasta que el merge ocurra.
+- Matrículas Fase 1C completa: página `/matriculas` conectada a la API .NET (listar, crear, cambiar estado) con acción "Matricular" desde Alumnos.
+- PR #28 mergeado en `main` (`2c5f866`); 17C integrado. Bloque 017 Fase 1C cerrado (17D/17E completos; 17F parcial: pendiente auditoría remota read-only de Supabase y E2E real de escritura).
+- Detalle de cierre en `docs/handoffs/017D-integracion-alumnos.md`, `017E-tests.md` y `017F-cierre.md`.
 
 ## Git y validación
 Las reglas operativas de Git, migraciones y validación están en `AGENTS.md`.

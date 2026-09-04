@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router } from '@angular/router';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { AuthService } from '../../core/services/auth';
 import { AlumnoService } from '../../core/services/alumno.service';
@@ -19,7 +19,7 @@ const MAT: Matricula = {
 };
 
 describe('Matriculas', () => {
-  const alumnos = [{ id: 'a1', nombreCompleto: 'Ana Pérez', estado: 'activo' }];
+  const alumnos = [{ id: 'a1', personaId: 'p1', nombreCompleto: 'Ana Pérez', identidad: null, rne: null, estado: 'activo' as const, matriculaActual: null }];
   const ciclos = [{ id: 'c1', institucionId: 'i1', nombre: '2026', activo: true }];
   const secciones = [{ id: 's1', activo: true, nombre: 'A', gradoNombre: 'Primero', jornadaNombre: 'Matutina' }];
   const periodos = [{ id: 'p1', activo: true, nombre: 'Normal' }];
@@ -28,16 +28,22 @@ describe('Matriculas', () => {
   let c: Matriculas;
   let s: Record<string, ReturnType<typeof vi.fn>>;
   let per: Set<string>;
+  let consultarParametro: (key: string) => string | null;
+  let alumnoMock: { listar: ReturnType<typeof vi.fn>; obtenerPorId: ReturnType<typeof vi.fn> };
 
   function configurar(): void {
+    alumnoMock = {
+      listar: vi.fn().mockResolvedValue(alumnos),
+      obtenerPorId: vi.fn().mockResolvedValue(alumnos[0])
+    };
     TestBed.configureTestingModule({
       imports: [Matriculas],
       providers: [
         { provide: Router, useValue: { navigate: vi.fn() } },
-        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: consultarParametro } } } },
         { provide: AuthService, useValue: { tienePermiso: (x: string) => per.has(x) } },
         { provide: MatriculaService, useValue: s },
-        { provide: AlumnoService, useValue: { listar: vi.fn().mockResolvedValue(alumnos) } },
+        { provide: AlumnoService, useValue: alumnoMock },
         { provide: CicloEscolarService, useValue: { listar: vi.fn().mockResolvedValue(ciclos), listarPeriodos: vi.fn().mockResolvedValue(periodos) } },
         { provide: EstructuraAcademicaService, useValue: { listarSecciones: vi.fn().mockResolvedValue(secciones) } }
       ]
@@ -46,6 +52,7 @@ describe('Matriculas', () => {
 
   beforeEach(async () => {
     per = new Set(['academico.matriculas.ver', 'academico.matriculas.crear', 'academico.matriculas.cambiar_estado']);
+    consultarParametro = () => null;
     s = {
       listar: vi.fn().mockReturnValue(of([MAT])),
       crear: vi.fn().mockReturnValue(of({ id: 'm2' })),
@@ -61,7 +68,7 @@ describe('Matriculas', () => {
   });
 
   it('lista matrículas del servicio', () => {
-    expect(s['listar']).toHaveBeenCalled();
+    expect(s['listar']).toHaveBeenCalledWith(undefined);
     expect(c.matriculas).toEqual([MAT]);
   });
 
@@ -143,5 +150,79 @@ describe('Matriculas', () => {
     per.clear();
     expect(c.puedeCrear).toBe(false);
     expect(c.puedeCambiarEstado).toBe(false);
+  });
+
+  it('preselecciona alumno y evita cargar la lista completa', async () => {
+    consultarParametro = (key: string) => (key === 'alumnoId' ? 'a1' : null);
+    await TestBed.resetTestingModule();
+    configurar();
+    await TestBed.compileComponents();
+    f = TestBed.createComponent(Matriculas);
+    c = f.componentInstance;
+    f.detectChanges();
+    await vi.waitFor(() => expect(c.cargando).toBe(false));
+
+    expect(c.nueva.alumnoId).toBe('a1');
+    expect(c.filtros.alumnoId).toBe('a1');
+    expect(c.mostrarFormulario).toBe(true);
+    expect(alumnoMock.obtenerPorId).toHaveBeenCalledWith('a1');
+    expect(alumnoMock.listar).not.toHaveBeenCalled();
+    expect(s['listar']).toHaveBeenCalledWith('a1');
+    expect(c.matriculas).toEqual([MAT]);
+  });
+
+  it('no preselecciona ni abre formulario sin permiso crear', async () => {
+    per = new Set(['academico.matriculas.ver']);
+    consultarParametro = (key: string) => (key === 'alumnoId' ? 'a1' : null);
+    await TestBed.resetTestingModule();
+    configurar();
+    await TestBed.compileComponents();
+    f = TestBed.createComponent(Matriculas);
+    c = f.componentInstance;
+    f.detectChanges();
+    await vi.waitFor(() => expect(c.cargando).toBe(false));
+    expect(c.nueva.alumnoId).toBe('');
+    expect(c.mostrarFormulario).toBe(false);
+    expect(alumnoMock.listar).toHaveBeenCalled();
+  });
+
+  it('muestra estado vacío cuando no hay matrículas', async () => {
+    s = { ...s, listar: vi.fn().mockReturnValue(of([])) };
+    await TestBed.resetTestingModule();
+    configurar();
+    await TestBed.compileComponents();
+    f = TestBed.createComponent(Matriculas);
+    c = f.componentInstance;
+    f.detectChanges();
+    await vi.waitFor(() => expect(c.cargando).toBe(false));
+    f.detectChanges();
+    expect(c.matriculas).toEqual([]);
+    expect(f.nativeElement.textContent).toContain('No hay matrículas registradas');
+  });
+
+  it('muestra un error seguro cuando falla el listado', async () => {
+    s = { ...s, listar: vi.fn().mockReturnValue(throwError(() => new Error('boom'))) };
+    await TestBed.resetTestingModule();
+    configurar();
+    await TestBed.compileComponents();
+    f = TestBed.createComponent(Matriculas);
+    c = f.componentInstance;
+    f.detectChanges();
+    await vi.waitFor(() => expect(c.cargando).toBe(false));
+    expect(c.matriculas).toEqual([]);
+    expect(c.mensaje).toContain('No se pudieron cargar las matrículas');
+    expect(c.esError).toBe(true);
+  });
+
+  it('limpia el filtro de ciclo obsoleto al recargar', async () => {
+    await TestBed.resetTestingModule();
+    configurar();
+    await TestBed.compileComponents();
+    f = TestBed.createComponent(Matriculas);
+    c = f.componentInstance;
+    c.filtros.cicloId = 'ciclo-inexistente';
+    f.detectChanges();
+    await vi.waitFor(() => expect(c.cargando).toBe(false));
+    expect(c.filtros.cicloId).toBe('');
   });
 });
