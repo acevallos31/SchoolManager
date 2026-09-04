@@ -166,6 +166,9 @@ public class MatriculasController(NpgsqlDataSource dataSource) : ControllerBase
             }
 
             // Recuento total con los mismos filtros para calcular totalPages.
+            // NOSONAR: only fixed WHERE fragments are concatenated; every value
+            // (@institucionId/@alumnoId/@cicloId/@estado) is bound via
+            // NpgsqlParameter below — no user input is interpolated into SQL.
             await using var countCmd = c1.CreateCommand();
             countCmd.Transaction = tx;
             countCmd.CommandText = "select count(*) from public.matriculas m" + where;

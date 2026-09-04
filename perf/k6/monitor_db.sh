@@ -9,7 +9,7 @@ INTERVAL="${3:-5}"
 
 echo "==> Monitoreando Postgres durante ${DURATION}s (muestras cada ${INTERVAL}s)"
 END=$((SECONDS + DURATION))
-while [ $SECONDS -lt $END ]; do
+while [[ $SECONDS -lt $END ]]; do
   echo "--- $(date +%T) ---"
   psql "$CONN" -c "select state, count(*) from pg_stat_activity \
     where datname is not null group by state order by count(*) desc;" 2>/dev/null || echo "(no pg_stat_activity)"
