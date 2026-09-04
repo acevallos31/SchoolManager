@@ -1,0 +1,155 @@
+Timing is on.
+ count 
+-------
+  2000
+(1 row)
+
+Time: 5.602 ms
+ count 
+-------
+  5600
+(1 row)
+
+Time: 12.625 ms
+ count 
+-------
+   934
+(1 row)
+
+Time: 2.426 ms
+ count 
+-------
+     2
+(1 row)
+
+Time: 0.566 ms
+ count 
+-------
+     8
+(1 row)
+
+Time: 0.191 ms
+Timing is on.
+ count 
+-------
+  2000
+(1 row)
+
+Time: 5.559 ms
+ count 
+-------
+  5600
+(1 row)
+
+Time: 11.697 ms
+ count 
+-------
+   934
+(1 row)
+
+Time: 2.244 ms
+ count 
+-------
+     2
+(1 row)
+
+Time: 0.588 ms
+ count 
+-------
+     8
+(1 row)
+
+Time: 0.256 ms
+Timing is on.
+ count 
+-------
+  2000
+(1 row)
+
+Time: 5.793 ms
+ count 
+-------
+  5600
+(1 row)
+
+Time: 12.263 ms
+ count 
+-------
+   934
+(1 row)
+
+Time: 2.156 ms
+ count 
+-------
+     2
+(1 row)
+
+Time: 0.526 ms
+ count 
+-------
+     8
+(1 row)
+
+Time: 0.177 ms
+Timing is on.
+ count 
+-------
+  2000
+(1 row)
+
+Time: 6.395 ms
+ count 
+-------
+  5600
+(1 row)
+
+Time: 11.649 ms
+ count 
+-------
+   934
+(1 row)
+
+Time: 2.503 ms
+ count 
+-------
+     2
+(1 row)
+
+Time: 0.665 ms
+ count 
+-------
+     8
+(1 row)
+
+Time: 0.228 ms
+Timing is on.
+ count 
+-------
+  2000
+(1 row)
+
+Time: 5.411 ms
+ count 
+-------
+  5600
+(1 row)
+
+Time: 11.553 ms
+ count 
+-------
+   934
+(1 row)
+
+Time: 2.281 ms
+ count 
+-------
+     2
+(1 row)
+
+Time: 0.481 ms
+ count 
+-------
+     8
+(1 row)
+
+Time: 0.203 ms

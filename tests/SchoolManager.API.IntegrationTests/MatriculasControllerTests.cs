@@ -234,6 +234,72 @@ public sealed class MatriculasControllerTests : IClassFixture<MatriculasApiFacto
             json.RootElement.TryGetProperty("error", out var err) ? err.GetString() : null));
     }
 
+    [Fact]
+    public async Task Listado_paginado_devuelve_pagina_y_total()
+    {
+        var institucion = _factory.InstitucionA;
+        var ctx = await _factory.CrearContextoAsync(institucion);
+        for (var i = 0; i < 5; i++)
+        {
+            var alumno = await _factory.CrearAlumnoAsync(institucion);
+            await _factory.MatricularAsync(alumno, ctx.SeccionId, ctx.PeriodoId);
+        }
+
+        var client = _factory.CrearCliente(SubA);
+
+        // Filtramos por ciclo (único por contexto) para aislar de matrículas
+        // sembradas por otros tests de esta clase en la DB compartida.
+        var url = $"/api/matriculas?institucionId={institucion}&cicloId={ctx.CicloId}";
+
+        var j1 = await GetJsonAsync(client, $"{url}&page=1&pageSize=2");
+        Assert.Equal(2, j1.GetProperty("items").GetArrayLength());
+        Assert.Equal(1, j1.GetProperty("page").GetInt32());
+        Assert.Equal(2, j1.GetProperty("pageSize").GetInt32());
+        Assert.Equal(5, j1.GetProperty("totalItems").GetInt64());
+        Assert.Equal(3, j1.GetProperty("totalPages").GetInt32());
+
+        // Segunda página: distintos ids, misma cuenta.
+        var j2 = await GetJsonAsync(client, $"{url}&page=2&pageSize=2");
+        Assert.Equal(2, j2.GetProperty("items").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task Listado_con_filtro_estado_pagina()
+    {
+        var institucion = _factory.InstitucionA;
+        var ctx = await _factory.CrearContextoAsync(institucion);
+
+        var a1 = await _factory.CrearAlumnoAsync(institucion);
+        var m1 = await _factory.MatricularAsync(a1, ctx.SeccionId, ctx.PeriodoId);
+        await _factory.CambiarEstadoAsync(m1, "activa", "sin motivo");
+
+        var a2 = await _factory.CrearAlumnoAsync(institucion);
+        var m2 = await _factory.MatricularAsync(a2, ctx.SeccionId, ctx.PeriodoId);
+
+        var client = _factory.CrearCliente(SubA);
+        // Filtramos por alumno concreto (único) + estado para no colisionar con
+        // otras matrículas 'pendiente' sembradas por tests previos en la DB
+        // compartida del fixture.
+        var json = await GetJsonAsync(client,
+            $"/api/matriculas?institucionId={institucion}&alumnoId={a2}&estado=pendiente&page=1&pageSize=10");
+
+        Assert.Equal(1, json.GetProperty("totalItems").GetInt64());
+        var items = json.GetProperty("items");
+        Assert.Single(items.EnumerateArray());
+        Assert.Equal(m2, items[0].GetProperty("id").GetGuid());
+    }
+
+    private async Task<JsonElement> GetJsonAsync(HttpClient client, string url)
+    {
+        var response = await client.GetAsync(url);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var doc = await GetDocAsync(response);
+        return doc.RootElement.Clone();
+    }
+
+    private static async Task<JsonDocument> GetDocAsync(HttpResponseMessage response)
+        => JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
     private async Task<Guid> MatricularEnCicloDiferenteAsync(
         Guid institucion,
         MatriculasApiFactory.Contexto contexto,

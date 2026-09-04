@@ -133,6 +133,54 @@ export class AlumnoService {
     });
   }
 
+  /** Búsqueda paginada server-side (PERF-02): la DB filtra y recorta la página
+   *  antes de devolver filas. Evita descargar todos los alumnos. */
+  async buscarPaginado(filtro: {
+    termino?: string;
+    estado?: 'activo' | 'inactivo';
+    page?: number;
+    pageSize?: number;
+  } = {}): Promise<{ items: AlumnoListado[]; total: number }> {
+    const page = Math.max(filtro.page ?? 1, 1);
+    const pageSize = Math.min(Math.max(filtro.pageSize ?? 20, 1), 100);
+    const termino = filtro.termino?.trim() || '';
+
+    let query = this.supabase
+      .from('alumnos')
+      .select(`id, persona_id, rne, estado, persona:personas!alumnos_persona_id_fkey(nombres, apellidos, numero_identificacion)`,
+        { count: 'exact' });
+
+    if (filtro.estado) query = query.eq('estado', filtro.estado);
+    if (termino) {
+      query = query.or(
+        `personas!alumnos_persona_id_fkey.nombres.ilike.%${termino}%,` +
+        `personas!alumnos_persona_id_fkey.apellidos.ilike.%${termino}%,` +
+        `rne.ilike.%${termino}%`
+      );
+    }
+
+    query = query.range((page - 1) * pageSize, page * pageSize - 1);
+
+    const { data, error, count } = await query;
+    if (error) {
+      throw this.mapError(error, 'No se pudo buscar alumnos.');
+    }
+
+    const items = ((data ?? []) as unknown as AlumnoBasicoRow[]).map(row => ({
+      id: row.id,
+      personaId: row.persona_id,
+      nombreCompleto: [row.persona?.nombres, row.persona?.apellidos]
+        .filter(Boolean)
+        .join(' '),
+      identidad: row.persona?.numero_identificacion ?? null,
+      rne: row.rne,
+      estado: row.estado,
+      matriculaActual: null
+    }));
+
+    return { items, total: count ?? items.length };
+  }
+
   async obtenerPorId(alumnoId: string): Promise<AlumnoListado | null> {
     const { data, error } = await this.supabase
       .from('alumnos')
