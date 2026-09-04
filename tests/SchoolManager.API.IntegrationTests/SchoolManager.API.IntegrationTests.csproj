@@ -17,5 +17,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\backend\SchoolManager.API\SchoolManager.API.csproj" />
+    <ProjectReference Include="..\SchoolManager.Database.IntegrationTests\SchoolManager.Database.IntegrationTests.csproj" />
   </ItemGroup>
 </Project>

@@ -14,6 +14,11 @@ public sealed class PostgreSqlFixture : IAsyncLifetime
 
     public NpgsqlDataSource DataSource { get; private set; } = null!;
 
+    /// <summary>Cadena de conexion real del contenedor (con Password).
+    /// NpgsqlDataSource.ConnectionString redacta las credenciales y no es util
+    /// para reinyectar en el host web en pruebas, por eso se expone aqui.</summary>
+    public string ConnectionString => _container.GetConnectionString();
+
     public async Task InitializeAsync()
     {
         await _container.StartAsync();
