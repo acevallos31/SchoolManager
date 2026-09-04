@@ -1,0 +1,5 @@
+ alumnos | matriculas | secciones | personas 
+---------+------------+-----------+----------
+    2000 |       5600 |        40 |     2000
+(1 row)
+

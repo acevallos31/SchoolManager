@@ -110,28 +110,82 @@ public class MatriculasController(NpgsqlDataSource dataSource) : ControllerBase
 
     [HttpGet]
     [Authorize(Policy = Permisos.Matriculas.Ver)]
-    public async Task<IActionResult> GetAll([FromQuery] Guid? alumnoId, [FromQuery] Guid? institucionId, CancellationToken ct)
+    public async Task<IActionResult> GetAll(
+        [FromQuery] Guid? alumnoId,
+        [FromQuery] Guid? institucionId,
+        [FromQuery] Guid? cicloId,
+        [FromQuery] string? estado,
+        [FromQuery] int? page,
+        [FromQuery] int? pageSize,
+        CancellationToken ct)
     {
         try
         {
             await using var c1 = await AbrirComoUsuarioAsync(ct);
             await using var tx = await c1.BeginTransactionAsync(ct);
             await FijarClaimAsync(c1, tx, User.FindFirstValue("sub")!, ct);
-            string sql = LecturaBase
-                + " where m.institucion_id = public.resolver_institucion_operacion(@institucionId)"
+
+            var where = " where m.institucion_id = public.resolver_institucion_operacion(@institucionId)"
                 + FiltroContextoInstitucional;
-            if (alumnoId.HasValue) sql += " and m.alumno_id = @alumnoId";
+            if (alumnoId.HasValue) where += " and m.alumno_id = @alumnoId";
+            if (cicloId.HasValue) where += " and m.ciclo_id = @cicloId";
+            if (!string.IsNullOrWhiteSpace(estado)) where += " and m.estado = @estado";
+
+            bool paginar = page.HasValue && pageSize.HasValue;
+            int limit = paginar ? Math.Clamp(pageSize!.Value, 1, 100) : 0;
+            int offset = paginar ? Math.Clamp(page!.Value, 1, int.MaxValue / 100) - 1 : 0;
+
+            string sql = LecturaBase + where;
+            if (paginar)
+            {
+                sql += " order by m.created_at desc limit @limit offset @offset";
+            }
+
             await using var cmd = c1.CreateCommand();
             cmd.Transaction = tx;
             cmd.CommandText = sql;
             cmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
             if (alumnoId.HasValue) cmd.Parameters.AddWithValue("alumnoId", alumnoId.Value);
+            if (cicloId.HasValue) cmd.Parameters.AddWithValue("cicloId", cicloId.Value);
+            if (!string.IsNullOrWhiteSpace(estado)) cmd.Parameters.AddWithValue("estado", estado.Trim());
+            if (paginar)
+            {
+                cmd.Parameters.AddWithValue("limit", limit);
+                cmd.Parameters.AddWithValue("offset", offset * limit);
+            }
+
             await using var r2 = await cmd.ExecuteReaderAsync(ct);
             var lista = new List<MatriculaDto>();
             while (await r2.ReadAsync(ct)) lista.Add(Leer(r2)!);
             await r2.DisposeAsync();
+
+            if (!paginar)
+            {
+                await tx.CommitAsync(ct);
+                return Ok(lista);
+            }
+
+            // Recuento total con los mismos filtros para calcular totalPages.
+            await using var countCmd = c1.CreateCommand();
+            countCmd.Transaction = tx;
+            // Only fixed WHERE fragments are concatenated; all values go via
+            // NpgsqlParameter below — no user input is interpolated into SQL.
+            countCmd.CommandText = "select count(*) from public.matriculas m" + where; // NOSONAR:csharpsquid:S2077
+            countCmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
+            if (alumnoId.HasValue) countCmd.Parameters.AddWithValue("alumnoId", alumnoId.Value);
+            if (cicloId.HasValue) countCmd.Parameters.AddWithValue("cicloId", cicloId.Value);
+            if (!string.IsNullOrWhiteSpace(estado)) countCmd.Parameters.AddWithValue("estado", estado.Trim());
+            var total = (long)(await countCmd.ExecuteScalarAsync(ct))!;
             await tx.CommitAsync(ct);
-            return Ok(lista);
+
+            return Ok(new PaginatedResult<MatriculaDto>
+            {
+                Items = lista,
+                Page = page!.Value,
+                PageSize = limit,
+                TotalItems = total,
+                TotalPages = total == 0 ? 0 : (int)Math.Ceiling((double)total / limit)
+            });
         }
         catch (PostgresException ex) { return ToError(ex); }
     }

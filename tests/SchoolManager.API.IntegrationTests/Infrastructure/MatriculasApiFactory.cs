@@ -130,6 +130,19 @@ public sealed class MatriculasApiFactory : IAsyncLifetime
         "select public.matricular_alumno($1, $2, $3)",
         alumno, seccion, periodo);
 
+    public async Task CambiarEstadoAsync(Guid matricula, string estado, string motivo)
+    {
+        var adminUsuarioId = await ScalarGuidAsync(
+            "select id from public.usuarios where auth_user_id = $1", AdminA);
+        await using var command = DatosAcademicos.CreateCommand(
+            "select public.cambiar_estado_matricula($1, $2, $3, $4)");
+        command.Parameters.AddWithValue(matricula);
+        command.Parameters.AddWithValue(estado);
+        command.Parameters.AddWithValue(adminUsuarioId);
+        command.Parameters.AddWithValue((object?)motivo ?? DBNull.Value);
+        await command.ExecuteNonQueryAsync();
+    }
+
     public async Task<Contexto> CrearContextoAsync(Guid institucion, int? cupo = null)
     {
         var ciclo = await CrearCicloAsync(institucion);

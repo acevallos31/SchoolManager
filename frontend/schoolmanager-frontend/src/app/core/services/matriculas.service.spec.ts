@@ -60,6 +60,30 @@ describe('MatriculaService', () => {
     expect(resultado).toEqual([]);
   });
 
+  it('listarPaginado envía filtros y page/pageSize como query params', () => {
+    let resultado: unknown;
+    service
+      .listarPaginado({ alumnoId: 'a1', cicloId: 'c1', estado: 'pendiente', page: 2, pageSize: 20 })
+      .subscribe(v => (resultado = v));
+    const req = http.expectOne(
+      `${BASE}?alumnoId=a1&cicloId=c1&estado=pendiente&page=2&pageSize=20`
+    );
+    expect(req.request.method).toBe('GET');
+    req.flush({ items: [MATRICULA], page: 2, pageSize: 20, totalItems: 41, totalPages: 3 });
+    const r = resultado as { items: unknown[]; totalItems: number; totalPages: number };
+    expect(r.items).toHaveLength(1);
+    expect(r.totalItems).toBe(41);
+    expect(r.totalPages).toBe(3);
+  });
+
+  it('listarPaginado sin filtros solo llama a /matriculas', () => {
+    service.listarPaginado().subscribe();
+    const req = http.expectOne(BASE);
+    expect(req.request.params.has('page')).toBe(false);
+    expect(req.request.params.has('pageSize')).toBe(false);
+    req.flush({ items: [], page: 1, pageSize: 20, totalItems: 0, totalPages: 0 });
+  });
+
   it('crea una matrícula mediante POST', () => {
     let resultado: unknown;
     service.crear({ alumnoId: 'a1', seccionId: 's1', periodoMatriculaId: 'p1' }).subscribe(v => (resultado = v));

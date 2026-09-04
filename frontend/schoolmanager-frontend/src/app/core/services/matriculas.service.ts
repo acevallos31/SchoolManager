@@ -41,6 +41,23 @@ export interface MatriculaInput {
   periodoMatriculaId: string;
 }
 
+// Respuesta paginada server-side (PERF-02). Los items son el mismo Matricula[].
+export interface PaginatedMatriculas {
+  items: Matricula[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+export interface FiltroMatriculas {
+  alumnoId?: string;
+  cicloId?: string;
+  estado?: EstadoMatricula;
+  page?: number;
+  pageSize?: number;
+}
+
 export interface CambioEstadoMatricula {
   estado: EstadoMatricula;
   motivo?: string | null;
@@ -78,6 +95,20 @@ export class MatriculaService {
     if (alumnoId) params['alumnoId'] = alumnoId;
     return this.http
       .get<Matricula[]>(this.baseUrl, { params })
+      .pipe(catchError(err => throwError(() => this.mapError(err))));
+  }
+
+  /** Listado paginado y filtrado server-side (PERF-02). Filtra/recorta en el
+   *  backend en vez de descargar todas las matrículas. */
+  listarPaginado(filtro: FiltroMatriculas = {}): Observable<PaginatedMatriculas> {
+    const params = new Map<string, string>();
+    if (filtro.alumnoId) params.set('alumnoId', filtro.alumnoId);
+    if (filtro.cicloId) params.set('cicloId', filtro.cicloId);
+    if (filtro.estado) params.set('estado', filtro.estado);
+    if (filtro.page) params.set('page', String(filtro.page));
+    if (filtro.pageSize) params.set('pageSize', String(filtro.pageSize));
+    return this.http
+      .get<PaginatedMatriculas>(this.baseUrl, { params: Object.fromEntries(params) })
       .pipe(catchError(err => throwError(() => this.mapError(err))));
   }
 
