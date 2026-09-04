@@ -188,6 +188,14 @@ button:disabled {
   color: var(--sm-danger);
 }
 
+.btn-matricular-fila {
+  background: linear-gradient(135deg, var(--sm-accent), #8e521c);
+  color: #fffef9;
+  border: none;
+  font-weight: 700;
+  margin-left: 0.4rem;
+}
+
 .btn-activar {
   background: #edf8f1;
   color: var(--sm-success);

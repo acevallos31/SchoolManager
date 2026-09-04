@@ -1,8 +1,44 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth';
+import { AlumnoListado, AlumnoService } from '../../core/services/alumno.service';
+import {
+  CicloEscolar,
+  CicloEscolarService,
+  PeriodoMatricula
+} from '../../core/services/ciclo-escolar.service';
+import {
+  EstructuraAcademicaService,
+  Seccion
+} from '../../core/services/estructura-academica.service';
+import {
+  ESTADOS_MATRICULA,
+  ESTADOS_TERMINALES,
+  Matricula,
+  MatriculaError,
+  MatriculaService
+} from '../../core/services/matriculas.service';
+
+interface FiltrosMatriculas {
+  alumnoId: string;
+  cicloId: string;
+  estado: string;
+}
+
+interface NuevaMatricula {
+  alumnoId: string;
+  cicloId: string;
+  seccionId: string;
+  periodoMatriculaId: string;
+}
+
+interface CambioEstado {
+  matricula: Matricula | null;
+  estado: string;
+  motivo: string;
+}
 
 @Component({
   selector: 'app-matriculas',
@@ -12,86 +48,247 @@ import { AuthService } from '../../core/services/auth';
   styleUrl: './matriculas.css'
 })
 export class Matriculas implements OnInit {
-  matriculas: any[] = [];
-  alumnos: any[] = [];
-  ciclos: any[] = [];
+  matriculas: Matricula[] = [];
+  alumnos: AlumnoListado[] = [];
+  ciclos: CicloEscolar[] = [];
+  secciones: Seccion[] = [];
+  periodos: PeriodoMatricula[] = [];
+
+  filtros: FiltrosMatriculas = { alumnoId: '', cicloId: '', estado: '' };
+  nueva: NuevaMatricula = { alumnoId: '', cicloId: '', seccionId: '', periodoMatriculaId: '' };
+  cambioDe: CambioEstado = { matricula: null, estado: '', motivo: '' };
+
   mostrarFormulario = false;
   cargando = false;
+  guardando = false;
   mensaje = '';
-
-  nuevaMatricula = {
-    alumno_id: '',
-    ciclo_id: '',
-    monto: 0,
-    estado: 'pendiente'
-  };
+  esError = false;
+  estados = ESTADOS_MATRICULA;
+  estadosTerminales = ESTADOS_TERMINALES;
 
   constructor(
-    private router: Router,
-    private auth: AuthService,
-    private cdr: ChangeDetectorRef
+    private readonly router: Router,
+    private readonly route: ActivatedRoute,
+    private readonly auth: AuthService,
+    private readonly matriculaService: MatriculaService,
+    private readonly alumnoService: AlumnoService,
+    private readonly cicloService: CicloEscolarService,
+    private readonly estructuraService: EstructuraAcademicaService
   ) {}
 
-  async ngOnInit() {
-    await this.cargarDatos();
+  get puedeVer(): boolean {
+    return this.auth.tienePermiso('academico.matriculas.ver');
   }
 
-  async cargarDatos() {
-    this.cargando = true;
-    this.cdr.detectChanges();
+  get puedeCrear(): boolean {
+    return this.auth.tienePermiso('academico.matriculas.crear');
+  }
 
-    const [{ data: matriculasData }, { data: alumnosData }, { data: ciclosData }] =
-      await Promise.all([
-        this.auth.supabase.from('matriculas').select('*, alumnos(nombre), ciclos_escolares(nombre)').order('created_at', { ascending: false }),
-        this.auth.supabase.from('alumnos').select('id, nombre').eq('estado', 'activo').order('nombre'),
-        this.auth.supabase.from('ciclos_escolares').select('*').eq('activo', true)
+  get puedeCambiarEstado(): boolean {
+    return this.auth.tienePermiso('academico.matriculas.cambiar_estado');
+  }
+
+  get matriculasFiltradas(): Matricula[] {
+    const { alumnoId, cicloId, estado } = this.filtros;
+    return this.matriculas.filter(m =>
+      (!alumnoId || m.alumnoId === alumnoId) &&
+      (!cicloId || m.cicloId === cicloId) &&
+      (!estado || m.estado === estado)
+    );
+  }
+
+  get ciclosDisponibles(): any[] {
+    const vistos = new Map<string, { id: string; nombre: string }>();
+    for (const m of this.matriculas) {
+      if (m && m.cicloId && !vistos.has(m.cicloId)) {
+        vistos.set(m.cicloId, { id: m.cicloId, nombre: m.cicloNombre });
+      }
+    }
+    return [...vistos.values()];
+  }
+
+  async ngOnInit(): Promise<void> {
+    await this.cargarDatosIniciales();
+    const alumnoId = this.route.snapshot.queryParamMap.get('alumnoId');
+    if (alumnoId && this.puedeCrear) {
+      this.nueva.alumnoId = alumnoId;
+      this.filtros.alumnoId = alumnoId;
+      this.mostrarFormulario = true;
+    }
+  }
+
+  async cargarDatosIniciales(): Promise<void> {
+    this.cargando = true;
+    try {
+      const [alumnos, ciclos] = await Promise.all([
+        this.alumnoService.listar(),
+        this.cicloService.listar()
       ]);
-
-    if (matriculasData) this.matriculas = [...matriculasData];
-    if (alumnosData) this.alumnos = [...alumnosData];
-    if (ciclosData) this.ciclos = [...ciclosData];
-
-    this.cargando = false;
-    this.cdr.detectChanges();
+      this.alumnos = alumnos.filter(a => a.estado === 'activo');
+      this.ciclos = ciclos;
+      if (this.puedeVer) await this.cargarMatriculas();
+    } finally {
+      this.cargando = false;
+    }
   }
 
-  async guardarMatricula() {
-    if (!this.nuevaMatricula.alumno_id || !this.nuevaMatricula.ciclo_id || !this.nuevaMatricula.monto) {
-      this.mensaje = '❌ Todos los campos son obligatorios';
+  async cargarMatriculas(): Promise<void> {
+    this.matriculas = [];
+    await new Promise<void>((resolve) => {
+      this.matriculaService.listar().subscribe({
+        next: (data) => {
+          this.matriculas = data;
+          resolve();
+        },
+        error: (err) => {
+          this.mostrarError(err, 'No se pudieron cargar las matrículas.');
+          resolve();
+        }
+      });
+    });
+    this.validarFiltroCiclo();
+    this.validarFiltroAlumno();
+  }
+
+  async alSeleccionarCiclo(): Promise<void> {
+    this.secciones = [];
+    this.periodos = [];
+    this.nueva.seccionId = '';
+    this.nueva.periodoMatriculaId = '';
+    if (!this.nueva.cicloId) return;
+    try {
+      const [secciones, periodos] = await Promise.all([
+        this.estructuraService.listarSecciones(this.nueva.cicloId),
+        this.cicloService.listarPeriodos(this.nueva.cicloId)
+      ]);
+      this.secciones = secciones.filter(s => s.activo);
+      this.periodos = periodos.filter(p => p.activo);
+    } catch {
+      this.mostrarError(null, 'No se pudieron cargar las secciones o períodos del ciclo.');
+    }
+  }
+
+  abrirFormulario(): void {
+    this.mostrarFormulario = true;
+  }
+
+  cerrarFormulario(): void {
+    this.mostrarFormulario = false;
+    this.nueva = { alumnoId: '', cicloId: '', seccionId: '', periodoMatriculaId: '' };
+    this.secciones = [];
+    this.periodos = [];
+  }
+
+  async crearMatricula(): Promise<void> {
+    if (!this.nueva.alumnoId || !this.nueva.cicloId || !this.nueva.seccionId || !this.nueva.periodoMatriculaId) {
+      this.mostrarMensaje('Seleccione alumno, ciclo, sección y período.', true);
       return;
     }
-    if (this.nuevaMatricula.monto <= 0) {
-      this.mensaje = '❌ El monto debe ser mayor a cero';
+    this.guardando = true;
+    await new Promise<void>((resolve) => {
+      this.matriculaService.crear({
+        alumnoId: this.nueva.alumnoId,
+        seccionId: this.nueva.seccionId,
+        periodoMatriculaId: this.nueva.periodoMatriculaId
+      }).subscribe({
+        next: () => {
+          this.mostrarMensaje('✅ Matrícula registrada correctamente.');
+          this.cerrarFormulario();
+          resolve();
+        },
+        error: (err) => {
+          this.mostrarError(err, 'No se pudo registrar la matrícula.');
+          resolve();
+        }
+      });
+    });
+    this.guardando = false;
+    await this.cargarMatriculas();
+  }
+
+  abrirCambioEstado(m: Matricula): void {
+    this.cambioDe = { matricula: m, estado: 'activa', motivo: '' };
+  }
+
+  cerrarCambioEstado(): void {
+    this.cambioDe = { matricula: null, estado: '', motivo: '' };
+  }
+
+  get requiereMotivo(): boolean {
+    return ESTADOS_TERMINALES.includes(this.cambioDe.estado);
+  }
+
+  async aplicarCambioEstado(): Promise<void> {
+    const m = this.cambioDe.matricula;
+    if (!m || !this.cambioDe.estado) return;
+    if (this.requiereMotivo && !this.cambioDe.motivo.trim()) {
+      this.mostrarMensaje('El motivo es obligatorio para este estado.', true);
       return;
     }
-
-    this.cargando = true;
-    const { error } = await this.auth.supabase
-      .from('matriculas')
-      .insert([{ ...this.nuevaMatricula }]);
-
-    if (error) {
-      this.mensaje = error.message.includes('unique')
-        ? '❌ Este alumno ya tiene matrícula en este ciclo'
-        : '❌ Error: ' + error.message;
-    } else {
-      this.mensaje = '✅ Matrícula registrada correctamente';
-      this.nuevaMatricula = { alumno_id: '', ciclo_id: '', monto: 0, estado: 'pendiente' };
-      this.mostrarFormulario = false;
-      await this.cargarDatos();
+    if (m.estado === this.cambioDe.estado) {
+      this.mostrarMensaje('La matrícula ya está en ese estado.', true);
+      return;
     }
+    const confirmar = m.estado === 'activa' && ['anulada', 'retirada', 'trasladada'].includes(this.cambioDe.estado)
+      ? window.confirm(`¿Confirmar estado "${this.cambioDe.estado}" para ${m.nombreAlumno}?`)
+      : true;
+    if (!confirmar) return;
 
-    this.cargando = false;
-    this.cdr.detectChanges();
-    setTimeout(() => { this.mensaje = ''; this.cdr.detectChanges(); }, 3000);
+    this.guardando = true;
+    await new Promise<void>((resolve) => {
+      this.matriculaService.cambiarEstado(m.id, {
+        estado: this.cambioDe.estado,
+        motivo: this.requiereMotivo ? this.cambioDe.motivo.trim() : null
+      }).subscribe({
+        next: () => {
+          this.mostrarMensaje(`✅ Estado actualizado a "${this.cambioDe.estado}".`);
+          this.cerrarCambioEstado();
+          resolve();
+        },
+        error: (err) => {
+          this.mostrarError(err, 'No se pudo cambiar el estado de la matrícula.');
+          resolve();
+        }
+      });
+    });
+    this.guardando = false;
+    await this.cargarMatriculas();
   }
 
-  async marcarPagada(id: string) {
-    await this.auth.supabase.from('matriculas').update({ estado: 'pagada' }).eq('id', id);
-    await this.cargarDatos();
+  claseEstado(estado: string): string {
+    return `badge-estado badge-${estado}`;
   }
 
-  volver() {
-    this.router.navigate(['/dashboard']);
+  volver(): void {
+    void this.router.navigate(['/dashboard']);
+  }
+
+  private validarFiltroCiclo(): void {
+    if (this.filtros.cicloId && !this.ciclosDisponibles.some(c => c.id === this.filtros.cicloId)) {
+      this.filtros.cicloId = '';
+    }
+  }
+
+  private validarFiltroAlumno(): void {
+    if (this.filtros.alumnoId && this.puedeVer) {
+      const existe = this.matriculas.some(m => m.alumnoId === this.filtros.alumnoId) || this.alumnos.some(a => a.id === this.filtros.alumnoId);
+      if (!existe) this.filtros.alumnoId = '';
+    }
+  }
+
+  private mostrarError(err: unknown, fallback: string): void {
+    this.mostrarMensaje(
+      err instanceof MatriculaError ? err.message : fallback,
+      true
+    );
+  }
+
+  private mostrarMensaje(mensaje: string, esError = false): void {
+    this.mensaje = mensaje;
+    this.esError = esError;
+    setTimeout(() => {
+      this.mensaje = '';
+      this.esError = false;
+    }, 4000);
   }
 }
