@@ -129,9 +129,13 @@
                 </td>
                 @if (puedeCambiarEstado) {
                   <td>
-                    <button class="btn-cambio" type="button" (click)="abrirCambioEstado(m)">
-                      Cambiar
-                    </button>
+                    @if (puedeTransicionar(m)) {
+                      <button class="btn-cambio" type="button" (click)="abrirCambioEstado(m)">
+                        Cambiar
+                      </button>
+                    } @else {
+                      <span aria-label="Estado terminal">—</span>
+                    }
                   </td>
                 }
               </tr>
@@ -154,10 +158,8 @@
         <div class="form-group">
           <label for="cambioEstado">Nuevo estado *</label>
           <select id="cambioEstado" [(ngModel)]="cambioDe.estado" name="cambioEstado">
-            @for (e of estados; track e) {
-              @if (e !== cambioDe.matricula.estado) {
-                <option [value]="e">{{ e }}</option>
-              }
+            @for (e of estadosDisponiblesCambio; track e) {
+              <option [value]="e">{{ e }}</option>
             }
           </select>
         </div>
@@ -169,7 +171,7 @@
         }
         <div class="form-actions">
           <button class="btn-cancelar" type="button" (click)="cerrarCambioEstado()" [disabled]="guardando">Cancelar</button>
-          <button class="btn-guardar" type="button" (click)="aplicarCambioEstado()" [disabled]="guardando">
+          <button class="btn-guardar" type="button" (click)="aplicarCambioEstado()" [disabled]="guardando || !cambioDe.estado">
             {{ guardando ? 'Guardando...' : 'Aplicar' }}
           </button>
         </div>
