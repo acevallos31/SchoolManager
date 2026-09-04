@@ -148,8 +148,8 @@ public class ResponsablesController(NpgsqlDataSource dataSource) : ControllerBas
             countCmd.Transaction = tx;
             // Only fixed WHERE fragments are concatenated; all values go via
             // NpgsqlParameter below — no user input is interpolated into SQL.
-            countCmd.CommandText = "select count(*) from public.responsables r"
-                + " join public.personas p on p.id = r.persona_id" + where; // NOSONAR:csharpsquid:S2077
+            countCmd.CommandText = "select count(*) from public.responsables r" // NOSONAR:csharpsquid:S2077 (solo fragmentos WHERE fijos; valores por NpgsqlParameter)
+                + " join public.personas p on p.id = r.persona_id" + where;
             countCmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
             if (!string.IsNullOrWhiteSpace(termino)) countCmd.Parameters.AddWithValue("termino", $"%{termino.Trim()}%");
             if (!string.IsNullOrWhiteSpace(estado)) countCmd.Parameters.AddWithValue("estado", estado.Trim());
