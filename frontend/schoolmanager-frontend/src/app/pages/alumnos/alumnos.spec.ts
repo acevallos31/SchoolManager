@@ -155,4 +155,40 @@ describe('Alumnos', () => {
     component.busqueda = '0801';
     expect(component.alumnosFiltrados.map(alumno => alumno.id)).toEqual(['alumno-1']);
   });
+
+  it('ofrece acción Matricular para alumnos activos con permiso', async () => {
+    permisos.add('academico.matriculas.crear');
+    fixture.destroy();
+    fixture = TestBed.createComponent(Alumnos);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Matricular');
+    const fila = fixture.nativeElement.querySelector('.btn-matricular-fila');
+    expect(fila).not.toBeNull();
+    fila.click();
+    expect(navigate).toHaveBeenCalledWith(['/matriculas'], {
+      queryParams: { alumnoId: 'alumno-1' }
+    });
+  });
+
+  it('oculta la acción Matricular sin permiso matriculas.crear', async () => {
+    fixture.destroy();
+    fixture = TestBed.createComponent(Alumnos);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const boton = fixture.nativeElement.querySelector('.btn-matricular-fila');
+    expect(boton).toBeNull();
+  });
+
+  it('no ofrece acción Matricular para alumnos inactivos', async () => {
+    permisos.add('academico.matriculas.crear');
+    alumnoService['listar'].mockResolvedValue([{ ...alumnoSinMatricula, estado: 'inactivo' }]);
+    await component.cargarAlumnos();
+    fixture.detectChanges();
+    expect(component.alumnos[0].estado).toBe('inactivo');
+    const boton = fixture.nativeElement.querySelector('.btn-matricular-fila');
+    expect(boton).toBeNull();
+  });
 });

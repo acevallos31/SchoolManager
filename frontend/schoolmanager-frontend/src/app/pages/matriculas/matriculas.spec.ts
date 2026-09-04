@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router } from '@angular/router';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { AuthService } from '../../core/services/auth';
 import { AlumnoService } from '../../core/services/alumno.service';
@@ -28,13 +28,14 @@ describe('Matriculas', () => {
   let c: Matriculas;
   let s: Record<string, ReturnType<typeof vi.fn>>;
   let per: Set<string>;
+  let consultarParametro: (key: string) => string | null;
 
   function configurar(): void {
     TestBed.configureTestingModule({
       imports: [Matriculas],
       providers: [
         { provide: Router, useValue: { navigate: vi.fn() } },
-        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: consultarParametro } } } },
         { provide: AuthService, useValue: { tienePermiso: (x: string) => per.has(x) } },
         { provide: MatriculaService, useValue: s },
         { provide: AlumnoService, useValue: { listar: vi.fn().mockResolvedValue(alumnos) } },
@@ -46,6 +47,7 @@ describe('Matriculas', () => {
 
   beforeEach(async () => {
     per = new Set(['academico.matriculas.ver', 'academico.matriculas.crear', 'academico.matriculas.cambiar_estado']);
+    consultarParametro = () => null;
     s = {
       listar: vi.fn().mockReturnValue(of([MAT])),
       crear: vi.fn().mockReturnValue(of({ id: 'm2' })),
@@ -143,5 +145,76 @@ describe('Matriculas', () => {
     per.clear();
     expect(c.puedeCrear).toBe(false);
     expect(c.puedeCambiarEstado).toBe(false);
+  });
+
+  it('preselecciona alumno y abre formulario con query param', async () => {
+    // Recrea el componente con alumnoId presente en la URL.
+    consultarParametro = (key: string) => (key === 'alumnoId' ? 'a1' : null);
+    await TestBed.resetTestingModule();
+    configurar();
+    await TestBed.compileComponents();
+    f = TestBed.createComponent(Matriculas);
+    c = f.componentInstance;
+    f.detectChanges();
+    await vi.waitFor(() => expect(c.cargando).toBe(false));
+    expect(c.nueva.alumnoId).toBe('a1');
+    expect(c.filtros.alumnoId).toBe('a1');
+    expect(c.mostrarFormulario).toBe(true);
+    expect(c.matriculas).toEqual([MAT]);
+  });
+
+  it('no preselecciona ni abre formulario sin permiso crear', async () => {
+    per = new Set(['academico.matriculas.ver']);
+    consultarParametro = (key: string) => (key === 'alumnoId' ? 'a1' : null);
+    await TestBed.resetTestingModule();
+    configurar();
+    await TestBed.compileComponents();
+    f = TestBed.createComponent(Matriculas);
+    c = f.componentInstance;
+    f.detectChanges();
+    await vi.waitFor(() => expect(c.cargando).toBe(false));
+    expect(c.nueva.alumnoId).toBe('');
+    expect(c.mostrarFormulario).toBe(false);
+  });
+
+  it('muestra estado vacío cuando no hay matrículas', async () => {
+    s = { ...s, listar: vi.fn().mockReturnValue(of([])) };
+    await TestBed.resetTestingModule();
+    configurar();
+    await TestBed.compileComponents();
+    f = TestBed.createComponent(Matriculas);
+    c = f.componentInstance;
+    f.detectChanges();
+    await vi.waitFor(() => expect(c.cargando).toBe(false));
+    f.detectChanges();
+    expect(c.matriculas).toEqual([]);
+    expect(f.nativeElement.textContent).toContain('No hay matrículas registradas');
+  });
+
+  it('muestra un error seguro cuando falla el listado', async () => {
+    s = { ...s, listar: vi.fn().mockReturnValue(throwError(() => new Error('boom'))) };
+    await TestBed.resetTestingModule();
+    configurar();
+    await TestBed.compileComponents();
+    f = TestBed.createComponent(Matriculas);
+    c = f.componentInstance;
+    f.detectChanges();
+    await vi.waitFor(() => expect(c.cargando).toBe(false));
+    expect(c.matriculas).toEqual([]);
+    expect(c.mensaje).toContain('No se pudieron cargar las matrículas');
+    expect(c.esError).toBe(true);
+  });
+
+  it('limpia el filtro de ciclo obsoleto al recargar', async () => {
+    // El único ciclo real es c1; un filtro inexistente debe descartarse.
+    await TestBed.resetTestingModule();
+    configurar();
+    await TestBed.compileComponents();
+    f = TestBed.createComponent(Matriculas);
+    c = f.componentInstance;
+    c.filtros.cicloId = 'ciclo-inexistente';
+    f.detectChanges();
+    await vi.waitFor(() => expect(c.cargando).toBe(false));
+    expect(c.filtros.cicloId).toBe('');
   });
 });
