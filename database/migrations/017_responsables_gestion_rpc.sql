@@ -333,8 +333,12 @@ declare
   v_responsable_institucion uuid;
   v_vinculo_id uuid;
 begin
+  -- Bloquear la fila del alumno: serializa las operaciones de vinculacion sobre
+  -- el mismo alumno y preserva el invariante "un unico principal activo" ante
+  -- dos intentos simultaneos de establecer responsables distintos como principal.
   select institucion_id into v_alumno_institucion
-  from public.alumnos where id = p_alumno_id and estado = 'activo';
+  from public.alumnos where id = p_alumno_id and estado = 'activo'
+  for update;
   if v_alumno_institucion is null then
     raise exception 'El alumno no existe o esta inactivo.' using errcode = '23503';
   end if;
@@ -355,6 +359,14 @@ begin
   limit 1;
 
   if v_vinculo_id is not null then
+    -- Si se reclama el rol de principal, liberarlo PRIMERO en los demas vinculos
+    -- activos del alumno; asi el UPDATE de reactivacion de abajo no viola
+    -- ux_alumno_responsable_principal_activo (que se evalua por sentencia).
+    if p_es_principal then
+      update public.alumno_responsable
+      set es_principal = false, updated_at = now()
+      where alumno_id = p_alumno_id and estado = 'activo' and id <> v_vinculo_id;
+    end if;
     update public.alumno_responsable
     set parentesco = nullif(btrim(coalesce(p_parentesco, '')), ''),
         es_principal = p_es_principal,
@@ -364,13 +376,15 @@ begin
         motivo_desactivacion = null,
         updated_at = now()
     where id = v_vinculo_id;
-    -- Si reasignamos principal, liberarlo en los demas activos del alumno.
-    if p_es_principal then
-      update public.alumno_responsable
-      set es_principal = false, updated_at = now()
-      where alumno_id = p_alumno_id and estado = 'activo' and id <> v_vinculo_id;
-    end if;
     return v_vinculo_id;
+  end if;
+
+  -- Si se reclama el rol de principal, liberarlo PRIMERO en los vinculos activos
+  -- del alumno antes de insertar (mismo invariante de principal unico).
+  if p_es_principal then
+    update public.alumno_responsable
+    set es_principal = false, updated_at = now()
+    where alumno_id = p_alumno_id and estado = 'activo';
   end if;
 
   insert into public.alumno_responsable (
@@ -379,12 +393,6 @@ begin
     p_alumno_id, p_responsable_id,
     nullif(btrim(coalesce(p_parentesco, '')), ''), p_es_principal, p_acceso_financiero
   ) returning id into v_vinculo_id;
-
-  if p_es_principal then
-    update public.alumno_responsable
-    set es_principal = false, updated_at = now()
-    where alumno_id = p_alumno_id and estado = 'activo' and id <> v_vinculo_id;
-  end if;
 
   return v_vinculo_id;
 end;
@@ -429,7 +437,14 @@ set search_path = pg_catalog, public
 as $$
 declare v_alumno_id uuid;
 begin
-  if not exists (select 1 from public.alumno_responsable where id = p_vinculo_id and estado = 'activo') then
+  -- Bloquear la fila del alumno para serializar ediciones de vinculos del mismo
+  -- alumno y preservar el invariante "un unico principal activo" bajo concurrencia.
+  select ar.alumno_id into v_alumno_id
+  from public.alumno_responsable ar
+  join public.alumnos a on a.id = ar.alumno_id
+  where ar.id = p_vinculo_id and ar.estado = 'activo'
+  for update of a;
+  if v_alumno_id is null then
     raise exception 'El vinculo no existe o esta inactivo.' using errcode = 'P0002';
   end if;
   update public.alumno_responsable
@@ -438,7 +453,6 @@ begin
       updated_at = now()
   where id = p_vinculo_id;
 
-  select alumno_id into v_alumno_id from public.alumno_responsable where id = p_vinculo_id;
   if p_es_principal then
     update public.alumno_responsable
     set es_principal = false, updated_at = now()

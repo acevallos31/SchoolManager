@@ -122,6 +122,87 @@ public sealed class ResponsablesGestionTests(PostgreSqlFixture fixture) : IClass
     }
 
     [Fact]
+    public async Task Reasignar_principal_via_vincular_libera_al_anterior()
+    {
+        var contexto = await CreateContextoAsync();
+        var admin = await InsertUsuarioGlobalAsync("admin");
+        var alumno = await InsertAlumnoAsync(contexto);
+        var responsableA = await AuthScalarGuidAsync(admin.AuthUserId,
+            "select public.rpc_crear_responsable_con_documento($1,$2,$3,$4,$5,$6,$7)",
+            contexto.InstitucionId, "Padre", "PrincipalA", "DNI", $"DOC-{Guid.NewGuid():N}", null, null);
+        var responsableB = await AuthScalarGuidAsync(admin.AuthUserId,
+            "select public.rpc_crear_responsable_con_documento($1,$2,$3,$4,$5,$6,$7)",
+            contexto.InstitucionId, "Madre", "PrincipalB", "DNI", $"DOC-{Guid.NewGuid():N}", null, null);
+
+        // A principal
+        await AuthExecuteAsync(admin.AuthUserId,
+            "select public.rpc_vincular_alumno_responsable($1,$2,$3,$4,$5)",
+            alumno, responsableA, "PADRE", true, true);
+
+        // Reasignar: vincular B principal con A ya principal no debe violar
+        // ux_alumno_responsable_principal_activo (antes fallaba con 23514).
+        await AuthExecuteAsync(admin.AuthUserId,
+            "select public.rpc_vincular_alumno_responsable($1,$2,$3,$4,$5)",
+            alumno, responsableB, "MADRE", true, true);
+
+        Assert.Equal(1, await AdminScalarLongAsync(
+            "select count(*) from public.alumno_responsable where alumno_id = $1 and es_principal and estado='activo'",
+            alumno));
+        Assert.Equal(1, await AdminScalarLongAsync(
+            "select count(*) from public.alumno_responsable where alumno_id = $1 and es_principal and estado='activo' and responsable_id = $2",
+            alumno, responsableB));
+        Assert.Equal(0, await AdminScalarLongAsync(
+            "select count(*) from public.alumno_responsable where alumno_id = $1 and es_principal and estado='activo' and responsable_id = $2",
+            alumno, responsableA));
+    }
+
+    [Fact]
+    public async Task Reasignar_principal_reactivando_vinculo_inactivo_libera_al_anterior()
+    {
+        var contexto = await CreateContextoAsync();
+        var admin = await InsertUsuarioGlobalAsync("admin");
+        var alumno = await InsertAlumnoAsync(contexto);
+        var responsableA = await AuthScalarGuidAsync(admin.AuthUserId,
+            "select public.rpc_crear_responsable_con_documento($1,$2,$3,$4,$5,$6,$7)",
+            contexto.InstitucionId, "Padre", "ReactA", "DNI", $"DOC-{Guid.NewGuid():N}", null, null);
+        var responsableB = await AuthScalarGuidAsync(admin.AuthUserId,
+            "select public.rpc_crear_responsable_con_documento($1,$2,$3,$4,$5,$6,$7)",
+            contexto.InstitucionId, "Madre", "ReactB", "DNI", $"DOC-{Guid.NewGuid():N}", null, null);
+
+        // A principal, B no principal
+        await AuthExecuteAsync(admin.AuthUserId,
+            "select public.rpc_vincular_alumno_responsable($1,$2,$3,$4,$5)",
+            alumno, responsableA, "PADRE", true, true);
+        await AuthExecuteAsync(admin.AuthUserId,
+            "select public.rpc_vincular_alumno_responsable($1,$2,$3,$4,$5)",
+            alumno, responsableB, "MADRE", false, true);
+
+        // Desactivar el vinculo de B
+        var vinculoB = await AdminScalarGuidAsync(
+            "select ar.id from public.alumno_responsable ar where ar.alumno_id=$1 and ar.responsable_id=$2 and estado='activo'",
+            alumno, responsableB);
+        await AuthExecuteAsync(admin.AuthUserId,
+            "select public.rpc_desactivar_vinculo_responsable($1,$2)",
+            vinculoB, "Prueba temporal");
+
+        // Reactivar vinculo de B como principal con A aun principal
+        // (no debe violar ux_alumno_responsable_principal_activo).
+        await AuthExecuteAsync(admin.AuthUserId,
+            "select public.rpc_vincular_alumno_responsable($1,$2,$3,$4,$5)",
+            alumno, responsableB, "MADRE", true, true);
+
+        Assert.Equal(1, await AdminScalarLongAsync(
+            "select count(*) from public.alumno_responsable where alumno_id = $1 and es_principal and estado='activo'",
+            alumno));
+        Assert.Equal(0, await AdminScalarLongAsync(
+            "select count(*) from public.alumno_responsable where alumno_id = $1 and es_principal and estado='activo' and responsable_id = $2",
+            alumno, responsableA));
+        Assert.Equal(1, await AdminScalarLongAsync(
+            "select count(*) from public.alumno_responsable where alumno_id = $1 and es_principal and estado='activo' and responsable_id = $2",
+            alumno, responsableB));
+    }
+
+    [Fact]
     public async Task Vincular_a_traves_de_instituciones_es_rechazado()
     {
         var contextoA = await CreateContextoAsync();
