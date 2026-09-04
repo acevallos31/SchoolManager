@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router } from '@angular/router';
+import { of } from 'rxjs';
 import { vi } from 'vitest';
 import { AuthService } from '../../core/services/auth';
 import { AlumnoService } from '../../core/services/alumno.service';
@@ -17,8 +18,6 @@ const MAT: Matricula = {
   nombrePeriodo: 'Normal', cicloNombre: '2026'
 };
 
-const sub = (data: unknown) => ({ subscribe: (h: any) => h.next(data) });
-
 describe('Matriculas', () => {
   const alumnos = [{ id: 'a1', nombreCompleto: 'Ana Pérez', estado: 'activo' }];
   const ciclos = [{ id: 'c1', institucionId: 'i1', nombre: '2026', activo: true }];
@@ -30,7 +29,7 @@ describe('Matriculas', () => {
   let s: Record<string, ReturnType<typeof vi.fn>>;
   let per: Set<string>;
 
-  function configurar() {
+  function configurar(): void {
     TestBed.configureTestingModule({
       imports: [Matriculas],
       providers: [
@@ -48,9 +47,9 @@ describe('Matriculas', () => {
   beforeEach(async () => {
     per = new Set(['academico.matriculas.ver', 'academico.matriculas.crear', 'academico.matriculas.cambiar_estado']);
     s = {
-      listar: vi.fn().mockReturnValue(sub([MAT])),
-      crear: vi.fn().mockReturnValue(sub({ id: 'm2' })),
-      cambiarEstado: vi.fn().mockReturnValue(sub(null))
+      listar: vi.fn().mockReturnValue(of([MAT])),
+      crear: vi.fn().mockReturnValue(of({ id: 'm2' })),
+      cambiarEstado: vi.fn().mockReturnValue(of(void 0))
     };
     await TestBed.resetTestingModule();
     configurar();
@@ -67,7 +66,7 @@ describe('Matriculas', () => {
   });
 
   it('filtra por estado y ciclo', () => {
-    const otra = { ...MAT, id: 'm2', estado: 'activa' };
+    const otra: Matricula = { ...MAT, id: 'm2', estado: 'activa' };
     c.matriculas = [MAT, otra];
     c.filtros.estado = 'activa';
     expect(c.matriculasFiltradas).toEqual([otra]);
@@ -76,7 +75,7 @@ describe('Matriculas', () => {
     expect(c.matriculasFiltradas).toHaveLength(2);
   });
 
-  it('abre el formulario y crea matrícula con sección y período', async () => {
+  it('crea matrícula con sección y período', async () => {
     c.nueva = { alumnoId: 'a1', cicloId: 'c1', seccionId: 's1', periodoMatriculaId: 'p1' };
     await c.crearMatricula();
     expect(s['crear']).toHaveBeenCalledWith({
@@ -100,6 +99,19 @@ describe('Matriculas', () => {
     expect(c.mensaje).toContain('Seleccione');
   });
 
+  it('limita las transiciones según el estado actual', () => {
+    c.abrirCambioEstado(MAT);
+    expect(c.estadosDisponiblesCambio).toEqual(['activa', 'anulada']);
+    expect(c.cambioDe.estado).toBe('activa');
+
+    const activa: Matricula = { ...MAT, estado: 'activa' };
+    c.abrirCambioEstado(activa);
+    expect(c.estadosDisponiblesCambio).toEqual(['finalizada', 'retirada', 'anulada', 'trasladada']);
+
+    const finalizada: Matricula = { ...MAT, estado: 'finalizada' };
+    expect(c.puedeTransicionar(finalizada)).toBe(false);
+  });
+
   it('cambia estado y exige motivo para estados terminales', async () => {
     c.cambioDe = { matricula: MAT, estado: 'anulada', motivo: '' };
     expect(c.requiereMotivo).toBe(true);
@@ -118,6 +130,13 @@ describe('Matriculas', () => {
     expect(c.requiereMotivo).toBe(false);
     await c.aplicarCambioEstado();
     expect(s['cambiarEstado']).toHaveBeenCalledWith('m1', { estado: 'activa', motivo: null });
+  });
+
+  it('rechaza una transición inválida antes de llamar al backend', async () => {
+    c.cambioDe = { matricula: MAT, estado: 'finalizada', motivo: '' };
+    await c.aplicarCambioEstado();
+    expect(s['cambiarEstado']).not.toHaveBeenCalled();
+    expect(c.mensaje).toContain('no es válida');
   });
 
   it('oculta botones según permisos', () => {
