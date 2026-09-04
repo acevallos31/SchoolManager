@@ -1,0 +1,188 @@
+<div class="page-container">
+  <div class="page-header">
+    <h1>Responsables</h1>
+    @if (puedeCrear) {
+      <button class="btn-nuevo" (click)="abrirNuevo()">Nuevo responsable</button>
+    }
+    <button class="btn-volver" (click)="volver()">Volver</button>
+  </div>
+
+  @if (mensaje) {
+    <div class="mensaje" [class.mensaje-error]="esError">{{ mensaje }}</div>
+  }
+
+  @if (hayVinculosVisibles) {
+    <div class="panel-vinculos">
+      <div class="panel-vinculos-header">
+        <h3>Vínculos del alumno</h3>
+        <button class="btn-volver" (click)="cerrarVinculos()">Ver todos los responsables</button>
+      </div>
+      @if (cargandoVinculos) {
+        <div class="cargando">Cargando vínculos…</div>
+      } @else if (!vinculos.length) {
+        <div class="sin-datos">Este alumno no tiene responsables vinculados.</div>
+      } @else {
+        <table class="tabla">
+          <thead>
+            <tr>
+              <th>Responsable</th>
+              <th>Parentesco</th>
+              <th>Rol</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (v of vinculos; track v.id) {
+              <tr>
+                <td>
+                  <strong>{{ vinculoNombre(v) }}</strong>
+                  @if (v.correo) { <br /><span class="correo">{{ v.correo }}</span> }
+                </td>
+                <td>{{ v.parentesco || '—' }}</td>
+                <td>
+                  @if (v.esPrincipal) { <span class="badge-rol">Principal</span> }
+                  @if (v.accesoFinanciero) { <span class="badge-rol badge-financiero">Acceso financiero</span> }
+                  @if (!v.esPrincipal && !v.accesoFinanciero) { — }
+                </td>
+                <td>
+                  <span class="badge-estado" [class.badge-activo]="v.estado === 'activo'" [class.badge-inactivo]="v.estado === 'inactivo'">{{ v.estado }}</span>
+                </td>
+                <td class="acciones">
+                  @if (puedeEditar && v.estado === 'activo') {
+                    <button class="btn-cambio" (click)="desactivarVinculo(v)">Desactivar vínculo</button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  }
+
+  <div class="filtros">
+    <div class="filtro-grupo">
+      <label>Buscar</label>
+      <input [(ngModel)]="termino" placeholder="Nombres, apellidos o cédula" (keyup.enter)="buscar()" />
+    </div>
+    <div class="filtro-grupo">
+      <label>Estado</label>
+      <select [(ngModel)]="estado" (change)="buscar()">
+        <option value="">Todos</option>
+        <option value="activo">Activo</option>
+        <option value="inactivo">Inactivo</option>
+      </select>
+    </div>
+    <div class="filtro-grupo filtro-acciones">
+      <label>&nbsp;</label>
+      <div>
+        <button class="btn-cambio" (click)="buscar()">Filtrar</button>
+        <button class="btn-cambio" (click)="limpiarFiltros()">Limpiar</button>
+      </div>
+    </div>
+  </div>
+
+  @if (mostrarFormulario) {
+    <div class="formulario">
+      <h3>{{ editando ? 'Editar responsable' : 'Nuevo responsable' }}</h3>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Nombres *</label>
+          <input [(ngModel)]="form.nombres" placeholder="Nombres" />
+        </div>
+        <div class="form-group">
+          <label>Apellidos *</label>
+          <input [(ngModel)]="form.apellidos" placeholder="Apellidos" />
+        </div>
+        <div class="form-group">
+          <label>Tipo de identificación @if (!editando) { * }</label>
+          <select [(ngModel)]="form.tipoIdentificacion">
+            <option value="">Seleccione…</option>
+            <option value="CI">Cédula</option>
+            <option value="RUC">RUC</option>
+            <option value="Pasaporte">Pasaporte</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Número de identificación @if (!editando) { * }</label>
+          <input [(ngModel)]="form.numeroIdentificacion" placeholder="Número" />
+        </div>
+        <div class="form-group">
+          <label>Teléfono</label>
+          <input [(ngModel)]="form.telefono" placeholder="Teléfono" />
+        </div>
+        <div class="form-group">
+          <label>Correo</label>
+          <input [(ngModel)]="form.correo" placeholder="correo@ejemplo.com" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn-cancelar" [disabled]="guardando" (click)="cancelar()">Cancelar</button>
+        <button class="btn-guardar" [disabled]="guardando" (click)="guardar()">{{ guardando ? 'Guardando…' : 'Guardar' }}</button>
+      </div>
+    </div>
+  }
+
+  @if (cargando && !lista.length) {
+    <div class="cargando">Cargando responsables…</div>
+  } @else if (!cargando && !lista.length) {
+    <div class="sin-datos">No hay responsables para mostrar.</div>
+  } @else {
+    <div class="tabla-contenedor">
+      <table class="tabla">
+        <thead>
+          <tr>
+            <th>Responsable</th>
+            <th>Identificación</th>
+            <th>Contacto</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of lista; track r.id) {
+            <tr>
+              <td>
+                <strong>{{ nombreCompleto(r) }}</strong>
+              </td>
+              <td>{{ identificar(r) }}</td>
+              <td>
+                {{ r.telefono || '—' }}
+                @if (r.correo) { <br /><span class="correo">{{ r.correo }}</span> }
+              </td>
+              <td>
+                <span class="badge-estado" [class.badge-activo]="r.estado === 'activo'" [class.badge-inactivo]="r.estado === 'inactivo'">
+                  {{ r.estado }}
+                </span>
+              </td>
+              <td class="acciones">
+                @if (puedeEditar) {
+                  <button class="btn-cambio" (click)="abrirEditar(r)">Editar</button>
+                }
+                @if (puedeEditar && r.estado === 'activo') {
+                  <button class="btn-cambio" (click)="desactivar(r)">Desactivar</button>
+                }
+                @if (puedeEditar && r.estado === 'inactivo') {
+                  <button class="btn-cambio" (click)="reactivar(r)">Reactivar</button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    @if (totalPages > 1) {
+      <div class="paginador">
+        <button class="btn-cambio" [disabled]="page <= 1" (click)="irPagina(page - 1)">‹ Anterior</button>
+        @for (p of paginas(); track p) {
+          <button class="btn-cambio" [class.pagina-activa]="p === page" (click)="irPagina(p)">{{ p }}</button>
+        }
+        <button class="btn-cambio" [disabled]="page >= totalPages" (click)="irPagina(page + 1)">Siguiente ›</button>
+        <span class="paginador-total">{{ totalItems }} responsables</span>
+      </div>
+    }
+  }
+</div>

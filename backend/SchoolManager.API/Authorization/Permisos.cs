@@ -17,6 +17,13 @@ public static class Permisos
         public const string CambiarEstado = "academico.matriculas.cambiar_estado";
     }
 
+    public static class Responsables
+    {
+        public const string Ver = "academico.responsables.ver";
+        public const string Crear = "academico.responsables.crear";
+        public const string Editar = "academico.responsables.editar";
+    }
+
     public static IReadOnlyList<string> Todos { get; } =
     [
         Alumnos.Ver,
@@ -25,6 +32,9 @@ public static class Permisos
         Alumnos.Desactivar,
         Matriculas.Ver,
         Matriculas.Crear,
-        Matriculas.CambiarEstado
+        Matriculas.CambiarEstado,
+        Responsables.Ver,
+        Responsables.Crear,
+        Responsables.Editar
     ];
 }

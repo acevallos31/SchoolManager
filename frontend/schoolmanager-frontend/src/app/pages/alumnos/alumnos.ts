@@ -222,6 +222,16 @@ export class Alumnos implements OnInit {
     });
   }
 
+  get puedeVerResponsables(): boolean {
+    return this.auth.tienePermiso('academico.responsables.ver');
+  }
+
+  verResponsables(alumno: AlumnoListado): void {
+    void this.router.navigate(['/responsables'], {
+      queryParams: { alumnoId: alumno.id }
+    });
+  }
+
   private async ejecutarCambioEstado(operacion: () => Promise<void>, exito: string): Promise<void> {
     this.guardando = true;
     try {
