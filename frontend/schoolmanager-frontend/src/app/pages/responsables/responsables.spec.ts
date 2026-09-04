@@ -45,7 +45,10 @@ describe('Responsables (018D)', () => {
       cambiarEstado: vi.fn().mockReturnValue(of(void 0)),
       reactivar: vi.fn().mockReturnValue(of(void 0)),
       listarDeAlumno: vi.fn().mockReturnValue(of([])),
-      desactivarVinculo: vi.fn().mockReturnValue(of(void 0))
+      desactivarVinculo: vi.fn().mockReturnValue(of(void 0)),
+      vincularAlumno: vi.fn().mockReturnValue(of({ id: 'v2' })),
+      editarVinculo: vi.fn().mockReturnValue(of(void 0)),
+      reactivarVinculo: vi.fn().mockReturnValue(of(void 0))
     };
 
     await TestBed.resetTestingModule();
@@ -189,5 +192,68 @@ describe('Responsables (018D)', () => {
     expect(c.hayVinculosVisibles).toBe(true);
     permisos.clear();
     expect(c.hayVinculosVisibles).toBe(false);
+  });
+
+  const vinculo = (id = 'v1', responsableId = 'r1', estado = 'activo') => ({
+    id, responsableId, parentesco: 'Padre', esPrincipal: true, accesoFinanciero: true,
+    estado: estado as 'activo' | 'inactivo', nombres: 'Ana', apellidos: 'Mendoza', telefono: null, correo: null
+  });
+
+  it('busca candidatos ocultando los ya vinculados (paginación server-side)', async () => {
+    c.institucionId = institucionId;
+    c.vinculos = [vinculo()];
+    const otro = { ...ejemplo, id: 'r2', nombres: 'Luis', apellidos: 'Ramos' };
+    s['listar'] = vi.fn().mockReturnValue(of({ items: [ejemplo, otro], page: 1, pageSize: 20, totalItems: 2, totalPages: 1 }));
+    c.buscarVinculable = 'Ra';
+    await c.buscarCandidatos();
+    expect(s['listar']).toHaveBeenCalledWith(expect.objectContaining({ institucionId, estado: 'activo', page: 1, pageSize: 20 }));
+    expect(c.vinculablesCandidatos.map((x) => x.id)).toEqual(['r2']);
+  });
+
+  it('vincula un responsable existente con parentesco, principal y acceso financiero', async () => {
+    c.institucionId = institucionId;
+    c.alumnoIdSeleccionado = 'a1';
+    c.cargarVinculos = vi.fn().mockResolvedValue(void 0);
+    c.vincularForm = { responsableId: 'r2', parentesco: 'Padre', esPrincipal: true, accesoFinanciero: true };
+    await c.guardarVinculo();
+    expect(s['vincularAlumno']).toHaveBeenCalledWith('a1', {
+      responsableId: 'r2', parentesco: 'Padre', esPrincipal: true, accesoFinanciero: true
+    });
+    expect(c.mostrarVincular).toBe(false);
+    expect(c.mensaje).toContain('vinculado');
+  });
+
+  it('rechaza vincular sin seleccionar responsable', async () => {
+    c.alumnoIdSeleccionado = 'a1';
+    c.vincularForm = { responsableId: '', parentesco: 'Padre', esPrincipal: false, accesoFinanciero: false };
+    await c.guardarVinculo();
+    expect(s['vincularAlumno']).not.toHaveBeenCalled();
+    expect(c.esError).toBe(true);
+  });
+
+  it('edita un vínculo existente', async () => {
+    c.editandoVinculo = vinculo();
+    c.editarVinculoForm = { parentesco: 'Madre', esPrincipal: false, accesoFinanciero: true };
+    await c.guardarEditarVinculo();
+    expect(s['editarVinculo']).toHaveBeenCalledWith('v1', { parentesco: 'Madre', esPrincipal: false, accesoFinanciero: true });
+    expect(c.editandoVinculo).toBeNull();
+    expect(c.mensaje).toContain('actualizado');
+  });
+
+  it('reactiva un vínculo inactivo', async () => {
+    const v = vinculo('v1', 'r1', 'inactivo');
+    await c.reactivarVinculo(v);
+    expect(s['reactivarVinculo']).toHaveBeenCalledWith('v1');
+    expect(c.mensaje).toContain('reactivado');
+  });
+
+  it('maneja el error al vincular y lo muestra', async () => {
+    s['vincularAlumno'] = vi.fn().mockReturnValue(of(void 0).pipe());
+    s['vincularAlumno'].mockImplementationOnce(() => { throw new Error('boom'); });
+    c.alumnoIdSeleccionado = 'a1';
+    c.vincularForm = { responsableId: 'r2', parentesco: 'Padre', esPrincipal: false, accesoFinanciero: false };
+    await c.guardarVinculo();
+    expect(c.esError).toBe(true);
+    expect(c.mensaje).toBeTruthy();
   });
 });

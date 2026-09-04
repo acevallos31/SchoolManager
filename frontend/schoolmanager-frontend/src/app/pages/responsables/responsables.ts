@@ -45,6 +45,19 @@ export class Responsables implements OnInit {
   vinculos: ResponsableVinculo[] = [];
   cargandoVinculos = false;
 
+  // Flujo vincular responsable existente al alumno.
+  mostrarVincular = false;
+  buscarVinculable = '';
+  buscandoVinculable = false;
+  vinculablesCandidatos: Responsable[] = [];
+  vincularForm = { responsableId: '', parentesco: '', esPrincipal: false, accesoFinanciero: false };
+
+  // Edición de un vínculo existente.
+  editandoVinculo: ResponsableVinculo | null = null;
+  editarVinculoForm = { parentesco: '', esPrincipal: false, accesoFinanciero: false };
+
+  readonly parentescos = ['Padre', 'Madre', 'Otro'];
+
   constructor(
     private readonly route: ActivatedRoute,
     private readonly router: Router,
@@ -126,6 +139,113 @@ export class Responsables implements OnInit {
       this.esError = false;
       await this.cargarVinculos();
       this.mensaje = 'Vínculo desactivado correctamente.';
+    } catch (error) {
+      this.error(error);
+    } finally {
+      this.guardando = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  abrirVincular() {
+    if (!this.puedeEditar || !this.alumnoIdSeleccionado) return;
+    this.mostrarVincular = true;
+    this.buscarVinculable = '';
+    this.vincularForm = { responsableId: '', parentesco: '', esPrincipal: false, accesoFinanciero: false };
+    this.vinculablesCandidatos = [];
+    this.editandoVinculo = null;
+    this.mensaje = '';
+  }
+
+  cerrarVincular() { if (!this.guardando) this.mostrarVincular = false; }
+
+  async buscarCandidatos() {
+    if (this.buscandoVinculable || !this.institucionId) return;
+    this.buscandoVinculable = true;
+    this.mensaje = '';
+    try {
+      const res = await this.service.listar({
+        institucionId: this.institucionId,
+        termino: this.buscarVinculable.trim() || undefined,
+        estado: 'activo',
+        page: 1,
+        pageSize: 20
+      }).toPromise();
+      if (!res) return;
+      const vinculados = new Set(this.vinculos.map(v => v.responsableId));
+      this.vinculablesCandidatos = res.items.filter(r => !vinculados.has(r.id));
+    } catch (error) {
+      this.error(error);
+    } finally {
+      this.buscandoVinculable = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  async guardarVinculo() {
+    if (!this.alumnoIdSeleccionado || this.guardando) return;
+    if (!this.vincularForm.responsableId) return this.error(new ResponsablesError('Seleccione un responsable.', 400));
+    if (!this.vincularForm.parentesco.trim()) return this.error(new ResponsablesError('Seleccione el parentesco.', 400));
+    this.guardando = true;
+    this.mensaje = '';
+    try {
+      await this.service.vincularAlumno(this.alumnoIdSeleccionado, {
+        responsableId: this.vincularForm.responsableId,
+        parentesco: this.vincularForm.parentesco.trim(),
+        esPrincipal: this.vincularForm.esPrincipal,
+        accesoFinanciero: this.vincularForm.accesoFinanciero
+      }).toPromise();
+      this.esError = false;
+      this.mostrarVincular = false;
+      await this.cargarVinculos();
+      this.mensaje = 'Responsable vinculado correctamente.';
+    } catch (error) {
+      this.error(error);
+    } finally {
+      this.guardando = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  abrirEditarVinculo(v: ResponsableVinculo) {
+    if (this.puedeEditar && v.estado === 'activo') {
+      this.mostrarVincular = false;
+      this.editandoVinculo = v;
+      this.editarVinculoForm = { parentesco: v.parentesco ?? '', esPrincipal: v.esPrincipal, accesoFinanciero: v.accesoFinanciero };
+    }
+  }
+
+  async guardarEditarVinculo() {
+    if (!this.editandoVinculo || this.guardando) return;
+    this.guardando = true;
+    this.mensaje = '';
+    try {
+      await this.service.editarVinculo(this.editandoVinculo.id, {
+        parentesco: this.editarVinculoForm.parentesco.trim() || null,
+        esPrincipal: this.editarVinculoForm.esPrincipal,
+        accesoFinanciero: this.editarVinculoForm.accesoFinanciero
+      }).toPromise();
+      this.esError = false;
+      this.editandoVinculo = null;
+      await this.cargarVinculos();
+      this.mensaje = 'Vínculo actualizado correctamente.';
+    } catch (error) {
+      this.error(error);
+    } finally {
+      this.guardando = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  async reactivarVinculo(v: ResponsableVinculo) {
+    if (!this.puedeEditar || this.guardando || v.estado !== 'inactivo') return;
+    this.guardando = true;
+    this.mensaje = '';
+    try {
+      await this.service.reactivarVinculo(v.id).toPromise();
+      this.esError = false;
+      await this.cargarVinculos();
+      this.mensaje = 'Vínculo reactivado correctamente.';
     } catch (error) {
       this.error(error);
     } finally {
