@@ -332,14 +332,14 @@ public sealed class ResponsablesGestionTests(PostgreSqlFixture fixture) : IClass
         return new Identidad(usuarioId, personaId, authUserId);
     }
 
-    private Task<Guid> AuthScalarGuidAsync(Guid authUserId, string sql, params object[] values) =>
+    private Task<Guid> AuthScalarGuidAsync(Guid authUserId, string sql, params object?[] values) =>
         AuthScalarAsync<Guid>(authUserId, sql, values);
-    private Task<long> AuthScalarLongAsync(Guid authUserId, string sql, params object[] values) =>
+    private Task<long> AuthScalarLongAsync(Guid authUserId, string sql, params object?[] values) =>
         AuthScalarAsync<long>(authUserId, sql, values);
-    private Task AuthExecuteAsync(Guid authUserId, string sql, params object[] values) =>
+    private Task AuthExecuteAsync(Guid authUserId, string sql, params object?[] values) =>
         AuthExecuteCoreAsync(authUserId, sql, values);
 
-    private async Task<T> AuthScalarAsync<T>(Guid authUserId, string sql, params object[] values)
+    private async Task<T> AuthScalarAsync<T>(Guid authUserId, string sql, params object?[] values)
     {
         await using var connection = await fixture.DataSource.OpenConnectionAsync();
         await using var transaction = await connection.BeginTransactionAsync();
@@ -359,7 +359,7 @@ public sealed class ResponsablesGestionTests(PostgreSqlFixture fixture) : IClass
         }
     }
 
-    private async Task AuthExecuteCoreAsync(Guid authUserId, string sql, params object[] values)
+    private async Task AuthExecuteCoreAsync(Guid authUserId, string sql, params object?[] values)
     {
         await using var connection = await fixture.DataSource.OpenConnectionAsync();
         await using var transaction = await connection.BeginTransactionAsync();
@@ -378,22 +378,22 @@ public sealed class ResponsablesGestionTests(PostgreSqlFixture fixture) : IClass
         }
     }
 
-    private async Task<Guid> AdminScalarGuidAsync(string sql, params object[] values) =>
+    private async Task<Guid> AdminScalarGuidAsync(string sql, params object?[] values) =>
         await AdminScalarAsync<Guid>(sql, values);
-    private async Task<long> AdminScalarLongAsync(string sql, params object[] values) =>
+    private async Task<long> AdminScalarLongAsync(string sql, params object?[] values) =>
         await AdminScalarAsync<long>(sql, values);
-    private async Task<string> AdminScalarStringAsync(string sql, params object[] values) =>
+    private async Task<string> AdminScalarStringAsync(string sql, params object?[] values) =>
         await AdminScalarAsync<string>(sql, values);
-    private Task AdminExecuteAsync(string sql, params object[] values) => AdminExecuteCoreAsync(sql, values);
+    private Task AdminExecuteAsync(string sql, params object?[] values) => AdminExecuteCoreAsync(sql, values);
 
-    private async Task<T> AdminScalarAsync<T>(string sql, params object[] values)
+    private async Task<T> AdminScalarAsync<T>(string sql, params object?[] values)
     {
         await using var command = fixture.DataSource.CreateCommand(sql);
         AddParameters(command, values);
         return (T)(await command.ExecuteScalarAsync())!;
     }
 
-    private async Task AdminExecuteCoreAsync(string sql, params object[] values)
+    private async Task AdminExecuteCoreAsync(string sql, params object?[] values)
     {
         await using var command = fixture.DataSource.CreateCommand(sql);
         AddParameters(command, values);
@@ -414,7 +414,7 @@ public sealed class ResponsablesGestionTests(PostgreSqlFixture fixture) : IClass
         await authCommand.ExecuteNonQueryAsync();
     }
 
-    private static void AddParameters(NpgsqlCommand command, params object[] values)
+    private static void AddParameters(NpgsqlCommand command, params object?[] values)
     {
         // Parámetros posicionales sin nombre: Npgsql los vincula al orden del
         // SQL ($1, $2, ...) igual que en RlsSecurityTests.
