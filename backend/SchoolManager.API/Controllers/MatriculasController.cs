@@ -166,12 +166,11 @@ public class MatriculasController(NpgsqlDataSource dataSource) : ControllerBase
             }
 
             // Recuento total con los mismos filtros para calcular totalPages.
-            // NOSONAR: only fixed WHERE fragments are concatenated; every value
-            // (@institucionId/@alumnoId/@cicloId/@estado) is bound via
-            // NpgsqlParameter below — no user input is interpolated into SQL.
             await using var countCmd = c1.CreateCommand();
             countCmd.Transaction = tx;
-            countCmd.CommandText = "select count(*) from public.matriculas m" + where;
+            // Only fixed WHERE fragments are concatenated; all values go via
+            // NpgsqlParameter below — no user input is interpolated into SQL.
+            countCmd.CommandText = "select count(*) from public.matriculas m" + where; // NOSONAR:csharpsquid:S2077
             countCmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
             if (alumnoId.HasValue) countCmd.Parameters.AddWithValue("alumnoId", alumnoId.Value);
             if (cicloId.HasValue) countCmd.Parameters.AddWithValue("cicloId", cicloId.Value);
