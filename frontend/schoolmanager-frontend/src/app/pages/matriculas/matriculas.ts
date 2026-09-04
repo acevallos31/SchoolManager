@@ -16,6 +16,7 @@ import {
 import {
   ESTADOS_MATRICULA,
   ESTADOS_TERMINALES,
+  EstadoMatricula,
   Matricula,
   MatriculaError,
   MatriculaService
@@ -24,7 +25,7 @@ import {
 interface FiltrosMatriculas {
   alumnoId: string;
   cicloId: string;
-  estado: string;
+  estado: '' | EstadoMatricula;
 }
 
 interface NuevaMatricula {
@@ -36,9 +37,23 @@ interface NuevaMatricula {
 
 interface CambioEstado {
   matricula: Matricula | null;
-  estado: string;
+  estado: '' | EstadoMatricula;
   motivo: string;
 }
+
+interface CicloDisponible {
+  id: string;
+  nombre: string;
+}
+
+const TRANSICIONES_ESTADO: Readonly<Record<EstadoMatricula, readonly EstadoMatricula[]>> = {
+  pendiente: ['activa', 'anulada'],
+  activa: ['finalizada', 'retirada', 'anulada', 'trasladada'],
+  finalizada: [],
+  retirada: [],
+  anulada: [],
+  trasladada: []
+};
 
 @Component({
   selector: 'app-matriculas',
@@ -63,8 +78,7 @@ export class Matriculas implements OnInit {
   guardando = false;
   mensaje = '';
   esError = false;
-  estados = ESTADOS_MATRICULA;
-  estadosTerminales = ESTADOS_TERMINALES;
+  readonly estados = ESTADOS_MATRICULA;
 
   constructor(
     private readonly router: Router,
@@ -97,14 +111,19 @@ export class Matriculas implements OnInit {
     );
   }
 
-  get ciclosDisponibles(): any[] {
-    const vistos = new Map<string, { id: string; nombre: string }>();
+  get ciclosDisponibles(): CicloDisponible[] {
+    const vistos = new Map<string, CicloDisponible>();
     for (const m of this.matriculas) {
-      if (m && m.cicloId && !vistos.has(m.cicloId)) {
+      if (m.cicloId && !vistos.has(m.cicloId)) {
         vistos.set(m.cicloId, { id: m.cicloId, nombre: m.cicloNombre });
       }
     }
     return [...vistos.values()];
+  }
+
+  get estadosDisponiblesCambio(): readonly EstadoMatricula[] {
+    const estadoActual = this.cambioDe.matricula?.estado;
+    return estadoActual ? TRANSICIONES_ESTADO[estadoActual] : [];
   }
 
   async ngOnInit(): Promise<void> {
@@ -206,8 +225,13 @@ export class Matriculas implements OnInit {
     await this.cargarMatriculas();
   }
 
+  puedeTransicionar(m: Matricula): boolean {
+    return TRANSICIONES_ESTADO[m.estado].length > 0;
+  }
+
   abrirCambioEstado(m: Matricula): void {
-    this.cambioDe = { matricula: m, estado: 'activa', motivo: '' };
+    const opciones = TRANSICIONES_ESTADO[m.estado];
+    this.cambioDe = { matricula: m, estado: opciones[0] ?? '', motivo: '' };
   }
 
   cerrarCambioEstado(): void {
@@ -215,33 +239,34 @@ export class Matriculas implements OnInit {
   }
 
   get requiereMotivo(): boolean {
-    return ESTADOS_TERMINALES.includes(this.cambioDe.estado);
+    return this.cambioDe.estado !== '' && ESTADOS_TERMINALES.includes(this.cambioDe.estado);
   }
 
   async aplicarCambioEstado(): Promise<void> {
     const m = this.cambioDe.matricula;
-    if (!m || !this.cambioDe.estado) return;
+    const nuevoEstado = this.cambioDe.estado;
+    if (!m || !nuevoEstado) return;
+    if (!TRANSICIONES_ESTADO[m.estado].includes(nuevoEstado)) {
+      this.mostrarMensaje('La transición de estado seleccionada no es válida.', true);
+      return;
+    }
     if (this.requiereMotivo && !this.cambioDe.motivo.trim()) {
       this.mostrarMensaje('El motivo es obligatorio para este estado.', true);
       return;
     }
-    if (m.estado === this.cambioDe.estado) {
-      this.mostrarMensaje('La matrícula ya está en ese estado.', true);
-      return;
-    }
-    const confirmar = m.estado === 'activa' && ['anulada', 'retirada', 'trasladada'].includes(this.cambioDe.estado)
-      ? window.confirm(`¿Confirmar estado "${this.cambioDe.estado}" para ${m.nombreAlumno}?`)
+    const confirmar = m.estado === 'activa' && ['anulada', 'retirada', 'trasladada'].includes(nuevoEstado)
+      ? window.confirm(`¿Confirmar estado "${nuevoEstado}" para ${m.nombreAlumno}?`)
       : true;
     if (!confirmar) return;
 
     this.guardando = true;
     await new Promise<void>((resolve) => {
       this.matriculaService.cambiarEstado(m.id, {
-        estado: this.cambioDe.estado,
+        estado: nuevoEstado,
         motivo: this.requiereMotivo ? this.cambioDe.motivo.trim() : null
       }).subscribe({
         next: () => {
-          this.mostrarMensaje(`✅ Estado actualizado a "${this.cambioDe.estado}".`);
+          this.mostrarMensaje(`✅ Estado actualizado a "${nuevoEstado}".`);
           this.cerrarCambioEstado();
           resolve();
         },
