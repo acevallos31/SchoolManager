@@ -127,34 +127,47 @@ export class Matriculas implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
-    await this.cargarDatosIniciales();
     const alumnoId = this.route.snapshot.queryParamMap.get('alumnoId');
-    if (alumnoId && this.puedeCrear) {
-      this.nueva.alumnoId = alumnoId;
-      this.filtros.alumnoId = alumnoId;
+    const alumnoPreseleccionado = alumnoId && this.puedeCrear ? alumnoId : null;
+
+    if (alumnoPreseleccionado) {
+      this.nueva.alumnoId = alumnoPreseleccionado;
+      this.filtros.alumnoId = alumnoPreseleccionado;
       this.mostrarFormulario = true;
     }
+
+    await this.cargarDatosIniciales(alumnoPreseleccionado);
   }
 
-  async cargarDatosIniciales(): Promise<void> {
+  async cargarDatosIniciales(alumnoId?: string | null): Promise<void> {
     this.cargando = true;
     try {
-      const [alumnos, ciclos] = await Promise.all([
-        this.alumnoService.listar(),
-        this.cicloService.listar()
-      ]);
-      this.alumnos = alumnos.filter(a => a.estado === 'activo');
-      this.ciclos = ciclos;
-      if (this.puedeVer) await this.cargarMatriculas();
+      if (alumnoId) {
+        const [alumno, ciclos] = await Promise.all([
+          this.alumnoService.obtenerPorId(alumnoId),
+          this.cicloService.listar()
+        ]);
+        this.alumnos = alumno?.estado === 'activo' ? [alumno] : [];
+        this.ciclos = ciclos;
+      } else {
+        const [alumnos, ciclos] = await Promise.all([
+          this.alumnoService.listar(),
+          this.cicloService.listar()
+        ]);
+        this.alumnos = alumnos.filter(a => a.estado === 'activo');
+        this.ciclos = ciclos;
+      }
+
+      if (this.puedeVer) await this.cargarMatriculas(alumnoId ?? undefined);
     } finally {
       this.cargando = false;
     }
   }
 
-  async cargarMatriculas(): Promise<void> {
+  async cargarMatriculas(alumnoId?: string): Promise<void> {
     this.matriculas = [];
     await new Promise<void>((resolve) => {
-      this.matriculaService.listar().subscribe({
+      this.matriculaService.listar(alumnoId).subscribe({
         next: (data) => {
           this.matriculas = data;
           resolve();
@@ -222,7 +235,7 @@ export class Matriculas implements OnInit {
       });
     });
     this.guardando = false;
-    await this.cargarMatriculas();
+    await this.cargarMatriculas(this.filtros.alumnoId || undefined);
   }
 
   puedeTransicionar(m: Matricula): boolean {
@@ -277,7 +290,7 @@ export class Matriculas implements OnInit {
       });
     });
     this.guardando = false;
-    await this.cargarMatriculas();
+    await this.cargarMatriculas(this.filtros.alumnoId || undefined);
   }
 
   claseEstado(estado: string): string {
