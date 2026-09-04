@@ -206,6 +206,7 @@ No ocultar warnings nuevos.
 - Mantener compatibilidad con decisiones actuales de despliegue en Render, Vercel y Supabase.
 - Los comentarios deben explicar decisiones no obvias, no describir código evidente.
 - Tests deben validar comportamiento observable, no detalles internos frágiles.
+- Nunca reemplazar un archivo del repositorio a partir de una salida de herramienta marcada como `truncated`, `partial output`, `omitted lines` o equivalente. En ese caso, leer el archivo real completo desde disco o Git antes de modificarlo.
 
 ## 13. Trabajo autónomo de larga duración
 
@@ -215,11 +216,15 @@ Cuando Hermes u otro agente trabaje durante varias horas:
 2. Dividir el objetivo en checkpoints pequeños.
 3. Ejecutar tests después de cada cambio importante.
 4. No acumular múltiples bloques funcionales sin validación intermedia.
-5. Si una ruta falla repetidamente, detener esa línea de trabajo y documentar el bloqueo en lugar de improvisar cambios amplios.
-6. Mantener el alcance original.
-7. No crear commits intermedios salvo autorización o que la tarea lo pida explícitamente.
-8. No dejar procesos destructivos o migraciones esperando confirmación automática.
-9. Antes de terminar, dejar el repositorio en un estado coherente y reproducible.
+5. Mantener el alcance original.
+6. Si una validación falla por cambios dentro del alcance, investigar, corregir, volver a validar y continuar sin pedir aprobación rutinaria.
+7. Si la tarea autoriza commit, push y PR, no detenerse entre esas acciones ni pedir confirmaciones repetidas.
+8. No pedir aprobación para lectura, edición dentro del alcance, tests, builds, correcciones, documentación, commits, push normal o actualización del PR cuando ya fueron autorizados por la tarea.
+9. Solo detenerse por una condición de la sección 5, una operación destructiva/no autorizada, producción, escritura de datos reales no autorizada, necesidad de secretos, cambio fuera de alcance o merge a `main`.
+10. Si una ruta falla repetidamente y no puede resolverse sin salir del alcance, documentar el bloqueo y detener únicamente esa línea de trabajo.
+11. No dejar procesos destructivos o migraciones esperando confirmación automática.
+12. Antes de terminar, dejar el repositorio en un estado coherente y reproducible, con HANDOFF actualizado.
+13. Si el contexto alcanza aproximadamente 70–75%, cerrar el checkpoint actual, documentar HANDOFF, commit/push si están autorizados y detener la sesión en lugar de compactar repetidamente.
 
 ## 14. Uso de modelos auxiliares
 
@@ -242,7 +247,9 @@ Actualizar `docs/AI_CONTEXT.md` solo cuando cambie realmente el estado arquitect
 
 No usar `AI_CONTEXT.md` como diario de cada sesión.
 
-Este `AGENTS.md` puede contener el handoff operativo más reciente, pero no debe convertirse en un log histórico ilimitado. Al iniciar un nuevo bloque, reemplazar el handoff anterior una vez que su información relevante haya sido consolidada en commits, PR o `AI_CONTEXT.md`.
+`AGENTS.md` es un archivo operativo del repositorio y puede/debe ser actualizado por Hermes, Codex, Copilot u otro agente cuando la tarea autorice documentación o HANDOFF. La protección interactiva que una herramienta pueda aplicar sobre archivos de instrucciones es una restricción del runtime, no una política del repositorio. Si el runtime exige aprobación y esta no está disponible, registrar el bloqueo; no interpretar esa protección como prohibición permanente de modificar `AGENTS.md`.
+
+Este `AGENTS.md` contiene el handoff operativo más reciente, pero no debe convertirse en un log histórico ilimitado. Al iniciar un nuevo bloque, reemplazar el handoff anterior una vez que su información relevante haya sido consolidada en commits, PR o `AI_CONTEXT.md`.
 
 ## 16. Criterio de finalización
 
@@ -263,68 +270,81 @@ Al finalizar una sesión larga, completar o reemplazar esta sección.
 
 ### Fecha y hora
 
-2026-09-03 02:54 -06:00 (America/Tegucigalpa).
+2026-09-04 07:00 -06:00 (America/Tegucigalpa).
 
 ### Rama
 
-`review/pr-25`, basada en `origin/pr/25` (`f9fce34`).
+`feature/matriculas-fase-1c-frontend`, basada en `main` (`19c7f5f`).
 
 ### Objetivo de la sesión
 
-Revisar críticamente el manual operativo del PR #25 y corregir únicamente defectos necesarios de `AGENTS.md`.
+Completar 17C — Frontend de Matrículas sobre la API .NET de 17A, integrar la acción "Matricular" desde Alumnos, agregar tests y dejar PR listo para revisión.
 
 ### Estado
 
-Revisión completada con cambios locales pendientes de decisión humana.
+17C implementado. PR #28 abierto, Ready for review y sin merge. Revisión posterior reforzó tipado estricto y limitó el frontend a las transiciones de estado permitidas por el contrato del backend.
 
 ### Completado
 
-- Documentación, estructura, proyectos, pruebas, workflow y convenciones SQL contrastados.
-- Separación de responsabilidades reforzada y comandos .NET corregidos.
-- Criterios de parada, seguridad de base de datos y campos del HANDOFF completados.
+- `MatriculaService` conectado a la API .NET para listar, crear y cambiar estado.
+- Página `/matriculas` con listado, filtros, alta, loading/vacío/error y cambios de estado.
+- Acción "Matricular" desde alumnos activos con permiso `academico.matriculas.crear`.
+- Estados tipados y transiciones UI alineadas con backend: `pendiente -> activa|anulada`; `activa -> finalizada|retirada|anulada|trasladada`; estados terminales sin nuevas transiciones.
+- Motivo obligatorio para `retirada`, `anulada` y `trasladada`.
+- Corrección de accesibilidad `label for` / `id` requerida por Sonar.
+- Tests de servicio y componente agregados/reforzados.
+- `docs/AI_CONTEXT.md` y `docs/HANDOFF.md` actualizados.
 
 ### Archivos modificados
 
+- `frontend/schoolmanager-frontend/src/app/core/services/matriculas.service.ts`
+- `frontend/schoolmanager-frontend/src/app/core/services/matriculas.service.spec.ts`
+- `frontend/schoolmanager-frontend/src/app/pages/matriculas/matriculas.ts`
+- `frontend/schoolmanager-frontend/src/app/pages/matriculas/matriculas.html`
+- `frontend/schoolmanager-frontend/src/app/pages/matriculas/matriculas.css`
+- `frontend/schoolmanager-frontend/src/app/pages/matriculas/matriculas.spec.ts`
+- `frontend/schoolmanager-frontend/src/app/pages/alumnos/alumnos.ts`
+- `frontend/schoolmanager-frontend/src/app/pages/alumnos/alumnos.html`
+- `frontend/schoolmanager-frontend/src/app/pages/alumnos/alumnos.css`
+- `docs/AI_CONTEXT.md`
+- `docs/HANDOFF.md`
 - `AGENTS.md`
-- `docs/AI_CONTEXT.md` (solo para corregir el estado obsoleto de la migración 016).
 
 ### Validaciones
 
-- `git diff --check`: correcto.
-- `dotnet test` desde la raíz: falla como se esperaba con `MSB1003`; no existe solución/proyecto raíz. El comando fue reemplazado por los dos proyectos reales.
-- `dotnet build backend/SchoolManager.API/SchoolManager.API.csproj -c Release`: correcto, sin warnings.
-- Tests API: 11 correctos y 7 bloqueados porque Docker no está disponible.
-- Tests de base de datos: 79 bloqueados porque Docker no está disponible.
-- `npm test -- --watch=false`: correcto, 48 tests.
-- `npm run build`: correcto, con warnings preexistentes de presupuesto y dependencias CommonJS.
+Antes de la revisión adicional: `npm run build` correcto; `npx ng test --watch=false` 17 archivos / 61 tests en verde; `git diff --check` correcto; CI, SonarCloud y Vercel en verde.
+
+La revisión adicional modificó tipado/transiciones y agregó cobertura; los checks del PR deben volver a ejecutarse sobre el HEAD actualizado antes del merge.
 
 ### Decisiones tomadas
 
-- `docs/AI_CONTEXT.md` continúa como fuente de verdad de arquitectura, dominio, roadmap y estado.
-- El estado de la migración 016 se corrigió a "implementada en el repositorio"; no se presupone su estado en producción.
-- Las migraciones y rollbacks solo pueden ejecutarse autónomamente en bases desechables.
+- No duplicar reglas ACID ni de persistencia en frontend; backend/DB siguen siendo autoridad.
+- El frontend restringe opciones de transición para evitar ofrecer operaciones que el backend rechazará.
+- `EstadoMatricula` usa unión TypeScript en vez de `string` genérico.
+- `AGENTS.md` es deliberadamente actualizable por agentes autorizados para conservar HANDOFF y reglas operativas.
 
 ### Pendientes
 
-- Revisión humana y, si se aprueban los cambios, commit/push por una persona o por un agente expresamente autorizado.
-- Reemplazar este HANDOFF al cerrar el siguiente bloque real.
+- Esperar CI/Sonar/Vercel del HEAD actualizado del PR #28.
+- Revisión humana del PR y merge a `main` si todos los checks quedan verdes.
+- Tras el merge, validar flujo real frontend ↔ API con datos de prueba controlados.
 
 ### Bloqueos
 
-Docker no está disponible; impide completar las suites que usan Testcontainers.
+Ninguno conocido en el código. No se autoriza merge automático a `main`.
 
 ### Riesgos
 
-Las 86 pruebas dependientes de Docker no se completaron localmente; deben confirmarse en CI o con Docker activo. El cambio es exclusivamente documental.
+El contrato frontend ↔ API aún no se ha validado mediante E2E contra una instancia viva con datos de prueba; los tests del frontend usan mocks.
 
 ### Working tree
 
-`AGENTS.md` modificado; sin otros cambios detectados por `git status --short`.
+La rama remota se actualiza mediante commits del PR. Verificar `git status` local después de `git pull` si Hermes continúa desde la VM.
 
 ### Git remoto
 
-Commit: no realizado. Push: no realizado. PR: #25 ya existente; no abierto ni modificado remotamente durante esta revisión. Merge: no realizado.
+PR: #28. Estado: Ready for review. Merge: no realizado.
 
 ### Siguiente paso recomendado
 
-Revisar el diff local, repetir las validaciones en CI y autorizar explícitamente commit/push si se desea incorporarlo al PR #25.
+Esperar todos los checks del HEAD actualizado, revisar el diff final y, si permanecen verdes, aprobar/mergear PR #28. Después iniciar 17D con una rama nueva desde `main` actualizado.
