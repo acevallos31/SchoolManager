@@ -177,7 +177,7 @@ public class ResponsablesController(NpgsqlDataSource dataSource) : ControllerBas
         await FijarClaimAsync(c2, tx, User.FindFirstValue("sub")!, ct);
         await using var cmd = c2.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = LecturaBase + " where r.id = @id" + FiltroContextoInstitucional;
+        cmd.CommandText = LecturaBase + " where r.id = @id" + FiltroContextoInstitucional; // NOSONAR:csharpsquid:S2077 (query parameterizada, concatenación de constantes readonly)
         cmd.Parameters.AddWithValue("id", id);
         await using var r3 = await cmd.ExecuteReaderAsync(ct);
         ResponsableDto? dto = await r3.ReadAsync(ct) ? Leer(r3) : null;

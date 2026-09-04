@@ -63,12 +63,12 @@
 
   <div class="filtros">
     <div class="filtro-grupo">
-      <label>Buscar</label>
-      <input [(ngModel)]="termino" placeholder="Nombres, apellidos o cédula" (keyup.enter)="buscar()" />
+      <label for="filtro-termino">Buscar</label>
+      <input id="filtro-termino" [(ngModel)]="termino" placeholder="Nombres, apellidos o cédula" (keyup.enter)="buscar()" />
     </div>
     <div class="filtro-grupo">
-      <label>Estado</label>
-      <select [(ngModel)]="estado" (change)="buscar()">
+      <label for="filtro-estado">Estado</label>
+      <select id="filtro-estado" [(ngModel)]="estado" (change)="buscar()">
         <option value="">Todos</option>
         <option value="activo">Activo</option>
         <option value="inactivo">Inactivo</option>
@@ -88,16 +88,16 @@
       <h3>{{ editando ? 'Editar responsable' : 'Nuevo responsable' }}</h3>
       <div class="form-grid">
         <div class="form-group">
-          <label>Nombres *</label>
-          <input [(ngModel)]="form.nombres" placeholder="Nombres" />
+          <label for="form-nombres">Nombres *</label>
+          <input id="form-nombres" [(ngModel)]="form.nombres" placeholder="Nombres" />
         </div>
         <div class="form-group">
-          <label>Apellidos *</label>
-          <input [(ngModel)]="form.apellidos" placeholder="Apellidos" />
+          <label for="form-apellidos">Apellidos *</label>
+          <input id="form-apellidos" [(ngModel)]="form.apellidos" placeholder="Apellidos" />
         </div>
         <div class="form-group">
-          <label>Tipo de identificación @if (!editando) { * }</label>
-          <select [(ngModel)]="form.tipoIdentificacion">
+          <label for="form-tipo">Tipo de identificación @if (!editando) { * }</label>
+          <select id="form-tipo" [(ngModel)]="form.tipoIdentificacion">
             <option value="">Seleccione…</option>
             <option value="CI">Cédula</option>
             <option value="RUC">RUC</option>
@@ -106,16 +106,16 @@
           </select>
         </div>
         <div class="form-group">
-          <label>Número de identificación @if (!editando) { * }</label>
-          <input [(ngModel)]="form.numeroIdentificacion" placeholder="Número" />
+          <label for="form-numero">Número de identificación @if (!editando) { * }</label>
+          <input id="form-numero" [(ngModel)]="form.numeroIdentificacion" placeholder="Número" />
         </div>
         <div class="form-group">
-          <label>Teléfono</label>
-          <input [(ngModel)]="form.telefono" placeholder="Teléfono" />
+          <label for="form-telefono">Teléfono</label>
+          <input id="form-telefono" [(ngModel)]="form.telefono" placeholder="Teléfono" />
         </div>
         <div class="form-group">
-          <label>Correo</label>
-          <input [(ngModel)]="form.correo" placeholder="correo@ejemplo.com" />
+          <label for="form-correo">Correo</label>
+          <input id="form-correo" [(ngModel)]="form.correo" placeholder="correo@ejemplo.com" />
         </div>
       </div>
       <div class="form-actions">
