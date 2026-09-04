@@ -19,7 +19,7 @@ const MAT: Matricula = {
 };
 
 describe('Matriculas', () => {
-  const alumnos = [{ id: 'a1', nombreCompleto: 'Ana Pérez', estado: 'activo' }];
+  const alumnos = [{ id: 'a1', personaId: 'p1', nombreCompleto: 'Ana Pérez', identidad: null, rne: null, estado: 'activo' as const, matriculaActual: null }];
   const ciclos = [{ id: 'c1', institucionId: 'i1', nombre: '2026', activo: true }];
   const secciones = [{ id: 's1', activo: true, nombre: 'A', gradoNombre: 'Primero', jornadaNombre: 'Matutina' }];
   const periodos = [{ id: 'p1', activo: true, nombre: 'Normal' }];
@@ -29,8 +29,13 @@ describe('Matriculas', () => {
   let s: Record<string, ReturnType<typeof vi.fn>>;
   let per: Set<string>;
   let consultarParametro: (key: string) => string | null;
+  let alumnoMock: { listar: ReturnType<typeof vi.fn>; obtenerPorId: ReturnType<typeof vi.fn> };
 
   function configurar(): void {
+    alumnoMock = {
+      listar: vi.fn().mockResolvedValue(alumnos),
+      obtenerPorId: vi.fn().mockResolvedValue(alumnos[0])
+    };
     TestBed.configureTestingModule({
       imports: [Matriculas],
       providers: [
@@ -38,7 +43,7 @@ describe('Matriculas', () => {
         { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: consultarParametro } } } },
         { provide: AuthService, useValue: { tienePermiso: (x: string) => per.has(x) } },
         { provide: MatriculaService, useValue: s },
-        { provide: AlumnoService, useValue: { listar: vi.fn().mockResolvedValue(alumnos) } },
+        { provide: AlumnoService, useValue: alumnoMock },
         { provide: CicloEscolarService, useValue: { listar: vi.fn().mockResolvedValue(ciclos), listarPeriodos: vi.fn().mockResolvedValue(periodos) } },
         { provide: EstructuraAcademicaService, useValue: { listarSecciones: vi.fn().mockResolvedValue(secciones) } }
       ]
@@ -63,7 +68,7 @@ describe('Matriculas', () => {
   });
 
   it('lista matrículas del servicio', () => {
-    expect(s['listar']).toHaveBeenCalled();
+    expect(s['listar']).toHaveBeenCalledWith(undefined);
     expect(c.matriculas).toEqual([MAT]);
   });
 
@@ -147,8 +152,7 @@ describe('Matriculas', () => {
     expect(c.puedeCambiarEstado).toBe(false);
   });
 
-  it('preselecciona alumno y abre formulario con query param', async () => {
-    // Recrea el componente con alumnoId presente en la URL.
+  it('preselecciona alumno y evita cargar la lista completa', async () => {
     consultarParametro = (key: string) => (key === 'alumnoId' ? 'a1' : null);
     await TestBed.resetTestingModule();
     configurar();
@@ -157,9 +161,13 @@ describe('Matriculas', () => {
     c = f.componentInstance;
     f.detectChanges();
     await vi.waitFor(() => expect(c.cargando).toBe(false));
+
     expect(c.nueva.alumnoId).toBe('a1');
     expect(c.filtros.alumnoId).toBe('a1');
     expect(c.mostrarFormulario).toBe(true);
+    expect(alumnoMock.obtenerPorId).toHaveBeenCalledWith('a1');
+    expect(alumnoMock.listar).not.toHaveBeenCalled();
+    expect(s['listar']).toHaveBeenCalledWith('a1');
     expect(c.matriculas).toEqual([MAT]);
   });
 
@@ -175,6 +183,7 @@ describe('Matriculas', () => {
     await vi.waitFor(() => expect(c.cargando).toBe(false));
     expect(c.nueva.alumnoId).toBe('');
     expect(c.mostrarFormulario).toBe(false);
+    expect(alumnoMock.listar).toHaveBeenCalled();
   });
 
   it('muestra estado vacío cuando no hay matrículas', async () => {
@@ -206,7 +215,6 @@ describe('Matriculas', () => {
   });
 
   it('limpia el filtro de ciclo obsoleto al recargar', async () => {
-    // El único ciclo real es c1; un filtro inexistente debe descartarse.
     await TestBed.resetTestingModule();
     configurar();
     await TestBed.compileComponents();
