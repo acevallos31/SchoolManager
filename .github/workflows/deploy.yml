@@ -15,6 +15,15 @@ jobs:
     steps:
       - name: Checkout del código
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verificar git diff --check (espacios en blanco / conflictos)
+        run: |
+          git fetch origin main --quiet
+          base="$(git merge-base origin/main HEAD)"
+          echo "Comparando contra base $base"
+          git diff --check "$base"..HEAD
 
       - name: Configurar .NET 10
         uses: actions/setup-dotnet@v4
@@ -46,6 +55,15 @@ jobs:
         run: |
           cd frontend/schoolmanager-frontend
           npm ci --ignore-scripts
+
+      - name: Ejecutar tests unitarios del frontend (headless)
+        run: |
+          cd frontend/schoolmanager-frontend
+          npm test -- --watch=false
+
+      - name: Validar Frontend (Angular)
+        run: |
+          cd frontend/schoolmanager-frontend
           npm run build -- --configuration production
 
   # ETAPA 2: DESPLIEGUE (Solo se ejecuta si la etapa anterior pasa Y estamos en la rama main)

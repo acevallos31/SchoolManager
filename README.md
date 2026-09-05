@@ -1,83 +1,83 @@
 # SchoolManager
 
-Sistema de gestion escolar para administrar alumnos, matriculas, mensualidades,
-pagos y acceso de padres de familia.
+Sistema de gestión escolar (monolito modular) para administrar alumnos,
+matrículas, responsables y configuración financiera de una institución
+educativa, sobre PostgreSQL con RLS y RPC.
+
+> Estado real: la base de datos llega a la **migración 018**. Los módulos
+> listados abajo son los integrados y navegables. Mensualidades, pagos y
+> portal de padres existen como vista/servicio en frontend pero **no
+> tienen backend** — no se anuncian aquí como terminados.
 
 ## Stack
 
-| Capa | Tecnologia |
+| Capa | Tecnología |
 | --- | --- |
-| Frontend | Angular 22 + TypeScript |
-| Backend | ASP.NET Core Web API |
-| Base de datos | Supabase PostgreSQL |
-| Autenticacion | Supabase Auth + JWT |
+| Frontend | Angular 22 standalone + TypeScript |
+| Backend | ASP.NET Core Web API (.NET) |
+| Base de datos | PostgreSQL (Supabase) con RLS + RPC `security definer` |
+| Autenticación | Supabase Auth + JWT |
 | Frontend hosting | Vercel |
 | Backend hosting | Render |
+| Migraciones | SQL versionado en `database/migrations/` (001→018) |
 
 ## Estructura
 
 ```txt
 SchoolManager/
 ├── backend/
-│   └── SchoolManager.API/          # API REST en ASP.NET Core
-│       ├── Controllers/
-│       ├── DTOs/
-│       ├── Models/
-│       ├── Program.cs
-│       ├── SchoolManager.API.csproj
-│       └── Dockerfile              # Dockerfile para Render si el root es backend
-├── database/
-│   ├── schema.sql                  # Script SQL de Supabase
-│   └── GUIA_SUPABASE.md
+│   └── SchoolManager.API/          # API REST en ASP.NET Core (monolito modular)
+│       ├── Controllers/            # Alumnos, Matriculas, Responsables,
+│       │                           #   ConceptosFinancieros, PlanesPago, Auth
+│       ├── Authorization/          # Permisos RBAC (Permisos.cs)
+│       ├── DTOs/ Models/ Identity/
+│       └── Program.cs
 ├── frontend/
 │   └── schoolmanager-frontend/     # App Angular 22 standalone
-│       ├── src/app/
-│       ├── angular.json
-│       ├── package.json
-│       └── package-lock.json
-├── Dockerfile                      # Dockerfile para Render desde la raiz
-└── README.md
+│       └── src/app/
+│           ├── pages/              # login, dashboard, alumnos, matriculas,
+│           │                       #   responsables, configuracion*
+│           └── core/services/      # servicios por módulo
+├── database/
+│   ├── baseline/                   # baseline consolidado (solo uso de referencia)
+│   └── migrations/
+│       ├── 001…018_*.sql           # migraciones versionadas
+│       ├── rollback/               # rollbacks reversibles
+│       └── validation/             # validaciones por migración
+├── tests/
+│   ├── SchoolManager.API.IntegrationTests/    # identidad + autorización
+│   └── SchoolManager.Database.IntegrationTests/ # DB 001→018 (multitenancy/ACID)
+├── perf/                           # benchmarks reproducibles
+├── docs/
+│   ├── engineering-principles.md   # 12 principios del proyecto (reglas vinculantes)
+│   ├── AI_CONTEXT.md               # contexto para agentes
+│   └── handoffs/  database/  decisiones/
+├── .github/workflows/deploy.yml    # CI/CD
+└── AGENTS.md                       # reglas operativas para agentes de IA
 ```
+
+## Módulos actuales (integrados)
+
+- **Alumnos** — gestión de alumnos y sus documentos.
+- **Matrículas** — ciclo/período → matrícula → alumno; cambio de estado.
+- **Responsables** — vínculos alumno–responsable, gestión RPC.
+- **Configuración** — centro educativo, grados/jornadas/secciones, ciclos y períodos.
+- **Conceptos financieros** — catálogo de conceptos (migración 018).
+- **Planes de pago** — catálogo de planes (migración 018).
 
 ## Requisitos
 
 - .NET SDK compatible con el `TargetFramework` del backend.
-- Node.js compatible con Angular 22:
-
-```txt
-^22.22.3 || ^24.15.0 || >=26.0.0
-```
-
-- npm 11+
-- Cuenta/proyecto en Supabase.
+- Node.js `^22.22.3 || ^24.15.0 || >=26.0.0` y npm 11+.
+- Proyecto PostgreSQL/Supabase (solo para entorno real; tests usan Postgres 16 desechable vía Testcontainers).
 - Opcional para despliegue: cuentas en Render y Vercel.
-
-## Configuracion de Supabase
-
-1. Crear un proyecto nuevo en Supabase.
-2. Ejecutar `database/baseline/001_schoolmanager_fase1a.sql` una sola vez.
-3. Configurar en el frontend la URL y la publishable key del proyecto.
-4. Configurar en el backend la conexion PostgreSQL y el issuer de Supabase.
 
 ## Backend local
 
 ```bash
 cd backend/SchoolManager.API
 dotnet restore
-dotnet run
-```
-
-La API expone endpoints bajo `/api`.
-
-En desarrollo, Swagger se habilita cuando el entorno es `Development`.
-
-Variables recomendadas para produccion:
-
-```txt
-ASPNETCORE_ENVIRONMENT=Production
-ConnectionStrings__PostgreSQL=Host=...;Database=postgres;Username=...;Password=...
-Jwt__Issuer=https://TU-PROYECTO.supabase.co/auth/v1
-Jwt__Audience=authenticated
+dotnet run          # endpoints bajo /api; Swagger en desarrollo
 ```
 
 ## Frontend local
@@ -85,114 +85,52 @@ Jwt__Audience=authenticated
 ```bash
 cd frontend/schoolmanager-frontend
 npm install
-npm run start
+npm run start       # http://localhost:4200
+npm run build       # build de producción → dist/schoolmanager-frontend/browser
+npm test -- --watch=false   # tests unitarios (Vitest)
 ```
 
-La aplicacion corre normalmente en:
+## Tests
 
-```txt
-http://localhost:4200
-```
-
-Para build de produccion:
+Matriz validada en cada PR (ver `AGENTS.md` y `docs/engineering-principles.md` #6/#10):
 
 ```bash
-npm run build
+# Backend Release build
+dotnet build backend/SchoolManager.API/SchoolManager.API.csproj --configuration Release
+
+# API integration tests (identidad + autorización)
+dotnet test tests/SchoolManager.API.IntegrationTests/*.csproj --configuration Release
+
+# DB integration tests 001→018
+dotnet test tests/SchoolManager.Database.IntegrationTests/*.csproj --configuration Release
+
+# Frontend unit tests + build de producción
+cd frontend/schoolmanager-frontend
+npm test -- --watch=false
+npm run build -- --configuration production
 ```
 
-Salida generada para Vercel:
+## CI/CD
 
-```txt
-dist/schoolmanager-frontend/browser
-```
+`.github/workflows/deploy.yml` valida backend, API tests, DB tests y build
+frontend en cada push/PR; despliega a producción solo desde `main`
+(Render vía webhook, frontend por integración Git de Vercel).
 
-## Rutas principales
+## Documentación del proyecto
 
-| Ruta | Uso |
-| --- | --- |
-| `/login` | Inicio de sesion |
-| `/dashboard` | Panel administrativo |
-| `/alumnos` | Gestion de alumnos |
-| `/matriculas` | Gestion de matriculas |
-| `/mensualidades` | Gestion de mensualidades |
-| `/portal-padre` | Vista para padres |
-
-## Despliegue en Render
-
-El backend puede desplegarse como Web Service usando Docker.
-
-Configuracion si Render usa la raiz del repositorio:
-
-```txt
-Environment: Docker
-Root Directory: vacio
-Dockerfile Path: ./Dockerfile
-Docker Build Context Directory: .
-```
-
-Configuracion alternativa si Render usa el backend como root:
-
-```txt
-Environment: Docker
-Root Directory: backend/SchoolManager.API
-Dockerfile Path: ./Dockerfile
-Docker Build Context Directory: .
-```
-
-URL actual usada por el frontend:
-
-```txt
-https://schoolmanager-xdxx.onrender.com/api
-```
-
-## Despliegue en Vercel
-
-Configuracion recomendada:
-
-```txt
-Framework Preset: Angular
-Root Directory: frontend/schoolmanager-frontend
-Install Command: npm install
-Build Command: npm run build
-Output Directory: dist/schoolmanager-frontend/browser
-```
-
-## GitHub Actions
-
-El workflow `.github/workflows/deploy.yml` valida backend y frontend. En `main`,
-puede disparar despliegues hacia Render y Vercel si los secrets estan
-configurados.
-
-Secrets esperados:
-
-```txt
-RENDER_DEPLOY_HOOK_URL
-VERCEL_TOKEN
-VERCEL_ORG_ID
-VERCEL_PROJECT_ID
-```
-
-## Roles
-
-- Admin: gestiona alumnos, matriculas, mensualidades y pagos.
-- Padre: consulta estado de cuenta y mensualidades.
-
-## Modulos
-
-- Alumnos
-- Matriculas
-- Mensualidades
-- Pagos
-- Portal de padres
+- `docs/engineering-principles.md` — los 12 principios (reglas del proyecto).
+- `docs/database/*.md` — ACID, ERD, RBAC, RLS/RPC, historial de normalización.
+- `docs/handoffs/` — estado por bloque/fase.
 
 ## Notas de mantenimiento
 
-- El frontend esta organizado como Angular 22 standalone. Evitar mezclarlo con
-  `AppModule`/`NgModule` clasico.
-- Si se modifica `package.json`, regenerar `package-lock.json` con
-  `npm install`.
-- Si el bundle crece por `jspdf`/`html2canvas`, revisar presupuestos en
-  `angular.json` o aplicar lazy loading donde convenga.
+- Frontend Angular **standalone**: evitar `NgModule` clásico.
+- Monolito modular: **sin** microservicios, CQRS ni Generic Repository/UoW
+  artificiales (principio #5).
+- Toda migración nueva va acompañada de su `rollback/` y `validation/`.
+- Todo cambio de esquema/permiso/endpoint exige su test (principio #6).
+- Si el bundle crece, aplicar lazy loading por ruta (ver `app.routes.ts`)
+  en lugar de subir los presupuestos de `angular.json` sin revisar.
 
 ## Licencia
 

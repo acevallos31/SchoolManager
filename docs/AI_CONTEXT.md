@@ -13,7 +13,12 @@
 ## Migraciones
 - 007 RBAC base; 008 modelo académico histórico; 009 RLS y RPC; 010 identidad; 011 creación alumno con documento; 012 configuración de implementación; 013 centro educativo; 014 ciclos/períodos; 015 períodos anticipados.
 - 016 grados, jornadas y secciones: implementada en el repositorio; aplicación en producción no verificada.
-- 017 responsables (gestión RPC): implementada y validada en Postgres 16 desechable; baseline consolidado anexado.
+- 017 responsables (gestión RPC): implementada y validada en Postgres 16 desechable; baseline consolidado anexado; en `main`.
+- 018 configuración financiera (conceptos y planes de pago): implementada y en `main`.
+
+## Estándares de ingeniería
+- Los **12 principios de ingeniería** del proyecto viven en `docs/engineering-principles.md` y son reglas vinculantes citables por número (`#1`…`#12`) en PRs, handoffs y decisiones técnicas.
+- La IA no sustituye la revisión: todo output generado por IA se lee y verifica antes de integrarse (#12).
 
 ## Módulo Responsables (018)
 - Namespace vigente: **`academico.responsables.*`** (usado por RLS 009 y backend `Permisos.cs`); `responsables.responsables.*` (007) es legacy sin uso, conservado.
@@ -29,9 +34,9 @@ Institución -> Ciclo -> Período matrícula -> Grado -> Jornada opcional -> Sec
 - Una sección con matrículas no cambia ciclo, grado ni jornada.
 
 ## Estado frontend
-- `/configuracion`, `/configuracion/ciclos` y `/configuracion/estructura-academica`.
+- Módulos navegables: `/configuracion`, `/configuracion/ciclos`, `/configuracion/estructura-academica`, `/configuracion/conceptos-financieros`, `/configuracion/planes-pago`, `/responsables`, `/matriculas` y `/alumnos`.
 - Matrículas Fase 1C completa: página `/matriculas` conectada a la API .NET (listar, crear, cambiar estado) con acción "Matricular" desde Alumnos.
-- PR #28 mergeado en `main` (`2c5f866`); 17C integrado. Bloque 017 Fase 1C cerrado (17D/17E completos; 17F parcial: pendiente auditoría remota read-only de Supabase y E2E real de escritura).
+- Responsables y Configuración Financiera (conceptos + planes de pago) integrados y en `main`; sus 3 rutas nuevas cargan por lazy (`loadComponent`).
 - Detalle de cierre en `docs/handoffs/017D-integracion-alumnos.md`, `017E-tests.md` y `017F-cierre.md`.
 
 ## Git y validación
