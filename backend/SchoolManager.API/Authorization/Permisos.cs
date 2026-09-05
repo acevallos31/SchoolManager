@@ -40,6 +40,13 @@ public static class Permisos
         public const string Desactivar = "configuracion.planes_pago.desactivar";
     }
 
+    public static class Cargos
+    {
+        public const string Ver = "academico.cargos.ver";
+        public const string Generar = "academico.cargos.generar";
+        public const string Anular = "academico.cargos.anular";
+    }
+
     public static IReadOnlyList<string> Todos { get; } =
     [
         Alumnos.Ver,
@@ -59,6 +66,9 @@ public static class Permisos
         PlanesPago.Ver,
         PlanesPago.Crear,
         PlanesPago.Editar,
-        PlanesPago.Desactivar
+        PlanesPago.Desactivar,
+        Cargos.Ver,
+        Cargos.Generar,
+        Cargos.Anular
     ];
 }

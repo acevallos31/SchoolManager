@@ -242,8 +242,18 @@ export class Alumnos implements OnInit {
     return this.auth.tienePermiso('academico.responsables.ver');
   }
 
+  get puedeVerCargos(): boolean {
+    return this.auth.tienePermiso('academico.cargos.ver');
+  }
+
   verResponsables(alumno: AlumnoListado): void {
     void this.router.navigate(['/responsables'], {
+      queryParams: { alumnoId: alumno.id }
+    });
+  }
+
+  verCargos(alumno: AlumnoListado): void {
+    void this.router.navigate(['/cargos'], {
       queryParams: { alumnoId: alumno.id }
     });
   }
