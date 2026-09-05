@@ -40,6 +40,7 @@ export class Alumnos implements OnInit {
   mensaje = '';
   esError = false;
   ultimoAlumnoCreadoId: string | null = null;
+  alumnoSeleccionadoId: string | null = null;
   private institucionCreacionId: string | null = null;
   configuracionIdentificadores: ConfiguracionIdentificadores | null = null;
   nuevoAlumno = this.crearFormularioVacio();
@@ -87,6 +88,20 @@ export class Alumnos implements OnInit {
         matricula?.ciclo
       ].some(valor => this.normalizar(valor ?? '').includes(termino));
     });
+  }
+
+  get alumnoSeleccionado(): AlumnoListado | null {
+    return this.alumnos.find(alumno => alumno.id === this.alumnoSeleccionadoId) ?? null;
+  }
+
+  seleccionarAlumno(alumno: AlumnoListado): void {
+    this.alumnoSeleccionadoId = this.alumnoSeleccionadoId === alumno.id
+      ? null
+      : alumno.id;
+  }
+
+  cerrarSeleccion(): void {
+    this.alumnoSeleccionadoId = null;
   }
 
   async ngOnInit(): Promise<void> {

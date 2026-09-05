@@ -1,6 +1,5 @@
 <div class="page-container">
   <div class="page-header">
-    <button class="btn-volver" type="button" (click)="volver()">← Volver</button>
     <h1>Gestión de Alumnos</h1>
     @if (puedeCrear) {
       <button class="btn-nuevo" type="button" (click)="abrirFormulario()" [disabled]="guardando">
@@ -49,43 +48,99 @@
   }
 
   @if (puedeVer) {
-    <div class="buscador"><input type="search" [(ngModel)]="busqueda" placeholder="Buscar por nombre, identidad, RNE, código interno, ciclo, grado o sección" /></div>
-    @if (cargando) {
-      <p class="cargando">Cargando alumnos...</p>
-    } @else {
-      <div class="tabla-contenedor">
-        <table class="tabla">
-          <thead><tr><th>Nombre</th><th>Identidad</th><th>Código interno</th><th>Ciclo</th><th>Grado</th><th>Sección</th><th>Estado</th><th>Acciones</th></tr></thead>
-          <tbody>
-            @for (alumno of alumnosFiltrados; track alumno.id) {
-              <tr>
-                <td>{{ alumno.nombreCompleto }}</td>
-                <td>{{ alumno.identidad || alumno.rne || 'Sin documento' }}</td>
-                <td>{{ alumno.codigoInterno || '—' }}</td>
-                <td>{{ alumno.matriculaActual?.ciclo || 'Sin matrícula' }}</td>
-                <td>{{ alumno.matriculaActual?.grado || 'Sin matrícula' }}</td>
-                <td>{{ alumno.matriculaActual?.seccion || 'Sin matrícula' }}</td>
-                <td><span [class]="alumno.estado === 'activo' ? 'badge-activo' : 'badge-inactivo'">{{ alumno.estado }}</span></td>
-                <td>
-                  @if (alumno.estado === 'activo' && puedeDesactivar) {
-                    <button class="btn-desactivar" type="button" [disabled]="guardando" (click)="desactivarAlumno(alumno)">Desactivar</button>
-                  } @else if (alumno.estado === 'inactivo' && puedeEditar) {
-                    <button class="btn-activar" type="button" [disabled]="guardando" (click)="reactivarAlumno(alumno)">Reactivar</button>
-                  }
-                  @if (alumno.estado === 'activo' && puedeMatricular) {
-                    <button class="btn-matricular-fila" type="button" (click)="matricularAlumnoId(alumno.id)">Matricular</button>
-                  }
-                  @if (puedeVerResponsables) {
-                    <button class="btn-matricular-fila" type="button" (click)="verResponsables(alumno)">Responsables</button>
-                  }
-                </td>
-              </tr>
-            } @empty {
-              <tr><td colspan="8" class="sin-datos">No hay alumnos registrados</td></tr>
+    <div class="workspace">
+      <section class="workspace-master" aria-label="Listado de alumnos">
+        <div class="buscador"><input type="search" [(ngModel)]="busqueda" placeholder="Buscar por nombre, identidad, RNE, código interno, ciclo, grado o sección" aria-label="Buscar alumno" /></div>
+        @if (cargando) {
+          <p class="cargando">Cargando alumnos...</p>
+        } @else {
+          <div class="tabla-contenedor">
+            <table class="tabla">
+              <thead><tr><th>Nombre</th><th>Identidad</th><th>Código interno</th><th>Ciclo</th><th>Grado</th><th>Sección</th><th>Estado</th><th>Acciones</th></tr></thead>
+              <tbody>
+                @for (alumno of alumnosFiltrados; track alumno.id) {
+                  <tr
+                    class="fila-alumno"
+                    [class.fila-seleccionada]="alumnoSeleccionadoId === alumno.id"
+                    (click)="seleccionarAlumno(alumno)">
+                    <td>
+                      <button
+                        class="btn-detalle-fila"
+                        type="button"
+                        [attr.aria-expanded]="alumnoSeleccionadoId === alumno.id"
+                        (click)="$event.stopPropagation(); seleccionarAlumno(alumno)">
+                        {{ alumno.nombreCompleto }}
+                      </button>
+                    </td>
+                    <td>{{ alumno.identidad || alumno.rne || 'Sin documento' }}</td>
+                    <td>{{ alumno.codigoInterno || '—' }}</td>
+                    <td>{{ alumno.matriculaActual?.ciclo || 'Sin matrícula' }}</td>
+                    <td>{{ alumno.matriculaActual?.grado || 'Sin matrícula' }}</td>
+                    <td>{{ alumno.matriculaActual?.seccion || 'Sin matrícula' }}</td>
+                    <td><span [class]="alumno.estado === 'activo' ? 'badge-activo' : 'badge-inactivo'">{{ alumno.estado }}</span></td>
+                    <td>
+                      @if (alumno.estado === 'activo' && puedeDesactivar) {
+                        <button class="btn-desactivar" type="button" [disabled]="guardando" (click)="$event.stopPropagation(); desactivarAlumno(alumno)">Desactivar</button>
+                      } @else if (alumno.estado === 'inactivo' && puedeEditar) {
+                        <button class="btn-activar" type="button" [disabled]="guardando" (click)="$event.stopPropagation(); reactivarAlumno(alumno)">Reactivar</button>
+                      }
+                      @if (alumno.estado === 'activo' && puedeMatricular) {
+                        <button class="btn-matricular-fila" type="button" (click)="$event.stopPropagation(); matricularAlumnoId(alumno.id)">Matricular</button>
+                      }
+                      @if (puedeVerResponsables) {
+                        <button class="btn-matricular-fila" type="button" (click)="$event.stopPropagation(); verResponsables(alumno)">Responsables</button>
+                      }
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr><td colspan="8" class="sin-datos">No hay alumnos registrados</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </section>
+
+      @if (alumnoSeleccionado) {
+        <aside class="alumno-detalle" aria-label="Detalle del alumno">
+          <div class="detalle-header">
+            <h2>{{ alumnoSeleccionado.nombreCompleto }}</h2>
+            <button class="btn-cerrar-detalle" type="button" (click)="cerrarSeleccion()" aria-label="Cerrar detalle">✕</button>
+          </div>
+          <span [class]="alumnoSeleccionado.estado === 'activo' ? 'badge-activo' : 'badge-inactivo'">{{ alumnoSeleccionado.estado }}</span>
+
+          <dl class="detalle-datos">
+            <div><dt>Identidad</dt><dd>{{ alumnoSeleccionado.identidad || '—' }}</dd></div>
+            <div><dt>RNE</dt><dd>{{ alumnoSeleccionado.rne || '—' }}</dd></div>
+            <div><dt>Código interno</dt><dd>{{ alumnoSeleccionado.codigoInterno || '—' }}</dd></div>
+            <div><dt>Matrícula actual</dt>
+              <dd>
+                @if (alumnoSeleccionado.matriculaActual) {
+                  {{ alumnoSeleccionado.matriculaActual.ciclo }} ·
+                  {{ alumnoSeleccionado.matriculaActual.grado }} ·
+                  {{ alumnoSeleccionado.matriculaActual.seccion }}
+                } @else {
+                  Sin matrícula
+                }
+              </dd>
+            </div>
+          </dl>
+
+          <div class="detalle-acciones">
+            @if (alumnoSeleccionado.estado === 'activo' && puedeMatricular) {
+              <button class="btn-matricular-fila" type="button" (click)="matricularAlumnoId(alumnoSeleccionado.id)">Matricular</button>
             }
-          </tbody>
-        </table>
-      </div>
-    }
+            @if (puedeVerResponsables) {
+              <button class="btn-matricular-fila" type="button" (click)="verResponsables(alumnoSeleccionado)">Responsables</button>
+            }
+            @if (alumnoSeleccionado.estado === 'activo' && puedeDesactivar) {
+              <button class="btn-desactivar" type="button" [disabled]="guardando" (click)="desactivarAlumno(alumnoSeleccionado)">Desactivar</button>
+            } @else if (alumnoSeleccionado.estado === 'inactivo' && puedeEditar) {
+              <button class="btn-activar" type="button" [disabled]="guardando" (click)="reactivarAlumno(alumnoSeleccionado)">Reactivar</button>
+            }
+          </div>
+        </aside>
+      }
+    </div>
   }
 </div>
