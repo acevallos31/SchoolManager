@@ -1,0 +1,53 @@
+name: Hermes Auto Health
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: hermes-auto-health
+  cancel-in-progress: false
+
+jobs:
+  hermes-auto-health:
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 10
+
+    steps:
+      - name: Verificar host dedicado
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(hostname)" = "hermes-agent"
+
+      - name: Ejecutar healthcheck
+        id: health
+        shell: bash
+        continue-on-error: true
+        run: |
+          sudo /usr/local/sbin/hermes-control health
+
+      - name: Reiniciar gateway si falla el healthcheck
+        if: steps.health.outcome == 'failure'
+        shell: bash
+        run: |
+          echo "Healthcheck falló. Reiniciando Hermes gateway..."
+          sudo /usr/local/sbin/hermes-control restart
+
+      - name: Verificar después del reinicio
+        if: steps.health.outcome == 'failure'
+        shell: bash
+        run: |
+          sleep 10
+          sudo /usr/local/sbin/hermes-control health
+
+      - name: Resumen
+        if: always()
+        shell: bash
+        run: |
+          if [ "${{ steps.health.outcome }}" = "success" ]; then
+            echo "Hermes estaba sano. No se realizó ningún reinicio."
+          else
+            echo "El healthcheck inicial falló; se intentó recuperación automática."
+          fi
