@@ -244,6 +244,42 @@ public sealed class ResponsablesGestionTests(PostgreSqlFixture fixture) : IClass
     }
 
     [Fact]
+    public async Task Reactivar_vinculo_rechazado_si_alumno_inactivo()
+    {
+        var contexto = await CreateContextoAsync();
+        var admin = await InsertUsuarioGlobalAsync("admin");
+        var alumno = await InsertAlumnoAsync(contexto);
+        var responsable = await AuthScalarGuidAsync(admin.AuthUserId,
+            "select public.rpc_crear_responsable_con_documento($1,$2,$3,$4,$5,$6,$7)",
+            contexto.InstitucionId, "Padre", "AluInact", "DNI", $"DOC-{Guid.NewGuid():N}", null, null);
+        await AuthExecuteAsync(admin.AuthUserId,
+            "select public.rpc_vincular_alumno_responsable($1,$2,$3,$4,$5)",
+            alumno, responsable, "PADRE", true, true);
+
+        // Desactivar el vinculo, luego inactivar al alumno.
+        var vinculo = await AdminScalarGuidAsync(
+            "select ar.id from public.alumno_responsable ar where ar.alumno_id=$1 and ar.responsable_id=$2 and estado='activo'",
+            alumno, responsable);
+        await AuthExecuteAsync(admin.AuthUserId,
+            "select public.rpc_desactivar_vinculo_responsable($1,$2)", vinculo, "Temporal");
+        await AdminExecuteAsync(
+            "update public.alumnos set estado = 'inactivo' where id = $1", alumno);
+
+        // Reactivar debe rechazarse: el alumno esta inactivo.
+        var exception = await Assert.ThrowsAsync<PostgresException>(() => AuthExecuteAsync(
+            admin.AuthUserId,
+            "select public.rpc_reactivar_vinculo_responsable($1)", vinculo));
+        Assert.Equal("22023", exception.SqlState);
+
+        // El vinculo sigue inactivo y el responsable permanece activo.
+        Assert.Equal("inactivo", await AdminScalarStringAsync(
+            "select estado from public.alumno_responsable where id = $1", vinculo));
+        Assert.Equal("activo", await AdminScalarStringAsync(
+            "select r.estado from public.responsables r join public.alumno_responsable ar on ar.responsable_id=r.id where ar.id = $1",
+            vinculo));
+    }
+
+    [Fact]
     public async Task Editar_datos_permitidos_del_responsable()
     {
         var institucion = await InsertInstitucionAsync();

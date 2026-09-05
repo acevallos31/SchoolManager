@@ -6,12 +6,23 @@
 -- wrappers RPC (security definer) replicando el patron vigente
 -- (rpc_matricular_alumno, rpc_crear_alumno_*_con_documento).
 --
--- Dependencias: 004 (tablas), 007 (RBAC/permisos), 009 (RLS/grant select).
--- No reescribe 004/007/009. Siguiente numero libre tras 016.
+-- Dependencias: 004 (tablas), 007 (RBAC/permisos), 009 (RLS/grant select),
+-- 016 (configuracion de grados/jornadas/secciones).
+-- No reescribe 004/007/009/016. Siguiente numero libre tras 016.
 
 begin;
 
--- Comprobacion de precedencia: requiere la RLS/gestion de identidad de 009.
+-- Comprobacion de precedencia explicita: exige schema_migrations.version='016'
+-- (patron de una linea igual al de 016, que exige la '015'). No se depende solo
+-- de detectar usuario_actual_id()/009: la corrida ordenada 001..017 debe haber
+-- registrado la '016' antes de aplicar esta migracion.
+do $$ begin
+  if not exists (select 1 from public.schema_migrations where version = '016') then
+    raise exception 'Migracion 017 requiere la migracion 016 (configurar_grados_jornadas_secciones).';
+  end if;
+end $$;
+
+-- Comprobacion de identidad/permisos: requiere la RLS/gestion de identidad de 009.
 do $$
 begin
   if public.usuario_actual_id() is null then
@@ -22,6 +33,11 @@ exception
     raise exception 'Migracion 017 requiere la migracion 009 (seguridad_rls_rpc).';
 end;
 $$;
+
+-- Indice de cobertura idempotente para responsables por institucion
+-- (auditoria externa: responsables.institucion_id no tenia indice propio).
+create index if not exists ix_responsables_institucion_id
+  on public.responsables (institucion_id);
 
 -- ---------------------------------------------------------------------------
 -- Persona: crear o reutilizar identidad por documento (unicidad por
@@ -205,6 +221,23 @@ language plpgsql
 security definer
 set search_path = pg_catalog, public, pg_temp
 as $$
+-- RIESGO CONOCIDO (multiinstitucion / Persona global): esta RPC edita la fila
+-- global de public.personas a traves de editar_datos_persona. La identidad de
+-- persona es unica por documento (indice 003) y se comparte entre
+-- instituciones: si una misma Persona es responsable en DOS instituciones, un
+-- cambio de nombres/apellidos/telefono/correo hecho desde una institucion se
+-- propaga a la otra. Esto es correcto mientras la Persona represente la misma
+-- persona fisica en ambas, pero NO hay datos de responsable por institucion
+-- (ej. cargo/observaciones propios de cada contexto), asi que un responsable
+-- con roles distintos segun institucion no puede modelarse hoy.
+-- NO se rediseno el modelo en esta fase (018). Deuda tecnica documentada:
+-- antes de habilitar multiinstitucion debe revisarse (a) alcance por institucion
+-- de los datos editables del responsable o (b) separar identidad global de
+-- Persona vs perfil de responsable por institucion. Solucion pequena y segura
+-- dentro del modelo actual: limitar la edicion a la institucion del responsable
+-- (se hace via v_institucion_id / usuario_tiene_permiso_actual) y avisar al
+-- operador de que el cambio afecta a la Persona compartida. Cualquier cambio
+-- que exija datos por institucion queda fuera de alcance hasta ese rediseno.
 declare v_persona_id uuid; v_institucion_id uuid;
 begin
   select persona_id, institucion_id into v_persona_id, v_institucion_id
@@ -548,6 +581,14 @@ begin
   if not exists (select 1 from public.alumno_responsable where id = p_vinculo_id and estado = 'inactivo') then
     raise exception 'El vinculo no existe o esta activo.' using errcode = 'P0002';
   end if;
+  -- El alumno vinculado debe estar activo para poder reactivar el vinculo.
+  if not exists (
+    select 1 from public.alumno_responsable ar
+    join public.alumnos a on a.id = ar.alumno_id
+    where ar.id = p_vinculo_id and a.estado = 'activo'
+  ) then
+    raise exception 'El alumno vinculado esta inactivo; no se puede reactivar el vinculo.' using errcode = '22023';
+  end if;
   if not exists (
     select 1 from public.alumno_responsable ar
     join public.responsables r on r.id = ar.responsable_id
@@ -599,6 +640,21 @@ revoke execute on function public.vincular_alumno_responsable(uuid, uuid, text, 
 revoke execute on function public.editar_vinculo_responsable(uuid, text, boolean, boolean) from public, anon, authenticated;
 revoke execute on function public.desactivar_vinculo_responsable(uuid, text) from public, anon, authenticated;
 revoke execute on function public.reactivar_vinculo_responsable(uuid) from public, anon, authenticated;
+
+-- Los wrappers RPC (security definer) NO deben quedar ejecutables por
+-- public/anon (por defecto Postgres otorga EXECUTE a PUBLIC al crearlos).
+-- Se revocan y luego se re-grantea solo a authenticated y service_role.
+revoke execute on function public.rpc_crear_responsable_con_documento(
+  uuid, text, text, text, text, text, text) from public, anon;
+revoke execute on function public.rpc_crear_responsable_para_persona(uuid, uuid) from public, anon;
+revoke execute on function public.rpc_editar_responsable(uuid, text, text, text, text) from public, anon;
+revoke execute on function public.rpc_inactivar_responsable(uuid, text) from public, anon;
+revoke execute on function public.rpc_reactivar_responsable(uuid) from public, anon;
+revoke execute on function public.rpc_vincular_alumno_responsable(
+  uuid, uuid, text, boolean, boolean) from public, anon;
+revoke execute on function public.rpc_editar_vinculo_responsable(uuid, text, boolean, boolean) from public, anon;
+revoke execute on function public.rpc_desactivar_vinculo_responsable(uuid, text) from public, anon;
+revoke execute on function public.rpc_reactivar_vinculo_responsable(uuid) from public, anon;
 
 grant execute on function public.rpc_crear_responsable_con_documento(
   uuid, text, text, text, text, text, text) to authenticated;

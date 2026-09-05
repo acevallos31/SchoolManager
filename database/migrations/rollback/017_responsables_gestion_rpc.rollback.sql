@@ -22,6 +22,9 @@ drop function if exists public.rpc_desactivar_vinculo_responsable(uuid,text);
 drop function if exists public.reactivar_vinculo_responsable(uuid);
 drop function if exists public.rpc_reactivar_vinculo_responsable(uuid);
 
+-- Indice de cobertura creado por la 017 (idempotente; no toca indices previos).
+drop index if exists public.ix_responsables_institucion_id;
+
 delete from public.schema_migrations where version = '017';
 
 commit;
