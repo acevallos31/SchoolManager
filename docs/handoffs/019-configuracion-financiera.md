@@ -3,7 +3,7 @@
 ## Estado: LISTO PARA REVISIÓN — PR abierto (sin mergear por regla)
 
 Rama: `feature/configuracion-financiera-fase-019`.
-HEAD: `f50b752`.
+HEAD: `15cd04a` (pruebas multitenancy/atomicidad).
 Base: `main`. No mergear a main. No iniciar 020/021.
 
 ## Qué se hizo
@@ -39,11 +39,42 @@ Base: `main`. No mergear a main. No iniciar 020/021.
 
 ## Tests
 
-- DB: **80/80** (migración 001→018 aplica limpio; invariantes; RPC).
+- DB: **83/83** (migración 001→018 aplica limpio; invariantes; RPC).
 - API: **44/44** (suite completa) + filtrada `ConfiguracionFinanciera` 11/11.
 - Frontend: **93/93** (20 ficheros; incluye 3 specs nuevos de 019).
 - Backend build Release: **0 errores**. Frontend build: **0 errores**.
 - `git diff --check`: OK.
+
+## Pruebas de multitenancy y atomicidad (revisión humana PR #32)
+
+`ConfiguracionFinancieraMultitenancyTests` (Tests/, fixture mono-institución → el
+test crea 2 instituciones y `multiples_instituciones = true`):
+
+1. **Aislamiento institucional** (`AdminB_no_lee_ni_modifica_recursos_de_AdminA`,
+   2 inst + 2 admins, `admin` con permisos financieros en su propia inst):
+   - AdminB no puede **listar** los recursos de A: `rpc_listar_conceptos_financieros(instA)`
+     y `rpc_listar_planes_pago(instA)` → `42501` (su roles solo aplican a instB).
+   - AdminB en su propio contexto (instB) no ve recursos de A: listar conceptos → 0 filas.
+   - AdminB no puede **editar/desactivar** recursos de A: `rpc_actualizar_concepto`,
+     `rpc_desactivar_concepto`, `rpc_obtener_plan` (`P0002` por ownership) y
+     `rpc_actualizar_plan` (`P0002`).
+   - Después de todo el intento, los recursos de A siguen **intactos** (concepto
+     activo visible, nombre del plan sin cambios). Sin fuga cross-tenant vía
+     RPC `SECURITY DEFINER` (la seguridad vive en los checks de permiso por
+     institución + ownership dentro de la RPC, no en RLS).
+2. **Atomicidad de `rpc_actualizar_plan_pago`** (`Auditar_rollback_total`):
+   se crea un plan con cuotas [orden 1, monto 100] y [orden 2, monto 200]; se
+   intenta reemplazar por cuotas con **orden duplicado** (viola `ux_plan_cuotas_orden`
+   → `23505`) **después** del `update` de nombre y del `delete` de cuotas. Al fallar,
+   la función (átomica por ser un solo statement) revierte TODO: nombre sigue
+   `Plan Original` y cuotas `[100, 200]` (verificado releyendo vía RPC).
+3. **Cuota de otra institución** (`Rechaza_plan_con_cuota_de_concepto_de_otra_institucion`):
+   el trigger `trg_plan_cuotas_concepto_institucion` rechaza (`23503`) un plan en A
+   cuya cuota referencia un concepto de B, revirtiendo la creación (sin filas
+   residuales); el mismo plan con concepto de A sí se crea.
+
+Los 3 tests crean sus propios datos (fixture aislado, búsqueda explícita del
+estado previo). No cambian la migración ni la fixture existente.
 
 ## Fix notable de la migración
 
@@ -69,13 +100,26 @@ no se mezcla código de Responsables/PR #31 aquí.
 
 ## Pendientes reales
 
-- Crear/abrir el **PR contra main** y rellenar el HEAD arriba.
-- Enviar reporte final por Telegram (formato Fase 9).
+- [x] Crear/abrir el **PR contra main** — hecho: **PR #32**.
+- [x] Pruebas de multitenancy + atomicidad + rollback (bloque humano PR #32) — **hecho**.
+- [x] Checkpoint: commit + push de las pruebas — **hecho**.
+- [ ] **Dependencia 016→017 (diferida, NO tocar hasta que PR #31 se mergee)**:
+  la migración `018` hoy exige `schema_migrations version='016'`, pero nace desde
+  main **sin** la `017` de PR #31 (responsables). Cuando PR #31 esté mergeado en
+  main, hacer: `git fetch origin` → integrar `origin/main` con merge normal (sin
+  rebase ni force-push) → confirmar `database/migrations/017_*` presente → cambiar
+  la precondición de `018_configuracion_financiera.sql` a `version='017'` →
+  re-ejecutar la secuencia real 001→018. **No cambiar la numeración de migraciones
+  ni hacerlo antes del merge de PR #31.**
+- [ ] **Reporte final por Telegram** (formato Fase 9) — pendiente en esta sesión.
 
 ## Riesgos / decisiones
 
-- Sin RLS (convención del repo; protección por RPC `SECURITY DEFINER` + checks).
+- Sin RLS (convención del repo; protección por RPC `SECURITY DEFINER` + checks de
+  permiso por institución y ownership — verificado con tests multitenancy).
 - Sin paginación server-side en 019 (catálogos pequeños, filtro `activo`); si un
   bloque futuro escala estos listados, aplicar el patrón `PaginatedResult` de PERF-02.
 - Baseline consolidado **no** se actualizó (política vigente: la construye el flujo
   de migraciones en orden 001→018).
+- La fixture de test es **mono-institución por diseño**; los tests multitenancy
+  crean su TI multi-institución sin tocar esa fixture.
