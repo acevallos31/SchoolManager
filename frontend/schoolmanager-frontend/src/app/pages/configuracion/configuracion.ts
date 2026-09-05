@@ -64,6 +64,14 @@ export class Configuracion implements OnInit {
       || this.auth.tienePermiso('configuracion.secciones.ver');
   }
 
+  get puedeVerConceptosFinancieros(): boolean {
+    return this.auth.tienePermiso('configuracion.conceptos_financieros.ver');
+  }
+
+  get puedeVerPlanesPago(): boolean {
+    return this.auth.tienePermiso('configuracion.planes_pago.ver');
+  }
+
   get creando(): boolean {
     return this.configuracion?.institucion === null;
   }

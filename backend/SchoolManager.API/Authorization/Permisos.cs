@@ -24,6 +24,22 @@ public static class Permisos
         public const string Editar = "academico.responsables.editar";
     }
 
+    public static class ConceptosFinancieros
+    {
+        public const string Ver = "configuracion.conceptos_financieros.ver";
+        public const string Crear = "configuracion.conceptos_financieros.crear";
+        public const string Editar = "configuracion.conceptos_financieros.editar";
+        public const string Desactivar = "configuracion.conceptos_financieros.desactivar";
+    }
+
+    public static class PlanesPago
+    {
+        public const string Ver = "configuracion.planes_pago.ver";
+        public const string Crear = "configuracion.planes_pago.crear";
+        public const string Editar = "configuracion.planes_pago.editar";
+        public const string Desactivar = "configuracion.planes_pago.desactivar";
+    }
+
     public static IReadOnlyList<string> Todos { get; } =
     [
         Alumnos.Ver,
@@ -35,6 +51,14 @@ public static class Permisos
         Matriculas.CambiarEstado,
         Responsables.Ver,
         Responsables.Crear,
-        Responsables.Editar
+        Responsables.Editar,
+        ConceptosFinancieros.Ver,
+        ConceptosFinancieros.Crear,
+        ConceptosFinancieros.Editar,
+        ConceptosFinancieros.Desactivar,
+        PlanesPago.Ver,
+        PlanesPago.Crear,
+        PlanesPago.Editar,
+        PlanesPago.Desactivar
     ];
 }
