@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { Login } from './pages/login/login';
 import { Dashboard } from './pages/dashboard/dashboard';
+import { AppShell } from './layout/app-shell/app-shell';
 import { Alumnos } from './pages/alumnos/alumnos';
 import { Matriculas } from './pages/matriculas/matriculas';
 import { Mensualidades } from './pages/mensualidades/mensualidades';
@@ -14,7 +15,13 @@ export const routes: Routes = [
   { path: 'home', redirectTo: 'login', pathMatch: 'full' },
   { path: 'login', component: Login },
   { path: 'dashboard', component: Dashboard },
-  { path: 'alumnos', component: Alumnos },
+  {
+    path: 'alumnos',
+    component: AppShell,
+    children: [
+      { path: '', component: Alumnos }
+    ]
+  },
   { path: 'matriculas', component: Matriculas },
   { path: 'mensualidades', component: Mensualidades },
   { path: 'portal-padre', component: PortalPadre },

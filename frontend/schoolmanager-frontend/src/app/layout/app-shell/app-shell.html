@@ -1,0 +1,31 @@
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand-block">
+      <p class="brand-kicker">SchoolManager</p>
+      <h2>Panel escolar</h2>
+      <span>Control administrativo diario</span>
+    </div>
+
+    <nav aria-label="Secciones">
+      <a routerLink="/alumnos" routerLinkActive="active">Alumnos</a>
+      @if (puedeVerResponsables) {
+        <a routerLink="/responsables" routerLinkActive="active">Responsables</a>
+      }
+      <a routerLink="/matriculas" routerLinkActive="active">Matrículas</a>
+      <a routerLink="/mensualidades" routerLinkActive="active">Mensualidades</a>
+      @if (puedeVerConfiguracion) {
+        <a routerLink="/configuracion" routerLinkActive="active">Configuración</a>
+      }
+    </nav>
+
+    <div class="sidebar-footer">
+      <p>Acceso conectado con Supabase</p>
+      <button class="btn-volver-panel" type="button" (click)="volverAlPanel()">← Volver al panel</button>
+      <button class="btn-logout" type="button" (click)="logout()">Cerrar sesión</button>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <router-outlet></router-outlet>
+  </main>
+</div>
