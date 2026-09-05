@@ -205,4 +205,135 @@ describe('Alumnos', () => {
     const boton = fixture.nativeElement.querySelector('.btn-matricular-fila');
     expect(boton).toBeNull();
   });
+
+  function clickDetalleFila(indice = 0): HTMLElement {
+    const boton = fixture.nativeElement
+      .querySelectorAll('.btn-detalle-fila')[indice] as HTMLElement | undefined;
+    expect(boton).toBeDefined();
+    boton!.click();
+    return boton!;
+  }
+
+  it('seleccionar un alumno abre el detalle contextual con sus datos', async () => {
+    expect(component.alumnoSeleccionadoId).toBeNull();
+    expect(fixture.nativeElement.querySelector('.alumno-detalle')).toBeNull();
+
+    const boton = clickDetalleFila();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(component.alumnoSeleccionadoId).toBe('alumno-1');
+    expect(component.alumnoSeleccionado).toEqual(alumnoSinMatricula);
+    expect(boton.getAttribute('aria-expanded')).toBe('true');
+    const texto = fixture.nativeElement.textContent;
+    expect(texto).toContain('Ana López');
+    expect(texto).toContain('0801-2008-00001');
+    expect(texto).toContain('CI-2026-0001');
+    expect(texto).toContain('activo');
+    expect(texto).toContain('Sin matrícula');
+    expect(fixture.nativeElement.querySelector('.alumno-detalle')).not.toBeNull();
+  });
+
+  it('cambiar de alumno refresca el detalle contextual', async () => {
+    const carlos: AlumnoListado = {
+      id: 'alumno-2', personaId: 'persona-2', nombreCompleto: 'Carlos Pérez',
+      identidad: '0501-2007-00099', rne: 'RNE-77', codigoInterno: 'CI-2026-0002',
+      estado: 'activo',
+      matriculaActual: { id: 'matricula-1', ciclo: '2026', grado: 'Séptimo', seccion: 'B' }
+    };
+    component.alumnos = [alumnoSinMatricula, carlos];
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const botonAna = clickDetalleFila(0);
+    fixture.detectChanges();
+    expect(component.alumnoSeleccionado?.id).toBe('alumno-1');
+    expect(botonAna.getAttribute('aria-expanded')).toBe('true');
+
+    const botonCarlos = clickDetalleFila(1);
+    fixture.detectChanges();
+    expect(component.alumnoSeleccionado?.id).toBe('alumno-2');
+    expect(botonAna.getAttribute('aria-expanded')).toBe('false');
+    expect(botonCarlos.getAttribute('aria-expanded')).toBe('true');
+    const texto = fixture.nativeElement.textContent;
+    expect(texto).toContain('Carlos Pérez');
+    expect(texto).toContain('RNE-77');
+    expect(texto).toContain('2026');
+    expect(texto).toContain('Séptimo');
+    expect(texto).toContain('B');
+    expect(fixture.nativeElement.querySelector('.alumno-detalle')).not.toBeNull();
+  });
+
+  it('cerrarSeleccion limpia el alumno activo', async () => {
+    clickDetalleFila();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(component.alumnoSeleccionadoId).toBe('alumno-1');
+    expect(fixture.nativeElement.querySelector('.alumno-detalle')).not.toBeNull();
+
+    const cerrar = fixture.nativeElement.querySelector('.btn-cerrar-detalle') as HTMLElement;
+    expect(cerrar).not.toBeNull();
+    cerrar.click();
+    fixture.detectChanges();
+    expect(component.alumnoSeleccionadoId).toBeNull();
+    expect(fixture.nativeElement.querySelector('.alumno-detalle')).toBeNull();
+  });
+
+  it('la selección no persiste en localStorage', () => {
+    const spy = vi.spyOn(Storage.prototype, 'setItem');
+    component.seleccionarAlumno(alumnoSinMatricula);
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it('acción contextual Matricular navega a matrículas con alumnoId del seleccionado', async () => {
+    permisos.add('academico.matriculas.crear');
+    fixture.destroy();
+    fixture = TestBed.createComponent(Alumnos);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    clickDetalleFila();
+    fixture.detectChanges();
+    const boton = fixture.nativeElement.querySelector('.alumno-detalle .btn-matricular-fila');
+    expect(boton).not.toBeNull();
+    (boton as HTMLElement).click();
+    expect(navigate).toHaveBeenCalledWith(['/matriculas'], {
+      queryParams: { alumnoId: 'alumno-1' }
+    });
+  });
+
+  it('acción contextual Responsables navega con alumnoId del seleccionado', async () => {
+    permisos.add('academico.responsables.ver');
+    fixture.destroy();
+    fixture = TestBed.createComponent(Alumnos);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    clickDetalleFila();
+    fixture.detectChanges();
+    const boton = fixture.nativeElement.querySelector('.alumno-detalle .btn-matricular-fila');
+    expect(boton).not.toBeNull();
+    (boton as HTMLElement).click();
+    expect(navigate).toHaveBeenCalledWith(['/responsables'], {
+      queryParams: { alumnoId: 'alumno-1' }
+    });
+  });
+
+  it('acciones contextuales de desactivar y reactivar operan sobre el seleccionado', async () => {
+    permisos.add('academico.alumnos.desactivar');
+    component.seleccionarAlumno(alumnoSinMatricula);
+
+    const prompt = vi.spyOn(window, 'prompt').mockReturnValue('motivo de prueba');
+    await component.desactivarAlumno(component.alumnoSeleccionado!);
+    expect(alumnoService['desactivar']).toHaveBeenCalledWith('alumno-1', 'motivo de prueba');
+    prompt.mockRestore();
+  });
 });
