@@ -8,9 +8,10 @@ Antes de analizar, planificar o modificar código, el agente debe leer en este o
 
 1. `AGENTS.md` completo.
 2. `docs/AI_CONTEXT.md` completo.
-3. `README.md`.
-4. Los archivos específicos del módulo o tarea asignada.
-5. `git status`, rama actual y últimos commits relevantes.
+3. `docs/engineering-principles.md` completo.
+4. `README.md`.
+5. Los archivos específicos del módulo o tarea asignada.
+6. `git status`, rama actual y últimos commits relevantes.
 
 `docs/AI_CONTEXT.md` es la fuente principal para estado funcional, roadmap y decisiones arquitectónicas. `AGENTS.md` define reglas de operación. No duplicar innecesariamente información entre ambos.
 
