@@ -16,7 +16,7 @@ describe('Alumnos', () => {
 
   const alumnoSinMatricula: AlumnoListado = {
     id: 'alumno-1', personaId: 'persona-1', nombreCompleto: 'Ana López',
-    identidad: '0801-2008-00001', rne: null, estado: 'activo', matriculaActual: null
+    identidad: '0801-2008-00001', rne: null, codigoInterno: 'CI-2026-0001', estado: 'activo', matriculaActual: null
   };
 
   beforeEach(async () => {
@@ -154,6 +154,20 @@ describe('Alumnos', () => {
     expect(component.alumnosFiltrados.map(alumno => alumno.id)).toEqual(['alumno-2']);
     component.busqueda = '0801';
     expect(component.alumnosFiltrados.map(alumno => alumno.id)).toEqual(['alumno-1']);
+  });
+
+  it('busca por código interno', () => {
+    component.alumnos = [alumnoSinMatricula, {
+      ...alumnoSinMatricula,
+      id: 'alumno-2', codigoInterno: 'CI-2026-0002'
+    }];
+    component.busqueda = 'ci-2026-0001';
+    expect(component.alumnosFiltrados.map(alumno => alumno.id)).toEqual(['alumno-1']);
+  });
+
+  it('muestra el código interno en la tabla', () => {
+    expect(fixture.nativeElement.textContent).toContain('CI-2026-0001');
+    expect(fixture.nativeElement.textContent).toContain('Código interno');
   });
 
   it('ofrece acción Matricular para alumnos activos con permiso', async () => {

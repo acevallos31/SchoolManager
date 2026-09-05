@@ -63,12 +63,96 @@ describe('AlumnoService', () => {
     expect(alumnos[0]).toMatchObject({ nombreCompleto: 'Ana López', identidad: '0801', matriculaActual: null });
   });
 
+  it('listar incluye codigo_interno en la lectura y lo mapea a codigoInterno', async () => {
+    const query = fluentQuery({
+      data: [{
+        id: 'alumno-id', persona_id: 'persona-id', rne: null, codigo_interno: 'CI-2026-0001', estado: 'activo',
+        persona: { nombres: 'Ana', apellidos: 'López', numero_identificacion: '0801' },
+        matriculas: []
+      }], error: null
+    });
+    from.mockReturnValue(query);
+
+    const alumnos = await service.listar();
+
+    expect(alumnos[0].codigoInterno).toBe('CI-2026-0001');
+    expect(query.select.mock.calls[0][0]).toContain('codigo_interno');
+  });
+
+  it('obtenerPorId mapea codigoInterno desde codigo_interno', async () => {
+    const query = fluentQuery({
+      data: {
+        id: 'alumno-id', persona_id: 'persona-id', rne: null, codigo_interno: 'CI-2026-0001', estado: 'activo',
+        persona: { nombres: 'Ana', apellidos: 'López', numero_identificacion: '0801' }
+      }, error: null
+    });
+    from.mockReturnValue(query);
+
+    const alumno = await service.obtenerPorId('alumno-id');
+
+    expect(alumno?.codigoInterno).toBe('CI-2026-0001');
+    expect(query.select.mock.calls[0][0]).toContain('codigo_interno');
+  });
+
+  it('buscarPaginado incluye codigo_interno en select y en la búsqueda por término', async () => {
+    const query = fluentQuery({
+      data: [{
+        id: 'alumno-id', persona_id: 'persona-id', rne: null, codigo_interno: 'CI-2026-0001', estado: 'activo',
+        persona: { nombres: 'Ana', apellidos: 'López', numero_identificacion: '0801' }
+      }], error: null, count: 1
+    });
+    from.mockReturnValue(query);
+
+    const { items } = await service.buscarPaginado({ termino: 'CI-2026', page: 1, pageSize: 10 });
+
+    expect(items[0].codigoInterno).toBe('CI-2026-0001');
+    expect(query.select.mock.calls[0][0]).toContain('codigo_interno');
+    expect(query.or.mock.calls[0][0]).toContain('codigo_interno.ilike.%CI-2026%');
+  });
+
+  it('buscarPaginado sin término no aplica or (comportamiento existente intacto)', async () => {
+    const query = fluentQuery({
+      data: [{
+        id: 'alumno-id', persona_id: 'persona-id', rne: null, codigo_interno: null, estado: 'activo',
+        persona: { nombres: 'Ana', apellidos: 'López', numero_identificacion: '0801' }
+      }], error: null, count: 1
+    });
+    from.mockReturnValue(query);
+
+    const { items, total } = await service.buscarPaginado({ page: 1, pageSize: 10 });
+
+    expect(total).toBe(1);
+    expect(items[0].codigoInterno).toBeNull();
+    expect(query.or).not.toHaveBeenCalled();
+  });
+
 });
 
 function fluentQuery(result: unknown) {
-  const query = { select: vi.fn(), eq: vi.fn(), order: vi.fn() };
+  interface Fluent {
+    select: ReturnType<typeof vi.fn>;
+    eq: ReturnType<typeof vi.fn>;
+    or: ReturnType<typeof vi.fn>;
+    order: ReturnType<typeof vi.fn>;
+    range: ReturnType<typeof vi.fn>;
+    maybeSingle: ReturnType<typeof vi.fn>;
+    then(onFulfilled?: (value: unknown) => unknown): Promise<unknown>;
+  }
+  const query = {
+    select: vi.fn(),
+    eq: vi.fn(),
+    or: vi.fn(),
+    order: vi.fn(),
+    range: vi.fn(),
+    maybeSingle: vi.fn()
+  } as Fluent;
   query.select.mockReturnValue(query);
   query.eq.mockReturnValue(query);
-  query.order.mockResolvedValue(result);
+  query.or.mockReturnValue(query);
+  query.order.mockReturnValue(query);
+  query.range.mockReturnValue(query);
+  query.maybeSingle.mockReturnValue(query);
+  query.then = (onFulfilled?: (value: unknown) => unknown) =>
+    Promise.resolve(result).then(onFulfilled);
   return query;
 }
