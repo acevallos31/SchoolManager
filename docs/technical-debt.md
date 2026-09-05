@@ -67,10 +67,13 @@ sistema frágil (principios ISW2 #4, #5 y #12).
 
 ## 5. Observabilidad de producción — mínima
 
-- **Problema**: `Program.cs` no expone endpoints de health checks, ni hay
-  logging estructurado (serilog/OpenTelemetry) ni métricas de aplicación. Solo
-  el logging por consola de ASP.NET por defecto. No hay monitoreo del estado
-  de los endpoints `/api` en producción. Ver `docs/observabilidad.md`.
+- **Problema**: el único health check es `GET /health` (liveness básico del
+  proceso: devuelve `200` con `{status, service, timestamp}`), pero **no**
+  comprueba dependencias (Postgres/Auth): no es un healthcheck de readiness.
+  No hay logging estructurado (serilog/OpenTelemetry) ni métricas de
+  aplicación; solo el logging por consola de ASP.NET por defecto. No hay
+  monitoreo del estado de los endpoints `/api` en producción. Ver
+  `docs/observabilidad.md`.
 - **Riesgo**: degradaciones o errores en producción pasan desapercibidos;
   diagnóstico lento. «Funciona en mi máquina» no es evidencia del servicio vivo.
 - **Prioridad**: Media (post-020): lo que hoy protege es el CI + RLS, no el
@@ -90,6 +93,47 @@ sistema frágil (principios ISW2 #4, #5 y #12).
   única + verificación) repetiría errores de fases previas.
 - **Prioridad**: N/A hasta 020.
 - **Cuándo abordarlo**: durante el diseño de 020 (contrato + tests primero).
+
+## 7. SonarCloud — sin cobertura de tests en el análisis automático
+
+- **Problema**: SonarCloud se integra por análisis **automático** (GitHub App,
+  configurado solo con `sonar.cpd.exclusions=database/baseline/` en
+  `.sonarcloud.properties`). El análisis automático no ejecuta tests, por lo
+  que **Coverage aparece vacío** y no hay reporte de cobertura. No hay scanner
+  de SonarCloud en CI (`.github/workflows`) ni `sonar-project.properties`, ni
+  configuración de coverlet/cobertura en los proyectos .NET ni `@vitest/coverage-*`
+  en el frontend (el builder de tests usa Vitest v4.1.11 sin proveedor de
+  cobertura instalado).
+- **Riesgo**: la métrica de calidad de SonarCloud está incompleta (sin
+  cobertura); no se puede exigir una Quality Gate de cobertura y no hay
+  evidencia automática de qué código probado/desprobado hay.
+- **Prioridad**: Media.
+- **Cuándo abordarlo**: en un PR propio de CI (fuera de este de estándares),
+  que necesitará: (a) añadir el scanner de SonarCloud con `SONAR_TOKEN` como
+  secreto del repo (hoy no existe en workflows), (b) recopilar cobertura .NET
+  (coverlet, formato opencover) y frontend (`@vitest/coverage-v8`, reporte
+  lcov) y subirla al scanner. Requiere decisión del mantenedor sobre secretos
+  y modo de análisis (automático vs. CI).
+
+## 8. Duplicación de código — estructural, no por permisos
+
+- **Problema**: la duplicación reportada por SonarCloud (~22.5% histórica) no
+  proviene de los strings de permisos (verificado: cada permiso
+  `configuracion.*` / `academico.*` aparece definido una sola vez en el
+  backend). Las fuentes reales son estructurales y conocidas: (a) el SQL de
+  `validation/*.validation.sql` repite el esquema que valida contra su
+  migración (p. ej. `018_configuracion_financiera.sql` 460 líneas vs su
+  validation 159), y (b) modelos/páginas del frontend que reflejan DTOs del
+  backend (p. ej. `mensualidades.ts` mantiene shapes `monto_pagado`,
+  `monto_final` paralelos a `MensualidadDto.cs`).
+- **Riesgo**: la métrica de duplicación de SonarCloud queda alta sin reflejar
+  una duplicación de lógica de negocio real; puede llevar a refactors
+  innecesarios si se interpreta mal. Parte de la duplicación SQL
+  (`database/baseline/`) ya está excluida de CPD.
+- **Prioridad**: Baja (informativa). No exige refactor grande hoy.
+- **Cuándo abordarlo**: documentar la fuente de duplicación en el reporte de
+  SonarCloud al configurar cobertura (#7); solo refactorizar si la
+  duplicación frontend/DTO empieza a causar bugs de desincronización.
 
 ---
 
