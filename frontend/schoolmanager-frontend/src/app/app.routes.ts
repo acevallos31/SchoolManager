@@ -8,6 +8,8 @@ import { PortalPadre } from './pages/portal-padre/portal-padre';
 import { Configuracion } from './pages/configuracion/configuracion';
 import { ConfiguracionCiclos } from './pages/configuracion-ciclos/configuracion-ciclos';
 import { ConfiguracionEstructuraAcademica } from './pages/configuracion-estructura-academica/configuracion-estructura-academica';
+import { ConfiguracionConceptosFinancieros } from './pages/configuracion-conceptos-financieros/configuracion-conceptos-financieros';
+import { ConfiguracionPlanesPago } from './pages/configuracion-planes-pago/configuracion-planes-pago';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'login', pathMatch: 'full' },
@@ -21,5 +23,7 @@ export const routes: Routes = [
   { path: 'configuracion', component: Configuracion },
   { path: 'configuracion/ciclos', component: ConfiguracionCiclos },
   { path: 'configuracion/estructura-academica', component: ConfiguracionEstructuraAcademica },
+  { path: 'configuracion/conceptos-financieros', component: ConfiguracionConceptosFinancieros },
+  { path: 'configuracion/planes-pago', component: ConfiguracionPlanesPago },
   { path: '**', redirectTo: 'login' }
 ];

@@ -1,0 +1,38 @@
+<main class="page">
+  <header><div><p>Configuración</p><h1>Conceptos financieros</h1></div><button (click)="volver()">Volver</button></header>
+
+  @if (mensaje) { <p class="message" [class.error]="esError" role="status">{{ mensaje }}</p> }
+
+  <section>
+    <div class="heading"><h2>Catálogo de conceptos</h2>@if (puedeCrear) {<button (click)="abrirForm()">+ Nuevo concepto</button>}</div>
+    @if (cargando) { <p>Cargando...</p> }
+    @else if (!conceptos.length) { <div class="empty">No hay conceptos financieros configurados.@if (puedeCrear) {<button (click)="abrirForm()">Crear primer concepto</button>}</div> }
+    @else {
+      <table>
+        <thead><tr><th>Nombre</th><th>Monto</th><th>Descripción</th><th>Estado</th><th>Acciones</th></tr></thead>
+        <tbody>
+          @for (c of conceptos; track c.id) {
+            <tr>
+              <td>{{ c.nombre }}</td><td>{{ c.monto | currency }}</td><td>{{ c.descripcion || '—' }}</td><td>{{ c.activo ? 'Activo' : 'Inactivo' }}</td>
+              <td>
+                @if (puedeEditar) {<button (click)="abrirForm(c)">Editar</button>}
+                @if (puedeDesactivar) {<button (click)="cambiarEstado(c)">{{ c.activo ? 'Desactivar' : 'Reactivar' }}</button>}
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </section>
+
+  @if (mostrarForm) {
+    <form (ngSubmit)="guardar()">
+      <h3>{{ editando ? 'Editar' : 'Nuevo' }} concepto</h3>
+      <label>Nombre<input name="cn" [(ngModel)]="conceptoForm.nombre"></label>
+      <label>Monto<input type="number" min="0" step="0.01" name="cm" [(ngModel)]="conceptoForm.monto"></label>
+      <label>Descripción<input name="cd" [(ngModel)]="conceptoForm.descripcion"></label>
+      <button type="button" (click)="mostrarForm = false">Cancelar</button>
+      <button [disabled]="guardando">{{ guardando ? 'Guardando...' : 'Guardar' }}</button>
+    </form>
+  }
+</main>

@@ -24,6 +24,18 @@
         <a class="configuration-link" routerLink="/configuracion/estructura-academica">Gestionar estructura académica</a>
       </section>
     }
+    @if (puedeVerConceptosFinancieros) {
+      <section class="card navigation-card">
+        <div><h2>Conceptos financieros</h2><p>Define los montos y conceptos de cobro (matrícula, mensualidad, otros).</p></div>
+        <a class="configuration-link" routerLink="/configuracion/conceptos-financieros">Gestionar conceptos</a>
+      </section>
+    }
+    @if (puedeVerPlanesPago) {
+      <section class="card navigation-card">
+        <div><h2>Planes de pago</h2><p>Configura planes con sus cuotas, montos y vencimientos.</p></div>
+        <a class="configuration-link" routerLink="/configuracion/planes-pago">Gestionar planes de pago</a>
+      </section>
+    }
     <section class="card">
       <div class="section-heading">
         <div><h2>Centro educativo</h2><p>Información general de la institución.</p></div>

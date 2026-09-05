@@ -1,0 +1,18 @@
+.page { max-width: 1100px; margin: auto; padding: 2rem; }
+header, .heading { display: flex; justify-content: space-between; align-items: start; gap: 1rem; }
+section, form { margin-top: 1rem; padding: 1.3rem; border: 1px solid var(--sm-border); border-radius: 1rem; background: var(--sm-surface); }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: .7rem; border-bottom: 1px solid var(--sm-border); text-align: left; }
+button { margin: .2rem; padding: .55rem .8rem; border: 0; border-radius: 999px; cursor: pointer; }
+button.danger { background: #fde9e7; color: #912f2b; }
+form { display: flex; flex-wrap: wrap; gap: 1rem; align-items: start; }
+form label { display: grid; gap: .3rem; }
+input, select { padding: .6rem; border: 1px solid var(--sm-border); border-radius: .5rem; }
+.cuotas-block { flex: 1 1 100%; border-top: 1px solid var(--sm-border); padding-top: 1rem; }
+.cuotas-heading { display: flex; justify-content: space-between; align-items: center; }
+.cuota-row { display: flex; flex-wrap: wrap; gap: .8rem; align-items: end; padding: .6rem 0; border-bottom: 1px dashed var(--sm-border); }
+.total { font-weight: 700; margin-top: .6rem; }
+.actions { flex: 1 1 100%; display: flex; justify-content: flex-end; gap: .5rem; }
+.message, .empty { padding: 1rem; border-radius: .7rem; background: #e5f5eb; }
+.message.error { background: #fde9e7; color: #912f2b; }
+@media (max-width: 750px) { table { display: block; overflow: auto; } .page { padding: 1rem; } }
