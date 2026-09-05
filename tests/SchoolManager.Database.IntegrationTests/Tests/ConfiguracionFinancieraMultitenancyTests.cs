@@ -21,6 +21,57 @@ public sealed class ConfiguracionFinancieraMultitenancyTests(PostgreSqlFixture f
     : IClassFixture<PostgreSqlFixture>
 {
     [Fact]
+    public async Task Authenticated_no_tiene_acceso_directo_pero_opera_mediante_RPC()
+    {
+        await ResetAsync();
+        await SetMultiInstitucionAsync();
+        var institucion = await InsertInstitucionAsync();
+        var admin = await InsertUsuarioAsync("admin", institucion);
+
+        foreach (var sql in new[]
+        {
+            "select * from public.conceptos_financieros where institucion_id=$1",
+            "insert into public.conceptos_financieros(institucion_id,nombre,monto) values ($1,'Directo',1)",
+            "update public.conceptos_financieros set monto=2 where institucion_id=$1",
+            "select * from public.plan_cuotas where plan_id=$1"
+        })
+        {
+            var error = await Assert.ThrowsAsync<PostgresException>(
+                () => AuthExecuteAsync(admin, sql, institucion));
+            Assert.Equal("42501", error.SqlState);
+        }
+
+        var concepto = await AuthScalarAsync<Guid>(admin, """
+            select public.rpc_crear_concepto_financiero('Colegiatura segura', 1500, null, $1)
+            """, institucion);
+        Assert.NotEqual(Guid.Empty, concepto);
+        Assert.Equal(1L, await AuthScalarAsync<long>(admin,
+            "select count(*) from public.rpc_listar_conceptos_financieros($1)", institucion));
+    }
+
+    [Theory]
+    [InlineData(-1, 10, 0)]
+    [InlineData(0, -1, 0)]
+    [InlineData(0, 10, -1)]
+    public async Task Rpc_rechaza_orden_monto_o_vencimiento_negativos(
+        int orden, int monto, int vencimientoDias)
+    {
+        await ResetAsync();
+        await SetMultiInstitucionAsync();
+        var institucion = await InsertInstitucionAsync();
+        var admin = await InsertUsuarioAsync("admin", institucion);
+        var cuotas = $$"""[{"orden":{{orden}},"monto":{{monto}},"vencimiento_dias":{{vencimientoDias}}}]""";
+
+        var error = await Assert.ThrowsAsync<PostgresException>(() => AuthExecuteAsync(
+            admin,
+            "select public.rpc_crear_plan_pago('Plan invalido', null, $1::jsonb, $2)",
+            cuotas, institucion));
+        Assert.Equal("22023", error.SqlState);
+        Assert.Equal(0L, await AuthScalarAsync<long>(admin,
+            "select count(*) from public.rpc_listar_planes_pago($1)", institucion));
+    }
+
+    [Fact]
     public async Task AdminB_no_accede_a_recursos_de_AdminA_via_RPC()
     {
         await ResetAsync();

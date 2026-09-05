@@ -2,6 +2,7 @@
 -- Bloque 019. Solo configuracion/plantilla. La generacion de obligaciones
 -- (mensualidades/pagos) pertenece al bloque 020 y no se toca aqui.
 begin;
+-- Pendiente posterior al merge de PR #31: cambiar el prerrequisito de 016 a 017.
 do $$ begin if not exists(select 1 from public.schema_migrations where version='016') then raise exception 'Migracion 018 requiere la migracion 016.'; end if; end $$;
 
 create table if not exists public.conceptos_financieros (
@@ -32,7 +33,7 @@ create table if not exists public.planes_pago (
 create table if not exists public.plan_cuotas (
     id uuid primary key default gen_random_uuid(),
     plan_id uuid not null references public.planes_pago(id) on delete cascade,
-    orden integer not null,
+    orden integer not null check (orden >= 0),
     concepto_id uuid references public.conceptos_financieros(id) on delete restrict,
     descripcion text,
     monto numeric(12,2) not null check (monto >= 0),
@@ -53,6 +54,19 @@ create unique index if not exists ux_planes_pago_nombre_normalizado
 create unique index if not exists ux_plan_cuotas_orden
   on public.plan_cuotas(plan_id, orden);
 
+-- Acelera la comprobacion de la FK al actualizar/eliminar conceptos.
+create index if not exists ix_plan_cuotas_concepto_id
+  on public.plan_cuotas(concepto_id) where concepto_id is not null;
+
+-- Superficie RPC-only: sin policies ni acceso directo para clientes Supabase.
+alter table public.conceptos_financieros enable row level security;
+alter table public.planes_pago enable row level security;
+alter table public.plan_cuotas enable row level security;
+revoke all privileges on table public.conceptos_financieros,
+  public.planes_pago, public.plan_cuotas from public, anon, authenticated;
+grant all privileges on table public.conceptos_financieros,
+  public.planes_pago, public.plan_cuotas to postgres, service_role;
+
 -- Una cuota no puede referenciar un concepto de otra institucion.
 create or replace function public.trg_plan_cuotas_concepto_institucion()
 returns trigger language plpgsql set search_path = pg_catalog, public, pg_temp as $$
@@ -70,6 +84,11 @@ end $$;
 create trigger trg_plan_cuotas_concepto_institucion_before
   before insert or update of concepto_id, plan_id on public.plan_cuotas
   for each row execute function public.trg_plan_cuotas_concepto_institucion();
+
+revoke execute on function public.trg_plan_cuotas_concepto_institucion()
+  from public, anon, authenticated;
+grant execute on function public.trg_plan_cuotas_concepto_institucion()
+  to service_role;
 
 insert into public.permisos(codigo,modulo,nombre) values
  ('configuracion.conceptos_financieros.ver','configuracion','Ver conceptos financieros'),
@@ -89,8 +108,8 @@ on conflict do nothing;
 -- RLS: este modulo se protege exclusivamente mediante RPC SECURITY DEFINER
 -- con verificacion de permisos (`usuario_tiene_permiso_actual`) y de
 -- pertenencia institucional (`resolver_institucion_operacion`), igual que el
--- resto de modulos de configuracion (v. migracion 016). No se habilitan
--- politicas sobre las tablas.
+-- resto de modulos de configuracion (v. migracion 016). RLS queda habilitado
+-- sin policies y se revocan todos los privilegios directos de clientes.
 
 -- ========================= CONCEPTOS FINANCIEROS =========================
 
@@ -101,9 +120,11 @@ returns table(id uuid,nombre text,descripcion text,monto numeric,activo boolean,
 language plpgsql security definer set search_path = pg_catalog, public, pg_temp as $$
 declare v uuid;
 begin
+  if public.usuario_actual_id() is null then
+    raise exception 'Permiso denegado.' using errcode = '42501';
+  end if;
   v := public.resolver_institucion_operacion(p_institucion_id);
-  if public.usuario_actual_id() is null
-     or not public.usuario_tiene_permiso_actual('configuracion.conceptos_financieros.ver', v) then
+  if not public.usuario_tiene_permiso_actual('configuracion.conceptos_financieros.ver', v) then
     raise exception 'Permiso denegado.' using errcode = '42501';
   end if;
   return query
@@ -119,9 +140,11 @@ create or replace function public.rpc_crear_concepto_financiero(
 returns uuid language plpgsql security definer set search_path = pg_catalog, public, pg_temp as $$
 declare v uuid; x uuid;
 begin
+  if public.usuario_actual_id() is null then
+    raise exception 'Permiso denegado.' using errcode = '42501';
+  end if;
   v := public.resolver_institucion_operacion(p_institucion_id);
-  if public.usuario_actual_id() is null
-     or not public.usuario_tiene_permiso_actual('configuracion.conceptos_financieros.crear', v) then
+  if not public.usuario_tiene_permiso_actual('configuracion.conceptos_financieros.crear', v) then
     raise exception 'Permiso denegado.' using errcode = '42501';
   end if;
   if btrim(coalesce(p_nombre, '')) = '' then
@@ -141,16 +164,16 @@ create or replace function public.rpc_actualizar_concepto_financiero(
 returns void language plpgsql security definer set search_path = pg_catalog, public, pg_temp as $$
 declare c public.conceptos_financieros%rowtype; v uuid;
 begin
-  select * into c from public.conceptos_financieros where id = p_concepto_id for update;
-  if not found then raise exception 'El concepto no existe.' using errcode = 'P0002'; end if;
-  v := public.resolver_institucion_operacion(p_institucion_id);
-  if c.institucion_id <> v then
-    raise exception 'El concepto no pertenece a la institucion actual.' using errcode = 'P0002';
-  end if;
-  if public.usuario_actual_id() is null
-     or not public.usuario_tiene_permiso_actual('configuracion.conceptos_financieros.editar', v) then
+  if public.usuario_actual_id() is null then
     raise exception 'Permiso denegado.' using errcode = '42501';
   end if;
+  v := public.resolver_institucion_operacion(p_institucion_id);
+  if not public.usuario_tiene_permiso_actual('configuracion.conceptos_financieros.editar', v) then
+    raise exception 'Permiso denegado.' using errcode = '42501';
+  end if;
+  select * into c from public.conceptos_financieros
+  where id = p_concepto_id and institucion_id = v for update;
+  if not found then raise exception 'El concepto no existe.' using errcode = 'P0002'; end if;
   if btrim(coalesce(p_nombre, '')) = '' or p_monto is null or p_monto < 0 then
     raise exception 'Nombre o monto del concepto no valido.' using errcode = '22023';
   end if;
@@ -165,16 +188,16 @@ create or replace function public.rpc_desactivar_concepto_financiero(
 returns void language plpgsql security definer set search_path = pg_catalog, public, pg_temp as $$
 declare c public.conceptos_financieros%rowtype; v uuid;
 begin
-  select * into c from public.conceptos_financieros where id = p_concepto_id for update;
-  if not found then raise exception 'El concepto no existe.' using errcode = 'P0002'; end if;
-  v := public.resolver_institucion_operacion(p_institucion_id);
-  if c.institucion_id <> v then
-    raise exception 'El concepto no pertenece a la institucion actual.' using errcode = 'P0002';
-  end if;
-  if public.usuario_actual_id() is null
-     or not public.usuario_tiene_permiso_actual('configuracion.conceptos_financieros.desactivar', v) then
+  if public.usuario_actual_id() is null then
     raise exception 'Permiso denegado.' using errcode = '42501';
   end if;
+  v := public.resolver_institucion_operacion(p_institucion_id);
+  if not public.usuario_tiene_permiso_actual('configuracion.conceptos_financieros.desactivar', v) then
+    raise exception 'Permiso denegado.' using errcode = '42501';
+  end if;
+  select * into c from public.conceptos_financieros
+  where id = p_concepto_id and institucion_id = v for update;
+  if not found then raise exception 'El concepto no existe.' using errcode = 'P0002'; end if;
   if btrim(coalesce(p_motivo, '')) = '' then
     raise exception 'El motivo es obligatorio.' using errcode = '22023';
   end if;
@@ -188,16 +211,16 @@ create or replace function public.rpc_reactivar_concepto_financiero(
 returns void language plpgsql security definer set search_path = pg_catalog, public, pg_temp as $$
 declare c public.conceptos_financieros%rowtype; v uuid;
 begin
-  select * into c from public.conceptos_financieros where id = p_concepto_id for update;
-  if not found then raise exception 'El concepto no existe.' using errcode = 'P0002'; end if;
-  v := public.resolver_institucion_operacion(p_institucion_id);
-  if c.institucion_id <> v then
-    raise exception 'El concepto no pertenece a la institucion actual.' using errcode = 'P0002';
-  end if;
-  if public.usuario_actual_id() is null
-     or not public.usuario_tiene_permiso_actual('configuracion.conceptos_financieros.editar', v) then
+  if public.usuario_actual_id() is null then
     raise exception 'Permiso denegado.' using errcode = '42501';
   end if;
+  v := public.resolver_institucion_operacion(p_institucion_id);
+  if not public.usuario_tiene_permiso_actual('configuracion.conceptos_financieros.editar', v) then
+    raise exception 'Permiso denegado.' using errcode = '42501';
+  end if;
+  select * into c from public.conceptos_financieros
+  where id = p_concepto_id and institucion_id = v for update;
+  if not found then raise exception 'El concepto no existe.' using errcode = 'P0002'; end if;
   update public.conceptos_financieros
   set activo = true, fecha_desactivacion = null, motivo_desactivacion = null, updated_at = now()
   where id = c.id;
@@ -212,9 +235,11 @@ returns table(id uuid,nombre text,descripcion text,activo boolean,
 language plpgsql security definer set search_path = pg_catalog, public, pg_temp as $$
 declare v uuid;
 begin
+  if public.usuario_actual_id() is null then
+    raise exception 'Permiso denegado.' using errcode = '42501';
+  end if;
   v := public.resolver_institucion_operacion(p_institucion_id);
-  if public.usuario_actual_id() is null
-     or not public.usuario_tiene_permiso_actual('configuracion.planes_pago.ver', v) then
+  if not public.usuario_tiene_permiso_actual('configuracion.planes_pago.ver', v) then
     raise exception 'Permiso denegado.' using errcode = '42501';
   end if;
   return query
@@ -235,16 +260,16 @@ returns table(id uuid,nombre text,descripcion text,activo boolean,
 language plpgsql security definer set search_path = pg_catalog, public, pg_temp as $$
 declare v uuid; vp public.planes_pago%rowtype;
 begin
-  select * into vp from public.planes_pago p where p.id = p_plan_id;
-  if not found then raise exception 'El plan no existe.' using errcode = 'P0002'; end if;
-  v := public.resolver_institucion_operacion(p_institucion_id);
-  if vp.institucion_id <> v then
-    raise exception 'El plan no pertenece a la institucion actual.' using errcode = 'P0002';
-  end if;
-  if public.usuario_actual_id() is null
-     or not public.usuario_tiene_permiso_actual('configuracion.planes_pago.ver', v) then
+  if public.usuario_actual_id() is null then
     raise exception 'Permiso denegado.' using errcode = '42501';
   end if;
+  v := public.resolver_institucion_operacion(p_institucion_id);
+  if not public.usuario_tiene_permiso_actual('configuracion.planes_pago.ver', v) then
+    raise exception 'Permiso denegado.' using errcode = '42501';
+  end if;
+  select * into vp from public.planes_pago p
+  where p.id = p_plan_id and p.institucion_id = v;
+  if not found then raise exception 'El plan no existe.' using errcode = 'P0002'; end if;
   return query
     select vp.id,vp.nombre,vp.descripcion,vp.activo,
            c.id,c.orden,c.concepto_id,coalesce(k.nombre, ''),c.descripcion,c.monto,c.vencimiento_dias
@@ -261,15 +286,20 @@ create or replace function public.rpc_crear_plan_pago(
 returns uuid language plpgsql security definer set search_path = pg_catalog, public, pg_temp as $$
 declare v uuid; x uuid; c jsonb;
 begin
+  if public.usuario_actual_id() is null then
+    raise exception 'Permiso denegado.' using errcode = '42501';
+  end if;
   v := public.resolver_institucion_operacion(p_institucion_id);
-  if public.usuario_actual_id() is null
-     or not public.usuario_tiene_permiso_actual('configuracion.planes_pago.crear', v) then
+  if not public.usuario_tiene_permiso_actual('configuracion.planes_pago.crear', v) then
     raise exception 'Permiso denegado.' using errcode = '42501';
   end if;
   if btrim(coalesce(p_nombre, '')) = '' then
     raise exception 'El nombre del plan es obligatorio.' using errcode = '22023';
   end if;
-  if jsonb_typeof(p_cuotas) <> 'array' or jsonb_array_length(coalesce(p_cuotas, '[]'::jsonb)) = 0 then
+  if p_cuotas is null or jsonb_typeof(p_cuotas) <> 'array' then
+    raise exception 'Las cuotas deben enviarse como un arreglo JSON.' using errcode = '22023';
+  end if;
+  if jsonb_array_length(p_cuotas) = 0 then
     raise exception 'El plan debe incluir al menos una cuota.' using errcode = '22023';
   end if;
 
@@ -279,8 +309,11 @@ begin
 
   for c in select * from jsonb_array_elements(p_cuotas)
   loop
-    if (c->>'monto') is null or (c->>'monto')::numeric < 0 then
-      raise exception 'El monto de una cuota no es valido.' using errcode = '22023';
+    if jsonb_typeof(c) <> 'object'
+       or (c->>'monto') is null or (c->>'monto')::numeric < 0
+       or coalesce((c->>'orden')::integer, 0) < 0
+       or coalesce((c->>'vencimiento_dias')::integer, 0) < 0 then
+      raise exception 'Los datos de una cuota no son validos.' using errcode = '22023';
     end if;
     insert into public.plan_cuotas(plan_id, orden, concepto_id, descripcion, monto, vencimiento_dias)
     values (x,
@@ -298,23 +331,26 @@ create or replace function public.rpc_actualizar_plan_pago(
 returns void language plpgsql security definer set search_path = pg_catalog, public, pg_temp as $$
 declare v uuid; p public.planes_pago%rowtype; c jsonb;
 begin
-  select * into p from public.planes_pago where id = p_plan_id for update;
-  if not found then raise exception 'El plan no existe.' using errcode = 'P0002'; end if;
-  v := public.resolver_institucion_operacion(p_institucion_id);
-  if p.institucion_id <> v then
-    raise exception 'El plan no pertenece a la institucion actual.' using errcode = 'P0002';
-  end if;
-  if public.usuario_actual_id() is null
-     or not public.usuario_tiene_permiso_actual('configuracion.planes_pago.editar', v) then
+  if public.usuario_actual_id() is null then
     raise exception 'Permiso denegado.' using errcode = '42501';
   end if;
+  v := public.resolver_institucion_operacion(p_institucion_id);
+  if not public.usuario_tiene_permiso_actual('configuracion.planes_pago.editar', v) then
+    raise exception 'Permiso denegado.' using errcode = '42501';
+  end if;
+  select * into p from public.planes_pago
+  where id = p_plan_id and institucion_id = v for update;
+  if not found then raise exception 'El plan no existe.' using errcode = 'P0002'; end if;
   if btrim(coalesce(p_nombre, '')) = '' then
     raise exception 'El nombre del plan es obligatorio.' using errcode = '22023';
   end if;
   if p.activo is false then
     raise exception 'Un plan desactivado no puede editarse.' using errcode = '23514';
   end if;
-  if jsonb_typeof(p_cuotas) <> 'array' or jsonb_array_length(coalesce(p_cuotas, '[]'::jsonb)) = 0 then
+  if p_cuotas is null or jsonb_typeof(p_cuotas) <> 'array' then
+    raise exception 'Las cuotas deben enviarse como un arreglo JSON.' using errcode = '22023';
+  end if;
+  if jsonb_array_length(p_cuotas) = 0 then
     raise exception 'El plan debe incluir al menos una cuota.' using errcode = '22023';
   end if;
 
@@ -327,8 +363,11 @@ begin
   delete from public.plan_cuotas where plan_id = p.id;
   for c in select * from jsonb_array_elements(p_cuotas)
   loop
-    if (c->>'monto') is null or (c->>'monto')::numeric < 0 then
-      raise exception 'El monto de una cuota no es valido.' using errcode = '22023';
+    if jsonb_typeof(c) <> 'object'
+       or (c->>'monto') is null or (c->>'monto')::numeric < 0
+       or coalesce((c->>'orden')::integer, 0) < 0
+       or coalesce((c->>'vencimiento_dias')::integer, 0) < 0 then
+      raise exception 'Los datos de una cuota no son validos.' using errcode = '22023';
     end if;
     insert into public.plan_cuotas(plan_id, orden, concepto_id, descripcion, monto, vencimiento_dias)
     values (p.id,
@@ -345,16 +384,16 @@ create or replace function public.rpc_desactivar_plan_pago(
 returns void language plpgsql security definer set search_path = pg_catalog, public, pg_temp as $$
 declare p public.planes_pago%rowtype; v uuid;
 begin
-  select * into p from public.planes_pago where id = p_plan_id for update;
-  if not found then raise exception 'El plan no existe.' using errcode = 'P0002'; end if;
-  v := public.resolver_institucion_operacion(p_institucion_id);
-  if p.institucion_id <> v then
-    raise exception 'El plan no pertenece a la institucion actual.' using errcode = 'P0002';
-  end if;
-  if public.usuario_actual_id() is null
-     or not public.usuario_tiene_permiso_actual('configuracion.planes_pago.desactivar', v) then
+  if public.usuario_actual_id() is null then
     raise exception 'Permiso denegado.' using errcode = '42501';
   end if;
+  v := public.resolver_institucion_operacion(p_institucion_id);
+  if not public.usuario_tiene_permiso_actual('configuracion.planes_pago.desactivar', v) then
+    raise exception 'Permiso denegado.' using errcode = '42501';
+  end if;
+  select * into p from public.planes_pago
+  where id = p_plan_id and institucion_id = v for update;
+  if not found then raise exception 'El plan no existe.' using errcode = 'P0002'; end if;
   if btrim(coalesce(p_motivo, '')) = '' then
     raise exception 'El motivo es obligatorio.' using errcode = '22023';
   end if;
@@ -368,16 +407,16 @@ create or replace function public.rpc_reactivar_plan_pago(
 returns void language plpgsql security definer set search_path = pg_catalog, public, pg_temp as $$
 declare p public.planes_pago%rowtype; v uuid;
 begin
-  select * into p from public.planes_pago where id = p_plan_id for update;
-  if not found then raise exception 'El plan no existe.' using errcode = 'P0002'; end if;
-  v := public.resolver_institucion_operacion(p_institucion_id);
-  if p.institucion_id <> v then
-    raise exception 'El plan no pertenece a la institucion actual.' using errcode = 'P0002';
-  end if;
-  if public.usuario_actual_id() is null
-     or not public.usuario_tiene_permiso_actual('configuracion.planes_pago.editar', v) then
+  if public.usuario_actual_id() is null then
     raise exception 'Permiso denegado.' using errcode = '42501';
   end if;
+  v := public.resolver_institucion_operacion(p_institucion_id);
+  if not public.usuario_tiene_permiso_actual('configuracion.planes_pago.editar', v) then
+    raise exception 'Permiso denegado.' using errcode = '42501';
+  end if;
+  select * into p from public.planes_pago
+  where id = p_plan_id and institucion_id = v for update;
+  if not found then raise exception 'El plan no existe.' using errcode = 'P0002'; end if;
   update public.planes_pago
   set activo = true, fecha_desactivacion = null, motivo_desactivacion = null, updated_at = now()
   where id = p.id;
@@ -407,6 +446,16 @@ grant execute on function public.rpc_listar_conceptos_financieros(uuid,boolean),
   public.rpc_actualizar_plan_pago(uuid,text,text,jsonb,uuid),
   public.rpc_desactivar_plan_pago(uuid,text,uuid),
   public.rpc_reactivar_plan_pago(uuid,uuid) to authenticated;
-grant execute on all functions in schema public to service_role;
+grant execute on function public.rpc_listar_conceptos_financieros(uuid,boolean),
+  public.rpc_crear_concepto_financiero(text,numeric,text,uuid),
+  public.rpc_actualizar_concepto_financiero(uuid,text,numeric,text,uuid),
+  public.rpc_desactivar_concepto_financiero(uuid,text,uuid),
+  public.rpc_reactivar_concepto_financiero(uuid,uuid),
+  public.rpc_listar_planes_pago(uuid,boolean),
+  public.rpc_obtener_plan_pago(uuid,uuid),
+  public.rpc_crear_plan_pago(text,text,jsonb,uuid),
+  public.rpc_actualizar_plan_pago(uuid,text,text,jsonb,uuid),
+  public.rpc_desactivar_plan_pago(uuid,text,uuid),
+  public.rpc_reactivar_plan_pago(uuid,uuid) to service_role;
 insert into public.schema_migrations(version,nombre,checksum)values('018','configuracion_financiera',null)on conflict(version)do nothing;
 commit;

@@ -5,8 +5,16 @@ begin;
 
 -- Quitar permisos (los roles_permisos se limpian en cascada por FK).
 delete from public.permisos
-where codigo like 'configuracion.conceptos_financieros.%'
-   or codigo like 'configuracion.planes_pago.%';
+where codigo in (
+  'configuracion.conceptos_financieros.ver',
+  'configuracion.conceptos_financieros.crear',
+  'configuracion.conceptos_financieros.editar',
+  'configuracion.conceptos_financieros.desactivar',
+  'configuracion.planes_pago.ver',
+  'configuracion.planes_pago.crear',
+  'configuracion.planes_pago.editar',
+  'configuracion.planes_pago.desactivar'
+);
 
 -- Eliminar funciones RPC (ciclo de vida via drop function).
 drop function if exists public.rpc_listar_conceptos_financieros(uuid, boolean);
