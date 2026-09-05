@@ -2,7 +2,10 @@
 
 - **Rama:** `feature/responsables-fase-018` → `main`
 - **PR:** https://github.com/acevallos31/SchoolManager/pull/31 (sin mergear)
-- **SHA final:** `5e226be`
+- **SHA final:** `3fe7baa`
+- **Merge con main:** `3fe7baa` (Merge remote-tracking 'origin/main') — resuelto conflicto
+  add/add en `.sonarcloud.properties` (ambos lados tenían la misma exclusion; se conservó
+  la versión de main, autoritativa).
 - **Commits del cierre:**
   - `b6decce` docs: agregar prompt smart para cierre 018 (ya existía)
   - `ff46f79` fix(responsables): corregir reasignacion de responsable principal
@@ -90,20 +93,23 @@
 ## Estado Sonar / CI / Vercel
 > Test suites (sesión de cierre): DB **91/91**, API **46/46**, frontend **93/93**, builds OK,
 > `git diff --check` OK, CS8625 eliminado (build de tests 0 warnings).
-> CI (`Validar Compilación`) **pass** · Vercel/Preview **pass** · **SonarCloud: en re-análisis**
-> tras pushear `.sonarcloud.properties` (commit `5e226be`, 2026-09-05 ~00:11Z).
-> Última medida disponible del PR #31: `new_duplicated_lines_density` **34.12%** (1286 líneas;
-> baseline 619 + 017 al 94.9% 608 + ResponsablesController 72, script vacío). Con la exclusión
-> CPD del baseline se espera caer a ~2% (< 3% del gate Sonar way). El `project_status` de Sonar
-> requiere auth (no disponible en sesión).
+> CI (`Validar Compilación`) **pass** · Vercel/Preview **pass** · **SonarCloud: queued/pending**
+> sobre el nuevo HEAD `3fe7baa` (push 2026-09-05 02:27Z; la check-run de sonarqubecloud no ha
+> arrancado transcurridos ~11 min → infraestructura).
+> `.sonarcloud.properties` con `sonar.cpd.exclusions=database/baseline/` vive en `main`
+> (4ad58d1) y se conservó idéntica al integrar main en la rama.
+> Última medida disponible del PR #31 (stale, pre-exclusión): `new_duplicated_lines_density`
+> **34.12%** (1286 líneas; baseline 619 + 017 al 94.9% 608 + ResponsablesController 72, script
+> vacío). Con la exclusión CPD del baseline se espera caer a ~2% (< 3% del gate Sonar way). El
+> `project_status` de Sonar requiere auth (no disponible en sesión); el gate se confirma por
+> check-run de sonarqubecloud.
 
 ## Pendientes reales
 - **018G** auditoría read-only Supabase remota: sin credenciales de lector → documentado, no ejecutado.
-- **Confirmar SonarCloud**: el re-análisis de `5e226be` (con `.sonarcloud.properties`) debe arrojar
-  el baseline fuera de la duplicación y el gate verde. Nota: SonarQube Cloud lee el
-  `.sonarcloud.properties` del default branch; si el análisis del PR no la considera desde la
-  rama, la exclusión deberá llegar a `main` (o configurarse en la UI/administración de SonarQube
-  Cloud) — validar antes del merge.
+- **Confirmar SonarCloud**: el análisis del nuevo HEAD `3fe7baa` (que usa la exclusion CPD que
+  ya vive en `main` y fue rehecha en la rama por el merge) debe arrojar el baseline fuera de la
+  duplicación y el gate verde. Al cierre de esta sesión la check-run de sonarqubecloud seguía
+  queued/pending por infraestructura (no arrancada ~11 min tras el push) → re-verificar.
 - No merge a main. No iniciar 019 (matriculas PERF ya documentado en 019).
 
 ## Advertencia Persona global
@@ -112,9 +118,9 @@
   institucional). Validar en revisión antes del merge.
 
 ## Siguiente paso recomendado
-1. Confirmar que el re-análisis de `5e226be` deja el Quality Gate verde en PR #31.
-   Si SonarQube Cloud no lee `.sonarcloud.properties` desde la rama, llevarlo a `main` o
-   configurar la exclusión en la administración de SonarQube Cloud (sin tocar el gate ni el código).
+1. Confirmar que el análisis del nuevo HEAD `3fe7baa` deja el Quality Gate verde en PR #31.
+   La exclusion CPD ya vive en `main` (4ad58d1) y fue incorporada a la rama por el merge, así
+   que el análisis automático (que lee el archivo del default branch) debe aplicarla.
 2. Revisión humana focalizada: UX del panel de vínculos y reasignación de principal.
 3. Coordinar 018G (auditoría Supabase remota) cuando haya credenciales de lector.
 4. Merge a main cuando CI + Sonar + Vercel estén verdes.
