@@ -1,0 +1,86 @@
+<div class="page-container">
+  <div class="page-header">
+    <h1>Cargos y mensualidades</h1>
+    <button class="btn-volver" type="button" (click)="volver()">Volver a alumnos</button>
+  </div>
+
+  @if (mensaje) {
+    <div class="mensaje" [class.mensaje-error]="esError" role="status">
+      {{ mensaje }}
+    </div>
+  }
+
+  @if (alumnoId) {
+    <section class="resumen-grid" aria-label="Resumen financiero">
+      <article class="resumen-card">
+        <span class="resumen-label">Obligaciones</span>
+        <strong class="resumen-valor">{{ resumen?.totalObligaciones ?? 0 }}</strong>
+      </article>
+      <article class="resumen-card">
+        <span class="resumen-label">Pendiente</span>
+        <strong class="resumen-valor">${{ (resumen?.totalPendiente ?? 0).toFixed(2) }}</strong>
+      </article>
+      <article class="resumen-card resumen-vencido">
+        <span class="resumen-label">Vencido</span>
+        <strong class="resumen-valor">${{ (resumen?.totalVencido ?? 0).toFixed(2) }}</strong>
+      </article>
+      <article class="resumen-card">
+        <span class="resumen-label">Anulado</span>
+        <strong class="resumen-valor">${{ (resumen?.totalAnulado ?? 0).toFixed(2) }}</strong>
+      </article>
+    </section>
+
+    @if (cargando) {
+      <div class="cargando">Cargando cargos…</div>
+    } @else if (!cargos.length) {
+      <div class="sin-datos">Este alumno no tiene cargos generados.</div>
+    } @else {
+      <div class="tabla-contenedor">
+        <table class="tabla">
+          <thead>
+            <tr>
+              <th>Concepto</th>
+              <th>Monto</th>
+              <th>Vencimiento</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (cargo of cargos; track cargo.id) {
+              <tr>
+                <td>
+                  <strong>{{ cargo.conceptoNombre || 'Cargo' }}</strong>
+                  @if (cargo.descripcion) { <br /><span class="correo">{{ cargo.descripcion }}</span> }
+                </td>
+                <td>${{ cargo.montoOriginal.toFixed(2) }}</td>
+                <td>
+                  {{ cargo.fechaVencimiento }}
+                  @if (cargo.esVencido && cargo.estado === 'pendiente') {
+                    <span class="badge-vencido">Vencido</span>
+                  }
+                </td>
+                <td>
+                  <span class="badge-estado"
+                    [class.badge-activo]="cargo.estado === 'pendiente'"
+                    [class.badge-inactivo]="cargo.estado === 'anulado'">
+                    {{ estadoLabel[cargo.estado] }}
+                  </span>
+                </td>
+                <td class="acciones">
+                  @if (cargo.estado === 'pendiente') {
+                    <span class="correo">Pendiente de pago (021)</span>
+                  } @else {
+                    <span class="correo">{{ cargo.motivoAnulacion || 'Anulado' }}</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  } @else {
+    <div class="sin-datos">Acceda a los cargos desde un alumno para ver su información financiera.</div>
+  }
+</div>
