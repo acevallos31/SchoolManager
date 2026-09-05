@@ -1,0 +1,42 @@
+name: Hermes Control
+
+on:
+  workflow_dispatch:
+    inputs:
+      accion:
+        description: "Acción sobre Hermes"
+        required: true
+        type: choice
+        options:
+          - health
+          - status
+          - logs
+          - restart
+
+jobs:
+  hermes-control:
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 10
+
+    steps:
+      - name: Verificar host esperado
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(hostname)" = "hermes-agent"
+
+      - name: Health
+        if: ${{ inputs.accion == 'health' }}
+        run: sudo /usr/local/sbin/hermes-control health
+
+      - name: Status
+        if: ${{ inputs.accion == 'status' }}
+        run: sudo /usr/local/sbin/hermes-control status
+
+      - name: Logs
+        if: ${{ inputs.accion == 'logs' }}
+        run: sudo /usr/local/sbin/hermes-control logs
+
+      - name: Restart
+        if: ${{ inputs.accion == 'restart' }}
+        run: sudo /usr/local/sbin/hermes-control restart
