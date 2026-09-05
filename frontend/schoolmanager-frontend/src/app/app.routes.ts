@@ -4,7 +4,6 @@ import { Dashboard } from './pages/dashboard/dashboard';
 import { AppShell } from './layout/app-shell/app-shell';
 import { Alumnos } from './pages/alumnos/alumnos';
 import { Matriculas } from './pages/matriculas/matriculas';
-import { Mensualidades } from './pages/mensualidades/mensualidades';
 import { PortalPadre } from './pages/portal-padre/portal-padre';
 import { Configuracion } from './pages/configuracion/configuracion';
 import { ConfiguracionCiclos } from './pages/configuracion-ciclos/configuracion-ciclos';
@@ -23,7 +22,6 @@ export const routes: Routes = [
     ]
   },
   { path: 'matriculas', component: Matriculas },
-  { path: 'mensualidades', component: Mensualidades },
   { path: 'portal-padre', component: PortalPadre },
   { path: 'configuracion', component: Configuracion },
   { path: 'configuracion/ciclos', component: ConfiguracionCiclos },
@@ -39,6 +37,10 @@ export const routes: Routes = [
   {
     path: 'responsables',
     loadComponent: () => import('./pages/responsables/responsables').then(m => m.Responsables)
+  },
+  {
+    path: 'cargos',
+    loadComponent: () => import('./pages/cargos/cargos').then(m => m.Cargos)
   },
   { path: '**', redirectTo: 'login' }
 ];

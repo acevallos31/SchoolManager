@@ -90,6 +90,9 @@
                       @if (puedeVerResponsables) {
                         <button class="btn-matricular-fila" type="button" (click)="$event.stopPropagation(); verResponsables(alumno)">Responsables</button>
                       }
+                      @if (puedeVerCargos) {
+                        <button class="btn-matricular-fila" type="button" (click)="$event.stopPropagation(); verCargos(alumno)">Cargos</button>
+                      }
                     </td>
                   </tr>
                 } @empty {
@@ -132,6 +135,9 @@
             }
             @if (puedeVerResponsables) {
               <button class="btn-matricular-fila" type="button" (click)="verResponsables(alumnoSeleccionado)">Responsables</button>
+            }
+            @if (puedeVerCargos) {
+              <button class="btn-matricular-fila" type="button" (click)="verCargos(alumnoSeleccionado)">Cargos</button>
             }
             @if (alumnoSeleccionado.estado === 'activo' && puedeDesactivar) {
               <button class="btn-desactivar" type="button" [disabled]="guardando" (click)="desactivarAlumno(alumnoSeleccionado)">Desactivar</button>
