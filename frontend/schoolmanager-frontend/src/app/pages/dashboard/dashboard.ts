@@ -17,6 +17,10 @@ export class Dashboard {
     return this.auth.tienePermiso('academico.alumnos.ver');
   }
 
+  get puedeVerResponsables(): boolean {
+    return this.auth.tienePermiso('academico.responsables.ver');
+  }
+
   get puedeVerConfiguracion(): boolean {
     return this.auth.tienePermiso('configuracion.sistema.ver')
       || this.auth.tienePermiso('configuracion.instituciones.ver');

@@ -10,6 +10,9 @@
       @if (puedeVerAlumnos) {
         <a routerLink="/alumnos" routerLinkActive="active">Alumnos</a>
       }
+      @if (puedeVerResponsables) {
+        <a routerLink="/responsables" routerLinkActive="active">Responsables</a>
+      }
       <a routerLink="/matriculas" routerLinkActive="active">Matrículas</a>
       <a routerLink="/mensualidades" routerLinkActive="active">Mensualidades</a>
       @if (puedeVerConfiguracion) {

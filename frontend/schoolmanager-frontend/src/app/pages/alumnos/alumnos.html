@@ -74,6 +74,9 @@
                   @if (alumno.estado === 'activo' && puedeMatricular) {
                     <button class="btn-matricular-fila" type="button" (click)="matricularAlumnoId(alumno.id)">Matricular</button>
                   }
+                  @if (puedeVerResponsables) {
+                    <button class="btn-matricular-fila" type="button" (click)="verResponsables(alumno)">Responsables</button>
+                  }
                 </td>
               </tr>
             } @empty {

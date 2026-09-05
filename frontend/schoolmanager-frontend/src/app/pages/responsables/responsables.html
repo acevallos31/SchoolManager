@@ -1,0 +1,279 @@
+<div class="page-container">
+  <div class="page-header">
+    <h1>Responsables</h1>
+    @if (puedeCrear) {
+      <button class="btn-nuevo" (click)="abrirNuevo()">Nuevo responsable</button>
+    }
+    <button class="btn-volver" (click)="volver()">Volver</button>
+  </div>
+
+  @if (mensaje) {
+    <div class="mensaje" [class.mensaje-error]="esError">{{ mensaje }}</div>
+  }
+
+  @if (hayVinculosVisibles) {
+    <div class="panel-vinculos">
+      <div class="panel-vinculos-header">
+        <h3>Vínculos del alumno</h3>
+        @if (puedeEditar && alumnoIdSeleccionado) {
+          <button class="btn-cambio" (click)="abrirVincular()">Vincular responsable</button>
+        }
+        <button class="btn-volver" (click)="cerrarVinculos()">Ver todos los responsables</button>
+      </div>
+      @if (cargandoVinculos) {
+        <div class="cargando">Cargando vínculos…</div>
+      } @else if (!vinculos.length) {
+        <div class="sin-datos">Este alumno no tiene responsables vinculados.</div>
+      } @else {
+        <table class="tabla">
+          <thead>
+            <tr>
+              <th>Responsable</th>
+              <th>Parentesco</th>
+              <th>Rol</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (v of vinculos; track v.id) {
+              <tr>
+                <td>
+                  <strong>{{ vinculoNombre(v) }}</strong>
+                  @if (v.correo) { <br /><span class="correo">{{ v.correo }}</span> }
+                </td>
+                <td>{{ v.parentesco || '—' }}</td>
+                <td>
+                  @if (v.esPrincipal) { <span class="badge-rol">Principal</span> }
+                  @if (v.accesoFinanciero) { <span class="badge-rol badge-financiero">Acceso financiero</span> }
+                  @if (!v.esPrincipal && !v.accesoFinanciero) { — }
+                </td>
+                <td>
+                  <span class="badge-estado" [class.badge-activo]="v.estado === 'activo'" [class.badge-inactivo]="v.estado === 'inactivo'">{{ v.estado }}</span>
+                </td>
+                <td class="acciones">
+                  @if (puedeEditar && v.estado === 'activo') {
+                    <button class="btn-cambio" (click)="abrirEditarVinculo(v)">Editar</button>
+                    <button class="btn-cambio" (click)="desactivarVinculo(v)">Desactivar</button>
+                  }
+                  @if (puedeEditar && v.estado === 'inactivo') {
+                    <button class="btn-cambio" (click)="reactivarVinculo(v)">Reactivar</button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+
+      @if (mostrarVincular) {
+        <div class="formulario formulario-vinculo">
+          <h3>Vincular responsable al alumno</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="vin-buscar">Buscar responsable</label>
+              <input id="vin-buscar" [(ngModel)]="buscarVinculable" placeholder="Nombres, apellidos o cédula" (keyup.enter)="buscarCandidatos()" />
+            </div>
+            <div class="form-group">
+              <button class="btn-cambio" [disabled]="buscandoVinculable" (click)="buscarCandidatos()">{{ buscandoVinculable ? 'Buscando…' : 'Buscar' }}</button>
+            </div>
+          </div>
+          @if (vinculablesCandidatos.length) {
+            <div class="vinculables">
+              @for (c of vinculablesCandidatos; track c.id) {
+                <label class="vinculable-opcion">
+                  <input type="radio" name="vinculable" [value]="c.id" [(ngModel)]="vincularForm.responsableId" />
+                  {{ nombreCompleto(c) }} — {{ identificar(c) }}
+                </label>
+              }
+            </div>
+          } @else if (buscandoVinculable) {
+            <div class="cargando">Buscando…</div>
+          } @else if (mensaje === '') {
+            <div class="sin-datos">Busque responsables activos para vincular (se ocultan los ya vinculados).</div>
+          }
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="vin-parentesco">Parentesco *</label>
+              <select id="vin-parentesco" [(ngModel)]="vincularForm.parentesco">
+                <option value="">Seleccione…</option>
+                @for (p of parentescos; track p) {
+                  <option [value]="p">{{ p }}</option>
+                }
+              </select>
+            </div>
+            <div class="form-group form-check">
+              <label class="check">
+                <input type="checkbox" [(ngModel)]="vincularForm.esPrincipal" /> Es principal
+              </label>
+            </div>
+            <div class="form-group form-check">
+              <label class="check">
+                <input type="checkbox" [(ngModel)]="vincularForm.accesoFinanciero" /> Acceso financiero
+              </label>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn-cancelar" [disabled]="guardando" (click)="cerrarVincular()">Cancelar</button>
+            <button class="btn-guardar" [disabled]="guardando" (click)="guardarVinculo()">{{ guardando ? 'Guardando…' : 'Vincular' }}</button>
+          </div>
+        </div>
+      }
+
+      @if (editandoVinculo) {
+        <div class="formulario formulario-vinculo">
+          <h3>Editar vínculo</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="ed-parentesco">Parentesco</label>
+              <select id="ed-parentesco" [(ngModel)]="editarVinculoForm.parentesco">
+                <option value="">Sin parentesco</option>
+                @for (p of parentescos; track p) {
+                  <option [value]="p">{{ p }}</option>
+                }
+              </select>
+            </div>
+            <div class="form-group form-check">
+              <label class="check">
+                <input type="checkbox" [(ngModel)]="editarVinculoForm.esPrincipal" /> Es principal
+              </label>
+            </div>
+            <div class="form-group form-check">
+              <label class="check">
+                <input type="checkbox" [(ngModel)]="editarVinculoForm.accesoFinanciero" /> Acceso financiero
+              </label>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn-cancelar" [disabled]="guardando" (click)="editandoVinculo = null">Cancelar</button>
+            <button class="btn-guardar" [disabled]="guardando" (click)="guardarEditarVinculo()">{{ guardando ? 'Guardando…' : 'Guardar' }}</button>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <div class="filtros">
+    <div class="filtro-grupo">
+      <label for="filtro-termino">Buscar</label>
+      <input id="filtro-termino" [(ngModel)]="termino" placeholder="Nombres, apellidos o cédula" (keyup.enter)="buscar()" />
+    </div>
+    <div class="filtro-grupo">
+      <label for="filtro-estado">Estado</label>
+      <select id="filtro-estado" [(ngModel)]="estado" (change)="buscar()">
+        <option value="">Todos</option>
+        <option value="activo">Activo</option>
+        <option value="inactivo">Inactivo</option>
+      </select>
+    </div>
+    <div class="filtro-grupo filtro-acciones">
+      <div>
+        <button class="btn-cambio" (click)="buscar()">Filtrar</button>
+        <button class="btn-cambio" (click)="limpiarFiltros()">Limpiar</button>
+      </div>
+    </div>
+  </div>
+
+  @if (mostrarFormulario) {
+    <div class="formulario">
+      <h3>{{ editando ? 'Editar responsable' : 'Nuevo responsable' }}</h3>
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="form-nombres">Nombres *</label>
+          <input id="form-nombres" [(ngModel)]="form.nombres" placeholder="Nombres" />
+        </div>
+        <div class="form-group">
+          <label for="form-apellidos">Apellidos *</label>
+          <input id="form-apellidos" [(ngModel)]="form.apellidos" placeholder="Apellidos" />
+        </div>
+        <div class="form-group">
+          <label for="form-tipo">Tipo de identificación @if (!editando) { * }</label>
+          <select id="form-tipo" [(ngModel)]="form.tipoIdentificacion">
+            <option value="">Seleccione…</option>
+            <option value="CI">Cédula</option>
+            <option value="RUC">RUC</option>
+            <option value="Pasaporte">Pasaporte</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="form-numero">Número de identificación @if (!editando) { * }</label>
+          <input id="form-numero" [(ngModel)]="form.numeroIdentificacion" placeholder="Número" />
+        </div>
+        <div class="form-group">
+          <label for="form-telefono">Teléfono</label>
+          <input id="form-telefono" [(ngModel)]="form.telefono" placeholder="Teléfono" />
+        </div>
+        <div class="form-group">
+          <label for="form-correo">Correo</label>
+          <input id="form-correo" [(ngModel)]="form.correo" placeholder="correo@ejemplo.com" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn-cancelar" [disabled]="guardando" (click)="cancelar()">Cancelar</button>
+        <button class="btn-guardar" [disabled]="guardando" (click)="guardar()">{{ guardando ? 'Guardando…' : 'Guardar' }}</button>
+      </div>
+    </div>
+  }
+
+  @if (cargando && !lista.length) {
+    <div class="cargando">Cargando responsables…</div>
+  } @else if (!cargando && !lista.length) {
+    <div class="sin-datos">No hay responsables para mostrar.</div>
+  } @else {
+    <div class="tabla-contenedor">
+      <table class="tabla">
+        <thead>
+          <tr>
+            <th>Responsable</th>
+            <th>Identificación</th>
+            <th>Contacto</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of lista; track r.id) {
+            <tr>
+              <td>
+                <strong>{{ nombreCompleto(r) }}</strong>
+              </td>
+              <td>{{ identificar(r) }}</td>
+              <td>
+                {{ r.telefono || '—' }}
+                @if (r.correo) { <br /><span class="correo">{{ r.correo }}</span> }
+              </td>
+              <td>
+                <span class="badge-estado" [class.badge-activo]="r.estado === 'activo'" [class.badge-inactivo]="r.estado === 'inactivo'">
+                  {{ r.estado }}
+                </span>
+              </td>
+              <td class="acciones">
+                @if (puedeEditar) {
+                  <button class="btn-cambio" (click)="abrirEditar(r)">Editar</button>
+                }
+                @if (puedeEditar && r.estado === 'activo') {
+                  <button class="btn-cambio" (click)="desactivar(r)">Desactivar</button>
+                }
+                @if (puedeEditar && r.estado === 'inactivo') {
+                  <button class="btn-cambio" (click)="reactivar(r)">Reactivar</button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    @if (totalPages > 1) {
+      <div class="paginador">
+        <button class="btn-cambio" [disabled]="page <= 1" (click)="irPagina(page - 1)">‹ Anterior</button>
+        @for (p of paginas(); track p) {
+          <button class="btn-cambio" [class.pagina-activa]="p === page" (click)="irPagina(p)">{{ p }}</button>
+        }
+        <button class="btn-cambio" [disabled]="page >= totalPages" (click)="irPagina(page + 1)">Siguiente ›</button>
+        <span class="paginador-total">{{ totalItems }} responsables</span>
+      </div>
+    }
+  }
+</div>
