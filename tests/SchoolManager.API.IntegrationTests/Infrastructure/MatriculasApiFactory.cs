@@ -216,7 +216,10 @@ public sealed class MatriculasApiFactory : IAsyncLifetime
                         "academico.alumnos.ver",
                         "academico.matriculas.ver",
                         "academico.matriculas.crear",
-                        "academico.matriculas.cambiar_estado"
+                        "academico.matriculas.cambiar_estado",
+                        "academico.responsables.ver",
+                        "academico.responsables.crear",
+                        "academico.responsables.editar"
                     ]));
             }
 

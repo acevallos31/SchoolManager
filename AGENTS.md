@@ -227,10 +227,22 @@ Cuando Hermes u otro agente trabaje durante varias horas:
 11. No dejar procesos destructivos o migraciones esperando confirmación automática.
 12. Antes de terminar, dejar el repositorio en un estado coherente y reproducible, con HANDOFF actualizado.
 13. Si el contexto alcanza aproximadamente 70–75%, cerrar el checkpoint actual, documentar HANDOFF, commit/push si están autorizados y detener la sesión en lugar de compactar repetidamente.
+14. Para sesiones largas, apuntar normalmente a 60–80 iteraciones por sesión. Si el trabajo necesita más, cerrar un checkpoint y continuar en una sesión nueva desde el HANDOFF; evitar sesiones de 120–150+ iteraciones salvo necesidad excepcional y explícita.
+15. Priorizar `read_file`, búsquedas y herramientas de lectura directa sobre `terminal/execute_code` para inspección cuando exista una herramienta equivalente.
+16. No releer archivos grandes que ya fueron inspeccionados salvo que hayan cambiado o exista una razón concreta; usar búsquedas puntuales y rangos cuando sea suficiente.
+17. No repetir auditorías completas si existe un HANDOFF vigente, confiable y compatible con el HEAD actual. Verificar únicamente el delta necesario.
+18. Evitar compactar y reinyectar repetidamente conversaciones enormes cuando un HANDOFF puede preservar el estado operativo.
+19. Evitar mensajes intermedios redundantes en Telegram o consola; reportar decisiones, bloqueos, validaciones y checkpoints útiles.
+20. La optimización de costo/contexto nunca justifica omitir tests, seguridad, validaciones, ACID, reglas de dominio o revisión de cambios críticos.
+21. Si un agente detecta que está gastando iteraciones principalmente en relectura, reformateo o explicación sin modificar/verificar el objetivo, debe cerrar el checkpoint y continuar con contexto mínimo desde HANDOFF.
 
 ## 14. Uso de modelos auxiliares
 
-Los modelos auxiliares pueden usarse para tareas de bajo riesgo como títulos, reescritura de consultas, búsqueda de skills, clasificación, triage y revisión auxiliar.
+Los modelos auxiliares pueden usarse para tareas de bajo riesgo como títulos, reescritura de consultas, búsqueda de skills, clasificación, triage, documentación, lectura dirigida y revisión auxiliar.
+
+Preferir modelos económicos, gratuitos o locales para tareas mecánicas y de bajo riesgo cuando su calidad sea suficiente. Reservar el modelo principal de mayor capacidad para implementación compleja, debugging difícil, arquitectura, seguridad y revisión final.
+
+No usar por defecto variantes de contexto gigante (`-900k` o equivalentes). Solo justificarlas cuando la tarea realmente requiera cargar una cantidad excepcional de contexto que no pueda resolverse de forma segura mediante búsquedas, archivos focalizados y HANDOFF.
 
 No delegar exclusivamente a modelos pequeños/locales:
 

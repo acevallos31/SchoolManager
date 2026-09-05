@@ -13,6 +13,13 @@
 ## Migraciones
 - 007 RBAC base; 008 modelo académico histórico; 009 RLS y RPC; 010 identidad; 011 creación alumno con documento; 012 configuración de implementación; 013 centro educativo; 014 ciclos/períodos; 015 períodos anticipados.
 - 016 grados, jornadas y secciones: implementada en el repositorio; aplicación en producción no verificada.
+- 017 responsables (gestión RPC): implementada y validada en Postgres 16 desechable; baseline consolidado anexado.
+
+## Módulo Responsables (018)
+- Namespace vigente: **`academico.responsables.*`** (usado por RLS 009 y backend `Permisos.cs`); `responsables.responsables.*` (007) es legacy sin uso, conservado.
+- MIG017 cierra la brecha: 9 RPC `security definer` (crear con/para persona, editar, inactivar/reactivar, vincular, editar vinculo, desactivar/reactivar vinculo) con invariantes persona+institución único, principal único por alumno, no-cruce de institución, sin DELETE físico. Superficie solo-RPC (sin policies INSERT/UPDATE directas).
+- Backend: `ResponsablesController` (API `api/responsables`, paginado `PaginatedResult`) en `feature/responsables-fase-018`. **Cuidado**: los parámetros nullable a `AddWithValue` deben usar `?? DBNull.Value` (pasar `null` rompe Npgsql en runtime con 500 — los tests de API lo cazan; los de DB no pasan por el controller).
+- Frontend: página `/responsables` + servicio `responsables.service.ts` (API .NET) + integración Alumno→Responsable (`responsables?alumnoId=...`, panel de vínculos).
 
 ## Modelo académico
 Institución -> Ciclo -> Período matrícula -> Grado -> Jornada opcional -> Sección -> Matrícula -> Alumno.

@@ -2,8 +2,7 @@
 -- Bloque 019. Solo configuracion/plantilla. La generacion de obligaciones
 -- (mensualidades/pagos) pertenece al bloque 020 y no se toca aqui.
 begin;
--- Pendiente posterior al merge de PR #31: cambiar el prerrequisito de 016 a 017.
-do $$ begin if not exists(select 1 from public.schema_migrations where version='016') then raise exception 'Migracion 018 requiere la migracion 016.'; end if; end $$;
+do $$ begin if not exists(select 1 from public.schema_migrations where version='017') then raise exception 'Migracion 018 requiere la migracion 017 (responsables/gestión de RPC).'; end if; end $$;
 
 create table if not exists public.conceptos_financieros (
     id uuid primary key default gen_random_uuid(),

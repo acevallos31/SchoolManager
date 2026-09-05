@@ -27,6 +27,7 @@ public sealed class MigrationTests(PostgreSqlFixture fixture) : IClassFixture<Po
             "014_configurar_ciclos_y_periodos_matricula.sql",
             "015_permitir_periodos_matricula_anticipados.sql",
             "016_configurar_grados_jornadas_secciones.sql",
+            "017_responsables_gestion_rpc.sql",
             "018_configuracion_financiera.sql"
         }, names);
     }
