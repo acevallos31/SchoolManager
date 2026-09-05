@@ -81,6 +81,7 @@ export class Alumnos implements OnInit {
         alumno.nombreCompleto,
         alumno.identidad,
         alumno.rne,
+        alumno.codigoInterno,
         matricula?.grado,
         matricula?.seccion,
         matricula?.ciclo

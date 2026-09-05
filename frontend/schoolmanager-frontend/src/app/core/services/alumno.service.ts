@@ -14,6 +14,7 @@ export interface AlumnoListado {
   nombreCompleto: string;
   identidad: string | null;
   rne: string | null;
+  codigoInterno: string | null;
   estado: 'activo' | 'inactivo';
   matriculaActual: MatriculaActualAlumno | null;
 }
@@ -48,6 +49,7 @@ interface AlumnoRow {
   id: string;
   persona_id: string;
   rne: string | null;
+  codigo_interno: string | null;
   estado: 'activo' | 'inactivo';
   persona: PersonaRelacion | null;
   matriculas: MatriculaRelacion[] | null;
@@ -57,6 +59,7 @@ interface AlumnoBasicoRow {
   id: string;
   persona_id: string;
   rne: string | null;
+  codigo_interno: string | null;
   estado: 'activo' | 'inactivo';
   persona: PersonaRelacion | null;
 }
@@ -84,6 +87,7 @@ export class AlumnoService {
         id,
         persona_id,
         rne,
+        codigo_interno,
         estado,
         persona:personas!alumnos_persona_id_fkey(
           nombres,
@@ -120,6 +124,7 @@ export class AlumnoService {
           .join(' '),
         identidad: row.persona?.numero_identificacion ?? null,
         rne: row.rne,
+        codigoInterno: row.codigo_interno,
         estado: row.estado,
         matriculaActual: matricula && seccion
           ? {
@@ -147,7 +152,7 @@ export class AlumnoService {
 
     let query = this.supabase
       .from('alumnos')
-      .select(`id, persona_id, rne, estado, persona:personas!alumnos_persona_id_fkey(nombres, apellidos, numero_identificacion)`,
+      .select(`id, persona_id, rne, codigo_interno, estado, persona:personas!alumnos_persona_id_fkey(nombres, apellidos, numero_identificacion)`,
         { count: 'exact' });
 
     if (filtro.estado) query = query.eq('estado', filtro.estado);
@@ -155,7 +160,8 @@ export class AlumnoService {
       query = query.or(
         `personas!alumnos_persona_id_fkey.nombres.ilike.%${termino}%,` +
         `personas!alumnos_persona_id_fkey.apellidos.ilike.%${termino}%,` +
-        `rne.ilike.%${termino}%`
+        `rne.ilike.%${termino}%,` +
+        `codigo_interno.ilike.%${termino}%`
       );
     }
 
@@ -174,6 +180,7 @@ export class AlumnoService {
         .join(' '),
       identidad: row.persona?.numero_identificacion ?? null,
       rne: row.rne,
+      codigoInterno: row.codigo_interno,
       estado: row.estado,
       matriculaActual: null
     }));
@@ -188,6 +195,7 @@ export class AlumnoService {
         id,
         persona_id,
         rne,
+        codigo_interno,
         estado,
         persona:personas!alumnos_persona_id_fkey(
           nombres,
@@ -212,6 +220,7 @@ export class AlumnoService {
         .join(' '),
       identidad: row.persona?.numero_identificacion ?? null,
       rne: row.rne,
+      codigoInterno: row.codigo_interno,
       estado: row.estado,
       matriculaActual: null
     };
