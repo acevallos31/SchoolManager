@@ -1,6 +1,9 @@
 .page-container {
-  min-height: 100vh;
-  padding: 2rem;
+  min-height: 100%;
+  padding: 0;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
 }
 
 .page-header {
@@ -208,6 +211,123 @@ button:disabled {
   color: var(--sm-text-soft);
 }
 
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.workspace.fila-seleccionada { /* noop: helper */ }
+
+.fila-alumno {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.fila-seleccionada {
+  background: rgba(15, 95, 168, 0.12) !important;
+  box-shadow: inset 3px 0 0 var(--sm-primary);
+}
+
+.btn-detalle-fila {
+  border: 0;
+  background: none;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  font: inherit;
+  font-weight: 700;
+  color: var(--sm-primary-strong);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.alumno-detalle {
+  border: 1px solid var(--sm-border);
+  border-radius: 1.5rem;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: var(--sm-shadow);
+  padding: 1.5rem;
+}
+
+.detalle-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.detalle-header h2 {
+  margin: 0 0 0.4rem;
+  font-size: clamp(1.4rem, 2.5vw, 2rem);
+  color: var(--sm-text);
+  letter-spacing: -0.02em;
+}
+
+.btn-cerrar-detalle {
+  border: 1px solid var(--sm-border);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--sm-text-soft);
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.detalle-datos {
+  margin: 1.25rem 0 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.detalle-datos div {
+  padding: 0.9rem 1rem;
+  border-radius: 1rem;
+  background: var(--sm-bg-soft);
+  border: 1px solid var(--sm-border);
+}
+
+.detalle-datos dt {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sm-text-soft);
+  margin-bottom: 0.25rem;
+}
+
+.detalle-datos dd {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--sm-text);
+}
+
+.detalle-acciones {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+@media (min-width: 1000px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr) 360px;
+  }
+
+  .workspace-master {
+    min-width: 0;
+  }
+
+  .alumno-detalle {
+    position: sticky;
+    top: 1rem;
+  }
+}
+
 @media (max-width: 900px) {
   .page-container {
     padding: 1rem;
@@ -217,5 +337,39 @@ button:disabled {
   .form-grid {
     grid-template-columns: 1fr;
     display: grid;
+  }
+
+  .detalle-datos {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .page-container {
+    padding: 0.75rem;
+  }
+
+  .page-header {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .page-header h1 {
+    flex-basis: 100%;
+  }
+
+  .alumno-detalle {
+    padding: 1.1rem;
+  }
+
+  .detalle-acciones .btn-matricular-fila {
+    margin-left: 0;
+  }
+
+  .detalle-acciones button {
+    flex: 1 1 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 }

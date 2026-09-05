@@ -1,8 +1,10 @@
 # Diseño — Workspace contextual del alumno (AppShell)
 
-Estado: PROPUESTA (solo diseño; **no** implementado).
-Objetivo 4 de la sesión 019-ux. Alcance deliberadamente acotado: documento de
-diseño, sin rediseño grande de AppShell.
+Estado: IMPLEMENTADO (F2/F3/F4, rama `feature/ux-alumno-workspace-cierre-019`;
+ver `019-ux-cierre.md` para el cierre y la deuda pendiente).
+Objetivo 4 de la sesión 019-ux. Alcance: AppShell compartido + workspace
+contextual master-detail del alumno + acciones contextuales en la página de
+alumnos.
 
 ## Contexto / problema
 
@@ -41,15 +43,26 @@ La comparación visual con vertic-platform/vertic-demo queda **bloqueada**
 patrones ya presentes en el repo (matriculas, responsables) como referencia
 local de consistencia.
 
-## Fases sugeridas (implementación futura)
+## Fases
 
-- **F1 (ahora, ya hecho como fix acotado):** restaurar visibilidad/búsqueda de
-  código interno en el listado (ver `019-regresion-codigo-interno-alumno.md`).
-- **F2:** introducir el `AppShell` compartido (sin cambios de comportamiento de
-  las páginas actuales).
-- **F3:** panel de detalle contextual del alumno (master-detail) reutilizando
-  el agregado de `AlumnoListado`.
-- **F4:** mover acciones contextuales (matrícula/responsables) al workspace.
+- **F1 (hecho):** restaurar visibilidad/búsqueda de código interno en el
+  listado (ver `019-regresion-codigo-interno-alumno.md`).
+- **F2 (hecho):** `AppShell` compartido en `src/app/layout/app-shell/`; la ruta
+  `/alumnos` queda como hijo del shell.
+- **F3 (hecho):** panel de detalle contextual del alumno (master-detail) en
+  `pages/alumnos` reutilizando el agregado de `AlumnoListado`, con selector
+  `.btn-detalle-fila` (aria-expanded), panel `.alumno-detalle` y estado de
+  selección en el componente (sin localStorage).
+- **F4 (hecho):** acciones contextuales Matricular y Responsables en el
+  workspace, operando sobre el alumno seleccionado. "Editar" queda como deuda
+  (no existe ruta/servicio de edición).
+
+## Deuda documentada (ver `019-ux-cierre.md`)
+
+- Editar alumno (F4 parcial): no hay ruta/servicio de edición.
+- Adopción global del AppShell en el resto de páginas (hoy solo cubre
+  `/alumnos`).
+- Referencia visual Vertic (bloqueo externo).
 
 ## Fuera de alcance
 
