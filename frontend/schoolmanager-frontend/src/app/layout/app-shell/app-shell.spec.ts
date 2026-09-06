@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
+import { BehaviorSubject } from 'rxjs';
 import { vi } from 'vitest';
 import { AuthService } from '../../core/services/auth';
 import { AppShell } from './app-shell';
@@ -24,7 +25,8 @@ describe('AppShell', () => {
           provide: AuthService,
           useValue: {
             tienePermiso: (p: string) => permisos.has(p),
-            logout
+            logout,
+            usuarioActual$: new BehaviorSubject({ id: 'u1', personaId: 'p1', roles: ['admin'], permisos: [] })
           }
         }
       ]
