@@ -143,7 +143,7 @@ sistema frágil (principios ISW2 #4, #5 y #12).
   de 64%).
 - **Prioridad**: Media.
 - **Propuesta de umbral (diferenciando global vs New Code):**
-  - **No imponer umbral global** de CI todavía: el backend va bien (88%) pero
+  - **No imponer umbral global** de CI todavía: el backend va bien (79.6%) pero
     el frontend global (64%) refleja deuda histórica; un gate global bloquea
     todo PR por el frontend.
   - **Recomendado: Quality Gate de "New Code"** en SonarCloud una vez activo
