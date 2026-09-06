@@ -62,23 +62,42 @@ export class AuthService {
   session$ = this.sessionSubject.asObservable();
   usuarioActual$ = this.usuarioSubject.asObservable();
 
-  constructor() {
-    this.supabase.auth
-      .getSession()
-      .then(async ({ data }) => {
-        await this.restaurarSesion(data.session);
-      })
-      .catch(async error => {
-        console.error('No se pudo recuperar la sesion existente:', error);
-        await this.limpiarSesionInvalida();
-      });
+  private inicializacionPromise: Promise<void> | null = null;
 
+  constructor() {
+    // La restauración de sesión NO se dispara fire-and-forget aquí: la hace
+    // asegurarUsuarioInicial(), invocada por provideAppInitializer antes de
+    // que Angular resuelva las rutas. Así los guards disponen de sesión y
+    // permisos ya cargados y no se evalúan contra estado sin poblar.
     this.supabase.auth.onAuthStateChange((_, session) => {
       this.sessionSubject.next(session);
       if (!session) {
         this.usuarioSubject.next(null);
       }
     });
+  }
+
+  /**
+   * Restaura la sesión persistida y carga el perfil (/auth/me) si existe
+   * sesión, ANTES de que el router resuelva las primeras rutas. Idempotente
+   * (una sola ejecución) y nunca lanza: un error de sesión o de /auth/me
+   * deja el estado en "sin sesión" sin bloquear el bootstrap.
+   */
+  async asegurarUsuarioInicial(): Promise<void> {
+    if (!this.inicializacionPromise) {
+      this.inicializacionPromise = this.restaurarSesionDesdeStorage();
+    }
+    return this.inicializacionPromise;
+  }
+
+  private async restaurarSesionDesdeStorage(): Promise<void> {
+    try {
+      const { data } = await this.supabase.auth.getSession();
+      await this.restaurarSesion(data?.session ?? null);
+    } catch (error) {
+      console.error('No se pudo recuperar la sesion existente:', error);
+      await this.limpiarSesionInvalida();
+    }
   }
 
   async login(correo: string, password: string): Promise<UsuarioActual> {
