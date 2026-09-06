@@ -25,6 +25,10 @@
         <strong class="resumen-valor">${{ (resumen?.totalVencido ?? 0).toFixed(2) }}</strong>
       </article>
       <article class="resumen-card">
+        <span class="resumen-label">Aplicado</span>
+        <strong class="resumen-valor">${{ (resumen?.totalAplicado ?? 0).toFixed(2) }}</strong>
+      </article>
+      <article class="resumen-card">
         <span class="resumen-label">Anulado</span>
         <strong class="resumen-valor">${{ (resumen?.totalAnulado ?? 0).toFixed(2) }}</strong>
       </article>
@@ -41,9 +45,10 @@
             <tr>
               <th>Concepto</th>
               <th>Monto</th>
+              <th>Saldo</th>
               <th>Vencimiento</th>
               <th>Estado</th>
-              <th>Acciones</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -54,24 +59,26 @@
                   @if (cargo.descripcion) { <br /><span class="correo">{{ cargo.descripcion }}</span> }
                 </td>
                 <td>${{ cargo.montoOriginal.toFixed(2) }}</td>
+                <td>${{ cargo.saldo.toFixed(2) }}</td>
                 <td>
                   {{ cargo.fechaVencimiento }}
-                  @if (cargo.esVencido && cargo.estado === 'pendiente') {
+                  @if (cargo.esVencido && (cargo.estado === 'pendiente' || cargo.estado === 'parcial')) {
                     <span class="badge-vencido">Vencido</span>
                   }
                 </td>
                 <td>
                   <span class="badge-estado"
-                    [class.badge-activo]="cargo.estado === 'pendiente'"
+                    [class.badge-activo]="cargo.estado === 'pendiente' || cargo.estado === 'parcial'"
+                    [class.badge-pagado]="cargo.estado === 'pagado'"
                     [class.badge-inactivo]="cargo.estado === 'anulado'">
                     {{ estadoLabel[cargo.estado] }}
                   </span>
                 </td>
                 <td class="acciones">
-                  @if (cargo.estado === 'pendiente') {
-                    <span class="correo">Pendiente de pago (021)</span>
+                  @if (cargo.estado === 'pendiente' || cargo.estado === 'parcial') {
+                    <button class="btn-pagar" type="button" (click)="irAPagos()">Cobrar</button>
                   } @else {
-                    <span class="correo">{{ cargo.motivoAnulacion || 'Anulado' }}</span>
+                    <span class="correo">{{ cargo.motivoAnulacion || estadoLabel[cargo.estado] }}</span>
                   }
                 </td>
               </tr>

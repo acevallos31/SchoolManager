@@ -63,5 +63,11 @@ export const routes: Routes = [
     data: { permiso: 'academico.cargos.ver' },
     loadComponent: () => import('./pages/cargos/cargos').then(m => m.Cargos)
   },
+  {
+    path: 'pagos',
+    canActivate: [permissionGuard],
+    data: { permiso: 'academico.pagos.ver' },
+    loadComponent: () => import('./pages/pagos/pagos').then(m => m.Pagos)
+  },
   { path: '**', redirectTo: 'login' }
 ];

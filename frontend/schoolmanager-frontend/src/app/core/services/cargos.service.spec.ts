@@ -10,11 +10,12 @@ const CARGO: Cargo = {
   conceptoId: null, conceptoNombre: 'Colegiatura', descripcion: null,
   montoOriginal: 200, fechaVencimiento: '2026-09-30', estado: 'pendiente',
   fechaGeneracion: '2026-09-01T00:00:00Z', fechaAnulacion: null, motivoAnulacion: null,
-  esVencido: false,
+  esVencido: false, saldo: 200, aplicado: 0,
 };
 const RESUMEN: ResumenFinanciero = {
   alumnoId: 'a1', institucionId: '11111111-1111-1111-1111-111111111111',
-  totalObligaciones: 1, totalMontoOriginal: 200, totalPendiente: 200, totalVencido: 0, totalAnulado: 0,
+  totalObligaciones: 1, totalMontoOriginal: 200, totalPendiente: 200, totalVencido: 0,
+  totalAnulado: 0, totalAplicado: 0,
 };
 
 describe('CargosService', () => {

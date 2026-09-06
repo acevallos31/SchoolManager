@@ -19,7 +19,9 @@
 .correo { color: var(--sm-text-soft); font-size: 0.85rem; }
 .badge-estado { display: inline-flex; padding: 0.3rem 0.7rem; border-radius: 999px; font-size: 0.78rem; font-weight: 800; text-transform: capitalize; }
 .badge-activo { background: #edf8f1; color: var(--sm-success); }
+.badge-pagado { background: #e3f2fd; color: #0b5e9e; }
 .badge-inactivo { background: #f0f3fa; color: #6b7280; }
+.btn-pagar { border: 1px solid var(--sm-border); background: var(--sm-primary, #0f5fa8); color: #fff; cursor: pointer; font-weight: 700; padding: 0.4rem 0.9rem; border-radius: 999px; }
 .badge-vencido { display: inline-flex; margin-left: 0.4rem; padding: 0.2rem 0.5rem; border-radius: 999px; font-size: 0.72rem; font-weight: 800; background: #fff0ed; color: var(--sm-danger); }
 .sin-datos, .cargando { color: var(--sm-text-soft); padding: 2rem; text-align: center; }
 .acciones { white-space: nowrap; }

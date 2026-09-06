@@ -34,17 +34,28 @@ export class Cargos implements OnInit {
   }
 
   get estadoLabel(): Record<string, string> {
-    return { pendiente: 'Pendiente', anulado: 'Anulado' };
+    return {
+      pendiente: 'Pendiente',
+      parcial: 'Parcial',
+      pagado: 'Pagado',
+      anulado: 'Anulado',
+    };
   }
 
   get totalPendiente(): number {
     return this.cargos
-      .filter((c) => c.estado === 'pendiente')
-      .reduce((acc, c) => acc + c.montoOriginal, 0);
+      .filter((c) => c.estado === 'pendiente' || c.estado === 'parcial')
+      .reduce((acc, c) => acc + c.saldo, 0);
   }
 
   get hayCargosVencidos(): boolean {
     return this.cargos.some((c) => c.estado === 'pendiente' && c.esVencido);
+  }
+
+  irAPagos(): void {
+    if (this.alumnoId) {
+      void this.router.navigate(['/pagos'], { queryParams: { alumnoId: this.alumnoId } });
+    }
   }
 
   async ngOnInit(): Promise<void> {
