@@ -291,7 +291,11 @@ public sealed class CargosMultitenancyTests(PostgreSqlFixture fixture)
             $"Institucion {tag}-{Guid.NewGuid():N}");
         var admin = await InsertUsuarioAsync("admin", institucion);
 
-        var cicloInicio = DateOnly.FromDateTime(DateTime.Today);
+        // El inicio del ciclo se ancla al current_date de la DB (no al reloj del host):
+        // las RPC de resumen evaluan "vencido" contra current_date en la zona del
+        // contenedor (UTC); usar DateTime.Today (host) introducia un desfase de 1 dia
+        // cuando el host cruza medianoche UTC, dejando la cuota de dia 0 como vencida.
+        var cicloInicio = DateOnly.FromDateTime(await ScalarAsync<DateTime>("select current_date"));
         var ciclo = await ScalarAsync<Guid>(
             "insert into public.ciclos_escolares (institucion_id, nombre, fecha_inicio, fecha_fin) values ($1,$2,$3,$4) returning id",
             institucion, $"Ciclo {Guid.NewGuid():N}", cicloInicio, cicloInicio.AddDays(cicloDias));
