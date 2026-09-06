@@ -40,31 +40,6 @@ sistema frágil (principios ISW2 #4, #5 y #12).
   preparación de Fase 020 revisar si los catálogos de configuración financiera
   siguen el patrón por-institución.
 
-## 3. Automatización de `validation/*.validation.sql` — pendiente en pipeline
-
-- **Problema**: cada migración trae su `validation/` SQL, pero no se ejecuta de
-  forma automatizada en CI ni en la suite. Hoy solo se validan explícitamente
-  los casos que tienen test dedicado (p. ej. los de responsabilidad de
-  integración); el resto depende de revisión manual.
-- **Riesgo**: una migración puede cumplir el versionado pero romper una
-  invariante que su propio `validation/` habría detectado; la evidencia de
-  validación es incompleta.
-- **Prioridad**: Media.
-- **Cuándo abordarlo**: cuando se defina el runner común de migraciones/CI
-  para ejecutar `validation/` tras cada migración en Postgres desechable.
-
-## 4. Verificación/checksum de `schema_migrations` — solo versión
-
-- **Problema**: `schema_migrations` registra `version` (y aplica/revierte por
-  prefijo `NNN_`), pero no almacena ni verifica un hash del contenido de la
-  migración aplicada (ver `MigrationRunner.cs`).
-- **Riesgo**: si una migración ya aplicada cambia (p. ej. por una edición
-  posterior o conflicto de merge), no se detecta la divergencia entre lo
-  aplicado y lo que el repo dice que se aplicó.
-- **Prioridad**: Media.
-- **Cuándo abordarlo**: al fortalecer el runner de migraciones (misma tanda que
-  #3): añadir columna checksum y fail en divergencia.
-
 ## 5. Observabilidad de producción — mínima
 
 - **Problema**: el único health check es `GET /health` (liveness básico del
@@ -94,26 +69,28 @@ sistema frágil (principios ISW2 #4, #5 y #12).
 - **Prioridad**: N/A hasta 020.
 - **Cuándo abordarlo**: durante el diseño de 020 (contrato + tests primero).
 
-## 7. SonarCloud — sin cobertura de tests en el análisis automático
+## 7. SonarCloud — cobertura generada en CI pero import a Sonar pendiente de modo CI Analysis
 
-- **Problema**: SonarCloud se integra por análisis **automático** (GitHub App,
-  configurado solo con `sonar.cpd.exclusions=database/baseline/` en
-  `.sonarcloud.properties`). El análisis automático no ejecuta tests, por lo
-  que **Coverage aparece vacío** y no hay reporte de cobertura. No hay scanner
-  de SonarCloud en CI (`.github/workflows`) ni `sonar-project.properties`, ni
-  configuración de coverlet/cobertura en los proyectos .NET ni `@vitest/coverage-*`
-  en el frontend (el builder de tests usa Vitest v4.1.11 sin proveedor de
-  cobertura instalado).
-- **Riesgo**: la métrica de calidad de SonarCloud está incompleta (sin
-  cobertura); no se puede exigir una Quality Gate de cobertura y no hay
-  evidencia automática de qué código probado/desprobado hay.
+- **Problema**: la cobertura **sí se genera** localmente y en CI (Coverlet →
+  `coverage.cobertura.xml` para .NET; `@vitest/coverage-v8` → `lcov.info` para
+  el frontend) y se sube como artifact en `deploy.yml`. **Pero** SonarCloud se
+  integra por análisis **automático** (GitHub App, solo `sonar.cpd.exclusions`
+  en `.sonarcloud.properties`), y el análisis automático **no importa reportes
+  de cobertura**: solo el modo **CI Analysis** (scanner con `SONAR_TOKEN` como
+  secreto del repo) los consume. No hay `sonar-project.properties` ni job de
+  scanner.
+- **Riesgo**: la métrica de cobertura en SonarCloud sigue vacía hasta migrar a
+  CI Analysis; no se puede exigir Quality Gate de cobertura.
 - **Prioridad**: Media.
-- **Cuándo abordarlo**: en un PR propio de CI (fuera de este de estándares),
-  que necesitará: (a) añadir el scanner de SonarCloud con `SONAR_TOKEN` como
-  secreto del repo (hoy no existe en workflows), (b) recopilar cobertura .NET
-  (coverlet, formato opencover) y frontend (`@vitest/coverage-v8`, reporte
-  lcov) y subirla al scanner. Requiere decisión del mantenedor sobre secretos
-  y modo de análisis (automático vs. CI).
+- **Cuándo/requisitos**: PR propio (fuera de este) que necesitará, como paso
+  manual del mantenedor: (a) añadir `SONAR_TOKEN` como secreto del repo y job
+  `sonar-scanner` en CI; (b) **desactivar el análisis automático** en el panel
+  de SonarCloud (Organization → Analysis Method) para evitar doble análisis —
+  paso manual, no automatizable vía repo; (c) crear `sonar-project.properties`
+  apuntando a los reportes ya generados:
+  `sonar.cs.cobertura.reportsPaths=coverage-backend/**/coverage.cobertura.xml`
+  y `sonar.typescript.lcov.reportPaths=frontend/schoolmanager-frontend/coverage/**/lcov.info`.
+  No establecer umbral de cobertura hasta tener línea base real.
 
 ## 8. Duplicación de código — estructural, no por permisos
 
@@ -143,3 +120,16 @@ sistema frágil (principios ISW2 #4, #5 y #12).
   template `tech-debt`.
 - Una deuda resuelta → mover a la sección **Resuelta** o eliminar con
   referencia del PR/commit que la cerró.
+
+---
+
+## Resuelta
+
+- **#3 Automatización de `validation/*.validation.sql`** — resuelta en 020.5A
+  (`MigrationValidationSuiteTests` + `ValidationRunner` incremental sobre
+  Postgres limpio; contrato «0 filas = pasa; SQL error o filas = falla»).
+  Tests 2/2 PASS en la suite DB.
+- **#4 Verificación/checksum de `schema_migrations`** — resuelta en 020.5A
+  (`MigrationRunner` verifica SHA-256, backfill de NULL, fail en divergencia
+  con `MigrationChecksumMismatchException`). `schema_migrations` ya tenía la
+  columna `checksum text null` desde la 001; 10/10 PASS en la suite DB.
