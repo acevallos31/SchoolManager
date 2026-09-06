@@ -10,7 +10,7 @@ namespace SchoolManager.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class ResponsablesController(NpgsqlDataSource dataSource) : ControllerBase
+public class ResponsablesController(NpgsqlDataSource dataSource) : ApiControllerBase(dataSource)
 {
     // Lectura de un responsable con su Persona (identidad global) resuelta.
     private const string LecturaBase = """
@@ -37,23 +37,6 @@ public class ResponsablesController(NpgsqlDataSource dataSource) : ControllerBas
     private const string FiltroContextoInstitucional =
         " and public.usuario_tiene_permiso_actual('academico.responsables.ver', r.institucion_id)";
 
-    private async Task<NpgsqlConnection> AbrirComoUsuarioAsync(CancellationToken ct)
-    {
-        var sub = User.FindFirstValue("sub");
-        if (string.IsNullOrWhiteSpace(sub))
-            throw new UnauthorizedAccessException("El claim sub del JWT es obligatorio.");
-        return await dataSource.OpenConnectionAsync(ct);
-    }
-
-    private static async Task FijarClaimAsync(NpgsqlConnection c, NpgsqlTransaction tx, string sub, CancellationToken ct)
-    {
-        await using var cmd = c.CreateCommand();
-        cmd.Transaction = tx;
-        cmd.CommandText = "select set_config('request.jwt.claim.sub', @sub, true)";
-        cmd.Parameters.AddWithValue("sub", sub);
-        await cmd.ExecuteNonQueryAsync(ct);
-    }
-
     private static ResponsableDto Leer(NpgsqlDataReader r) => new()
     {
         Id = r.GetGuid(0),
@@ -70,19 +53,6 @@ public class ResponsablesController(NpgsqlDataSource dataSource) : ControllerBas
         FechaDesactivacion = r.IsDBNull(11) ? null : r.GetFieldValue<DateTimeOffset>(11),
         MotivoDesactivacion = r.IsDBNull(12) ? null : r.GetString(12),
     };
-
-    private ObjectResult ToError(PostgresException ex) =>
-        new(new { error = ex.MessageText ?? "Error en base de datos" })
-        {
-            StatusCode = ex.SqlState switch
-            {
-                "42501" => StatusCodes.Status403Forbidden,
-                "P0002" => StatusCodes.Status404NotFound,
-                "23505" or "23514" => StatusCodes.Status409Conflict,
-                "22023" or "23503" or "SM001" or "SM003" => StatusCodes.Status400BadRequest,
-                _ => StatusCodes.Status400BadRequest
-            }
-        };
 
     [HttpGet]
     [Authorize(Policy = Permisos.Responsables.Ver)]
