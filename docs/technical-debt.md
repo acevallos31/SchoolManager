@@ -44,21 +44,25 @@ sistema frágil (principios ISW2 #4, #5 y #12).
 
 ## 5. Observabilidad de producción — mínima
 
-- **Estado: PENDIENTE.**
-- **Problema**: el único health check es `GET /health` (liveness básico del
+- **Problema**: el único health check era `GET /health` (liveness básico del
   proceso: devuelve `200` con `{status, service, timestamp}`), pero **no**
-  comprueba dependencias (Postgres/Auth): no es un healthcheck de readiness.
-  No hay logging estructurado (serilog/OpenTelemetry) ni métricas de
-  aplicación; solo el logging por consola de ASP.NET por defecto. No hay
-  monitoreo del estado de los endpoints `/api` en producción. Ver
+  comprobaba dependencias (Postgres/Auth): no era un healthcheck de
+  readiness. No había logging estructurado (serilog/OpenTelemetry) ni
+  métricas de aplicación; solo el logging por consola de ASP.NET por defecto.
+  No hay monitoreo del estado de los endpoints `/api` en producción. Ver
   `docs/observabilidad.md`.
+- **Estado (PR A #5)**: el readiness quedó implementado en `GET /health/ready`
+  — comprueba conectividad real con PostgreSQL vía `NpgsqlDataSource`
+  (`SELECT 1`, timeout 3 s): `200` cuando responde, `503` cuando la base falla;
+  no expone secretos ni connection strings. `GET /health` se mantiene como
+  liveness. Pendiente de merge del PR A.
 - **Riesgo**: degradaciones o errores en producción pasan desapercibidos;
   diagnóstico lento. «Funciona en mi máquina» no es evidencia del servicio vivo.
 - **Prioridad**: Media (post-020): lo que hoy protege es el CI + RLS, no el
   runtime.
-- **Cuándo abordarlo**: una vez la fase 020 (cargos/mensualidades/cuentas por
-  cobrar) toque producción con flujo de dinero, añadir mínimo healthcheck +
-  logging de errores antes de nuevas superficies.
+- **Cuándo abordarlo**: (resuelto por el readiness en PR A) el logging
+  estructurado y las métricas de aplicación quedan como deuda futura separada
+  si se necesita trazabilidad en producción.
 
 ## 6. Coste de generación de mensualidades (backend de pagos/cuentas por cobrar)
 
@@ -104,26 +108,45 @@ sistema frágil (principios ISW2 #4, #5 y #12).
   `sonarcloud` de `deploy.yml` se activará solo y usará `sonar-project.properties`.
   **No se debe afirmar que la cobertura ya se importa** mientras no ocurra.
 
-## 8. Duplicación de código — estructural, no por permisos
+## 8. Duplicación de código — estructural (no por permisos)
 
-- **Estado: PENDIENTE (informativa).**
+- **Estado: PARCIAL — lo corregible corregido en PR A #41; lo deliberado
+  documentado como aceptado; portal-padre pendiente junto al bloque 021.**
 - **Problema**: la duplicación reportada por SonarCloud (~22.5% histórica) no
   proviene de los strings de permisos (verificado: cada permiso
   `configuracion.*` / `academico.*` aparece definido una sola vez en el
-  backend). Las fuentes reales son estructurales y conocidas: (a) el SQL de
-  `validation/*.validation.sql` repite el esquema que valida contra su
-  migración (p. ej. `018_configuracion_financiera.sql` 460 líneas vs su
-  validation 159), y (b) modelos/páginas del frontend que reflejan DTOs del
-  backend (p. ej. `mensualidades.ts` mantiene shapes `monto_pagado`,
-  `monto_final` paralelos a `MensualidadDto.cs`).
-- **Riesgo**: la métrica de duplicación de SonarCloud queda alta sin reflejar
-  una duplicación de lógica de negocio real; puede llevar a refactors
-  innecesarios si se interpreta mal. Parte de la duplicación SQL
-  (`database/baseline/`) ya está excluida de CPD.
-- **Prioridad**: Baja (informativa). No exige refactor grande hoy.
-- **Cuándo abordarlo**: documentar la fuente de duplicación en el reporte de
-  SonarCloud al configurar cobertura (#7); solo refactorizar si la
-  duplicación frontend/DTO empieza a causar bugs de desincronización.
+  backend). Las fuentes reales son estructurales.
+- **Resuelta en PR A (deuda #8, 2026-09-05)** — lo corregible se corrigió:
+  1. *Boilerplate de controllers duplicado* (5 controllers repetían
+     `AbrirComoUsuarioAsync` + `FijarClaimAsync` + `ToError` con un switch
+     divergente: Cargos/Conceptos/Planes no contemplaban `SM001`/`SM003`
+     explícitamente). Extraído a base `Controllers/ApiControllerBase.cs`
+     (switch unificado → `SM001`/`SM003` → 400). Sin cambio de comportamiento
+     (ya caían en el default 400).
+  2. *Código muerto*: `DTOs/MensualidadDto.cs` (MensualidadDto,
+     MensualidadResponseDto, MensualidadCreateDto, PagoCreateDto,
+     DescuentoDto) y `Models/Mensualidad.cs`, `Models/Pago.cs` — 0 referencias
+     de controller/test (verificado por grep exhaustivo). Eliminados.
+- **Aceptada/deliberada (documentada, sin refactor)**:
+  - SQL de `validation/*.validation.sql` que repite el esquema de su migración:
+    deliberado (valida contra el esquema real) y ya excluido de CPD
+    (`database/baseline/`).
+  - Duplicación frontend-refleja-DTO (`MatriculaDto.cs` ↔
+    `matriculas.service.ts`, etc.): barrera estructural TS/C#, alineada hoy
+    (nombres y nullabilidad idénticos). No refactorizar.
+  - Estados de matrícula como strings (`'pendiente'`, `'activa'`, …)
+    SQL↔backend↔frontend: sin divergencia verificada hoy. Sin refactor.
+- **Nuevo hallazgo (pendiente, no es deuda #8 corregible aquí)**:
+  `frontend/.../pages/portal-padre/portal-padre.ts` (enrutado desde login)
+  consume vía Supabase un esquema inexistente: `alumnos.tutor_id` (no existe
+  en DDL), y tablas `mensualidades`/`pagos` con columnas `monto_final`,
+  `fecha_pago` (no hay `CREATE TABLE` ni RPC de ellas; la migración 019 solo
+  crea `cargos`). Es funcionalidad de pagos del **bloque 021** (fuera de
+  alcance actual). Re-cablear la página a cargos reales no es una abstracción
+  simple: se documenta y se resuelve junto a 021.
+- **Riesgo**: la métrica de duplicación de SonarCloud puede seguir alta en el
+  código estructural restante, sin reflejar duplicación de lógica de negocio.
+- **Prioridad**: Baja (informativa) tras la corrección anterior.
 
 ## 9. Cobertura de tests — línea base real y umbral propuesto
 
