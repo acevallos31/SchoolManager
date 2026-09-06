@@ -21,4 +21,5 @@ select institucion_id, count(*)
 from public.configuracion_identificadores
 group by institucion_id having count(*) > 1;
 
-select version, nombre from public.schema_migrations where version = '013';
+select '013' as migracion_no_registrada
+where not exists (select 1 from public.schema_migrations where version = '013');

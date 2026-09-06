@@ -40,6 +40,5 @@ where exists (
 select 'usuario_tiene_permiso no esta disponible' as error
 where to_regprocedure('public.usuario_tiene_permiso(uuid,text,uuid)') is null;
 
-select version, nombre
-from public.schema_migrations
-where version = '010';
+select '010' as migracion_no_registrada
+where not exists (select 1 from public.schema_migrations where version = '010');

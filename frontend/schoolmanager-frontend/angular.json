@@ -76,7 +76,21 @@
           "defaultConfiguration": "development"
         },
         "test": {
-          "builder": "@angular/build:unit-test"
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "coverage": true,
+            "coverageReporters": [
+              "lcov",
+              "text-summary"
+            ],
+            "coverageExclude": [
+              "src/main.ts",
+              "src/test.ts",
+              "src/environments/**",
+              "**/*.spec.ts",
+              "**/*.mock.ts"
+            ]
+          }
         }
       }
     }

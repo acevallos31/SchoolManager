@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Configuración de cobertura para los tests de la API.
+  Genera el reporte en formato Cobertura (soportado por SonarCloud vía
+  sonar.cs.cobertura.reportsPaths). Las rutas absolutas a la fuente se conservan;
+  los archivos de los proyectos de test no forman parte de sonar.sources y
+  SonarCloud los ignora al importar.
+-->
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat code coverage">
+        <Configuration>
+          <Format>cobertura</Format>
+          <ExcludeByAttribute>GeneratedCodeAttribute,CompilerGeneratedAttribute</ExcludeByAttribute>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

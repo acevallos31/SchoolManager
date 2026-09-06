@@ -1,6 +1,18 @@
--- Validacion 007: RBAC base, migracion completa y asignaciones activas unicas.
-select codigo, nombre, activo from public.roles order by codigo;
-select codigo, modulo, nombre from public.permisos order by codigo;
+-- Validacion 007: RBAC base, roles/permisos presentes y asignaciones activas unicas.
+-- Contrato: toda consulta debe devolver cero filas cuando el esquema es correcto.
+
+select esperado.codigo as rol_faltante
+from (values
+  ('admin'), ('operador'), ('usuario'), ('padre'), ('docente'), ('cajero'), ('consulta')
+) esperado(codigo)
+where not exists (select 1 from public.roles r where r.codigo = esperado.codigo);
+
+select esperado.codigo as permiso_faltante
+from (values
+  ('academico.alumnos.ver'), ('academico.alumnos.crear'), ('academico.matriculas.ver'),
+  ('academico.matriculas.crear'), ('responsables.responsables.ver'), ('identidad.usuarios.ver')
+) esperado(codigo)
+where not exists (select 1 from public.permisos p where p.codigo = esperado.codigo);
 
 select u.id, u.rol
 from public.usuarios u
@@ -20,8 +32,9 @@ where activo = true
 group by usuario_id, rol_id, institucion_id
 having count(*) > 1;
 
-select public.usuario_tiene_permiso(
+select '007' as permiso_concedido_a_identidad_inexistente
+where public.usuario_tiene_permiso(
   '00000000-0000-0000-0000-000000000000'::uuid,
   'academico.alumnos.ver',
   null
-) as identidad_inexistente_sin_permiso;
+) = true;
