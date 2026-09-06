@@ -31,8 +31,8 @@ export const routes: Routes = [
     canActivate: [permissionGuard],
     data: { permiso: 'academico.matriculas.ver' }
   },
-  // portal-padre: fuera de alcance en este PR (esquema/pagos intocables), se
-  // conserva su navegación existente sin guard adicional.
+  // portal-padre (bloque 022): consume la API .NET (PortalResponsableController)
+  // en modo lectura. Sin guard adicional: la autorización la valida el backend.
   { path: 'portal-padre', component: PortalPadre },
   // Configuracion y sus vistas genéricas no tienen permiso concreto en
   // Permisos.cs (solo autenticación). Los submenús financieros sí.

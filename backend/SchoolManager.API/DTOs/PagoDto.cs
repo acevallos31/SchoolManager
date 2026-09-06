@@ -1,9 +1,9 @@
 namespace SchoolManager.API.DTOs;
 
 // Cabecera de un pago (rpc_listar_pagos_alumno / rpc_obtener_pago).
-// Bloque 021: pago como hecho transaccional independiente de los cargos a los
-// que se aplica. El saldo del cargo es derivado; aqui se refleja el monto del
-// pago y su estado (registrado | anulado). Anular = trazabilidad (sin DELETE).
+// Bloque 021 (en main): pago como hecho transaccional independiente de los
+// cargos a los que se aplica. El saldo del cargo es derivado; aqui se refleja
+// el monto del pago y su estado (registrado | anulado). Anular = trazabilidad.
 public class PagoDto
 {
     public Guid Id { get; set; }

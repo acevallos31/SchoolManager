@@ -1,8 +1,9 @@
 namespace SchoolManager.API.DTOs;
 
 // Obligacion/cargo generado a partir de una cuota de un plan de pago.
-// En 020 el estado es 'pendiente' | 'anulado'; el vencido es derivado por
-// fecha (es_vencido), no persistido. pagado/parcial quedan para 021.
+// Estados (021 en main): 'pendiente' | 'anulado' | 'pagado' | 'parcial'.
+// 'pendiente'/'anulado' se persisten; 'pagado'/'parcial' derivan del saldo.
+// El vencido es derivado por fecha (es_vencido), no persistido.
 public class CargoDto
 {
     public Guid Id { get; set; }
