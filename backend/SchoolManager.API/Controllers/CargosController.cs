@@ -14,38 +14,8 @@ namespace SchoolManager.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class CargosController(NpgsqlDataSource dataSource) : ControllerBase
+public class CargosController(NpgsqlDataSource dataSource) : ApiControllerBase(dataSource)
 {
-    private async Task<NpgsqlConnection> AbrirComoUsuarioAsync(CancellationToken ct)
-    {
-        var sub = User.FindFirstValue("sub");
-        if (string.IsNullOrWhiteSpace(sub))
-            throw new UnauthorizedAccessException("El claim sub del JWT es obligatorio.");
-        return await dataSource.OpenConnectionAsync(ct);
-    }
-
-    private static async Task FijarClaimAsync(NpgsqlConnection c, NpgsqlTransaction tx, string sub, CancellationToken ct)
-    {
-        await using var cmd = c.CreateCommand();
-        cmd.Transaction = tx;
-        cmd.CommandText = "select set_config('request.jwt.claim.sub', @sub, true)";
-        cmd.Parameters.AddWithValue("sub", sub);
-        await cmd.ExecuteNonQueryAsync(ct);
-    }
-
-    private ObjectResult ToError(PostgresException ex) =>
-        new ObjectResult(new { error = ex.MessageText ?? "Error en base de datos" })
-        {
-            StatusCode = ex.SqlState switch
-            {
-                "42501" => StatusCodes.Status403Forbidden,
-                "P0002" => StatusCodes.Status404NotFound,
-                "23505" or "23514" => StatusCodes.Status409Conflict,
-                "22023" or "23503" => StatusCodes.Status400BadRequest,
-                _ => StatusCodes.Status400BadRequest
-            }
-        };
-
     // Columnas de rpc_listar_cargos_matricula / rpc_listar_cargos_alumno (15).
     private static CargoDto LeerCargo(NpgsqlDataReader r) => new()
     {

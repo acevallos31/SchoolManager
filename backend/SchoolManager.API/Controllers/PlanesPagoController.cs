@@ -12,27 +12,10 @@ namespace SchoolManager.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class PlanesPagoController(NpgsqlDataSource dataSource) : ControllerBase
+public class PlanesPagoController(NpgsqlDataSource dataSource) : ApiControllerBase(dataSource)
 {
     private const string LecturaLista = "select * from public.rpc_listar_planes_pago(@institucionId, @activo)";
     private const string LecturaDetalle = "select * from public.rpc_obtener_plan_pago(@planId, @institucionId)";
-
-    private async Task<NpgsqlConnection> AbrirComoUsuarioAsync(CancellationToken ct)
-    {
-        var sub = User.FindFirstValue("sub");
-        if (string.IsNullOrWhiteSpace(sub))
-            throw new UnauthorizedAccessException("El claim sub del JWT es obligatorio.");
-        return await dataSource.OpenConnectionAsync(ct);
-    }
-
-    private static async Task FijarClaimAsync(NpgsqlConnection c, NpgsqlTransaction tx, string sub, CancellationToken ct)
-    {
-        await using var cmd = c.CreateCommand();
-        cmd.Transaction = tx;
-        cmd.CommandText = "select set_config('request.jwt.claim.sub', @sub, true)";
-        cmd.Parameters.AddWithValue("sub", sub);
-        await cmd.ExecuteNonQueryAsync(ct);
-    }
 
     private static PlanPagoListaDto LeerLista(NpgsqlDataReader r) => new()
     {
@@ -45,19 +28,6 @@ public class PlanesPagoController(NpgsqlDataSource dataSource) : ControllerBase
         TotalCuotas = r.GetInt64(6),
         MontoTotal = r.GetDecimal(7)
     };
-
-    private ObjectResult ToError(PostgresException ex) =>
-        new ObjectResult(new { error = ex.MessageText ?? "Error en base de datos" })
-        {
-            StatusCode = ex.SqlState switch
-            {
-                "42501" => StatusCodes.Status403Forbidden,
-                "P0002" => StatusCodes.Status404NotFound,
-                "23505" or "23514" => StatusCodes.Status409Conflict,
-                "22023" or "23503" => StatusCodes.Status400BadRequest,
-                _ => StatusCodes.Status400BadRequest
-            }
-        };
 
     private static string JsonbCuotas(IEnumerable<PlanCuotaInputDto> cuotas) =>
         JsonSerializer.Serialize(cuotas.Select(c => new

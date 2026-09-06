@@ -10,7 +10,7 @@ namespace SchoolManager.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class MatriculasController(NpgsqlDataSource dataSource) : ControllerBase
+public class MatriculasController(NpgsqlDataSource dataSource) : ApiControllerBase(dataSource)
 {
     private static readonly string[] EstadosTerminales =
         { "retirada", "anulada", "trasladada" };
@@ -51,23 +51,6 @@ public class MatriculasController(NpgsqlDataSource dataSource) : ControllerBase
     private const string FiltroContextoInstitucional =
         " and public.usuario_tiene_permiso_actual('academico.matriculas.ver', m.institucion_id)";
 
-    private async Task<NpgsqlConnection> AbrirComoUsuarioAsync(CancellationToken ct)
-    {
-        var sub = User.FindFirstValue("sub");
-        if (string.IsNullOrWhiteSpace(sub))
-            throw new UnauthorizedAccessException("El claim sub del JWT es obligatorio.");
-        return await dataSource.OpenConnectionAsync(ct);
-    }
-
-    private static async Task FijarClaimAsync(NpgsqlConnection c, NpgsqlTransaction tx, string sub, CancellationToken ct)
-    {
-        await using var cmd = c.CreateCommand();
-        cmd.Transaction = tx;
-        cmd.CommandText = "select set_config('request.jwt.claim.sub', @sub, true)";
-        cmd.Parameters.AddWithValue("sub", sub);
-        await cmd.ExecuteNonQueryAsync(ct);
-    }
-
     private MatriculaDto? Leer(NpgsqlDataReader r)
     {
         return new MatriculaDto
@@ -92,21 +75,6 @@ public class MatriculasController(NpgsqlDataSource dataSource) : ControllerBase
             CicloNombre = r.GetString(17),
         };
     }
-
-    private ObjectResult ToError(PostgresException ex) =>
-        new ObjectResult(new { error = ex.MessageText ?? "Error en base de datos" })
-        {
-            // P0001 (raise_exception generico) no se trata como 403: cae en el default.
-            // "SM001"/"SM003" son codigos de contexto de la implementacion.
-            StatusCode = ex.SqlState switch
-            {
-                "42501" => StatusCodes.Status403Forbidden,
-                "P0002" => StatusCodes.Status404NotFound,
-                "23505" or "23514" => StatusCodes.Status409Conflict,
-                "22023" or "23503" or "SM001" or "SM003" => StatusCodes.Status400BadRequest,
-                _ => StatusCodes.Status400BadRequest
-            }
-        };
 
     [HttpGet]
     [Authorize(Policy = Permisos.Matriculas.Ver)]
