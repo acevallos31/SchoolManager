@@ -189,7 +189,7 @@ public sealed class SchemaConstraintsTests(PostgreSqlFixture fixture) : IClassFi
     {
         var institucionId = await InsertInstitucionAsync();
         var cicloId = await ScalarGuidAsync($"insert into public.ciclos_escolares (nombre, institucion_id) values ('Ciclo {Guid.NewGuid()}', '{institucionId}') returning id");
-        var gradoId = await ScalarGuidAsync($"insert into public.grados (nombre) values ('Grado {Guid.NewGuid()}') returning id");
+        var gradoId = await ScalarGuidAsync($"insert into public.grados (nombre, institucion_id) values ('Grado {Guid.NewGuid()}', '{institucionId}') returning id");
         var seccionId = await ScalarGuidAsync($"insert into public.secciones (nombre, institucion_id, ciclo_id, grado_id) values ('Seccion {Guid.NewGuid()}', '{institucionId}', '{cicloId}', '{gradoId}') returning id");
         var periodoId = await ScalarGuidAsync($"insert into public.periodos_matricula (ciclo_id, nombre, fecha_inicio, fecha_fin) values ('{cicloId}', 'Periodo {Guid.NewGuid()}', current_date, current_date + 30) returning id");
         return (institucionId, cicloId, gradoId, seccionId, periodoId);

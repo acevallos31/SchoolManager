@@ -204,7 +204,7 @@ public sealed class RlsSecurityTests(PostgreSqlFixture fixture) : IClassFixture<
             "insert into public.ciclos_escolares (institucion_id, nombre) values ($1, $2) returning id",
             institucion, $"Ciclo {Guid.NewGuid():N}");
         var grado = await ScalarGuidAsync(
-            "insert into public.grados (nombre) values ($1) returning id", $"Grado {Guid.NewGuid():N}");
+            "insert into public.grados (nombre, institucion_id) values ($1, $2) returning id", $"Grado {Guid.NewGuid():N}", institucion);
         var periodo = await ScalarGuidAsync(
             "insert into public.periodos_matricula (ciclo_id, nombre, fecha_inicio, fecha_fin) values ($1, $2, current_date, current_date + 30) returning id",
             ciclo, $"Periodo {Guid.NewGuid():N}");

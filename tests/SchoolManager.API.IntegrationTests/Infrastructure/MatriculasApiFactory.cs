@@ -109,9 +109,9 @@ public sealed class MatriculasApiFactory : IAsyncLifetime
         "insert into public.ciclos_escolares (institucion_id, nombre) values ($1, $2) returning id",
         institucion, $"Ciclo {Guid.NewGuid():N}");
 
-    public Task<Guid> CrearGradoAsync() => ScalarGuidAsync(
-        "insert into public.grados (nombre) values ($1) returning id",
-        $"Grado {Guid.NewGuid():N}");
+    public Task<Guid> CrearGradoAsync(Guid institucion) => ScalarGuidAsync(
+        "insert into public.grados (nombre, institucion_id) values ($1, $2) returning id",
+        $"Grado {Guid.NewGuid():N}", institucion);
 
     public Task<Guid> CrearPeriodoAsync(Guid ciclo) => ScalarGuidAsync(
         "insert into public.periodos_matricula (ciclo_id, nombre, fecha_inicio, fecha_fin) values ($1, $2, current_date, current_date + 30) returning id",
@@ -146,7 +146,7 @@ public sealed class MatriculasApiFactory : IAsyncLifetime
     public async Task<Contexto> CrearContextoAsync(Guid institucion, int? cupo = null)
     {
         var ciclo = await CrearCicloAsync(institucion);
-        var grado = await CrearGradoAsync();
+        var grado = await CrearGradoAsync(institucion);
         var periodo = await CrearPeriodoAsync(ciclo);
         var seccion = await CrearSeccionAsync(institucion, ciclo, grado, "A", cupo);
         return new Contexto(institucion, ciclo, grado, seccion, periodo);

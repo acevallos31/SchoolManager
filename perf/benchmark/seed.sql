@@ -38,12 +38,12 @@ begin
 
   -- Grados (8)
   for v_i in 1..8 loop
-    insert into public.grados (nombre, orden) values ('Grado ' || v_i, v_i) returning id into v_g;
+    insert into public.grados (nombre, orden, institucion_id) values ('Grado ' || v_i, v_i, v_inst) returning id into v_g;
     v_grade_list := array_append(v_grade_list, v_g);
   end loop;
 
   -- Jornada
-  insert into public.jornadas (nombre) values ('Matutina') returning id into v_jornada;
+  insert into public.jornadas (nombre, institucion_id) values ('Matutina', v_inst) returning id into v_jornada;
 
   -- 40 secciones: 10 por ciclo, repartidas entre grados.
   for v_i in 1..40 loop

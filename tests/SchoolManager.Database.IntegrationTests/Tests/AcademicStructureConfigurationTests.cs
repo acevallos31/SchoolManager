@@ -172,8 +172,8 @@ public sealed class AcademicStructureConfigurationTests(PostgreSqlFixture fixtur
         await MultiAsync();
         var adminAuthId = await UserAsync("admin");
         var cycleId = await CycleAsync(institutionId);
-        var gradeId = await ScalarGuidAsync("insert into public.grados(nombre, orden) values($1, 0) returning id", $"Grado {Guid.NewGuid():N}");
-        var jornadaId = await ScalarGuidAsync("insert into public.jornadas(nombre) values($1) returning id", $"Jornada {Guid.NewGuid():N}");
+        var gradeId = await ScalarGuidAsync("insert into public.grados(nombre, orden, institucion_id) values($1, 0, $2) returning id", $"Grado {Guid.NewGuid():N}", institutionId);
+        var jornadaId = await ScalarGuidAsync("insert into public.jornadas(nombre, institucion_id) values($1, $2) returning id", $"Jornada {Guid.NewGuid():N}", institutionId);
         return new Context(institutionId, adminAuthId, cycleId, gradeId, jornadaId);
     }
 
