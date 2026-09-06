@@ -1,14 +1,32 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Router } from '@angular/router';
+import { vi } from 'vitest';
 
+import { AuthAppError, AuthService } from '../../core/services/auth';
 import { Login } from './login';
 
 describe('Login', () => {
   let component: Login;
   let fixture: ComponentFixture<Login>;
+  let auth: { login: ReturnType<typeof vi.fn>; logout: ReturnType<typeof vi.fn> };
+  let router: { navigate: ReturnType<typeof vi.fn> };
+
+  const rolAdmin = { id: 'u1', personaId: 'p1', roles: ['admin'], permisos: [] };
+  const rolPadre = { id: 'u2', personaId: 'p2', roles: ['padre'], permisos: [] };
 
   beforeEach(async () => {
+    auth = {
+      login: vi.fn(),
+      logout: vi.fn().mockResolvedValue(undefined)
+    };
+    router = { navigate: vi.fn().mockResolvedValue(true) };
+
     await TestBed.configureTestingModule({
       imports: [Login],
+      providers: [
+        { provide: AuthService, useValue: auth },
+        { provide: Router, useValue: router }
+      ]
     }).compileComponents();
 
     fixture = TestBed.createComponent(Login);
@@ -16,7 +34,82 @@ describe('Login', () => {
     await fixture.whenStable();
   });
 
-  it('should create', () => {
-    expect(component).toBeTruthy();
+  it('inicia sesion como admin y navega al panel', async () => {
+    auth.login.mockResolvedValue(rolAdmin);
+    component.correo = 'admin@schoolmanager.com';
+    component.password = 'secreto';
+
+    await component.login();
+
+    expect(auth.login).toHaveBeenCalledWith('admin@schoolmanager.com', 'secreto');
+    expect(router.navigate).toHaveBeenCalledWith(['/dashboard']);
+    expect(component.error).toBe('');
+    expect(component.cargando).toBe(false);
+  });
+
+  it('inicia sesion como padre y navega al portal', async () => {
+    auth.login.mockResolvedValue(rolPadre);
+    component.correo = 'padre@schoolmanager.com';
+    component.password = 'secreto';
+
+    await component.login();
+
+    expect(router.navigate).toHaveBeenCalledWith(['/portal-padre']);
+    expect(component.error).toBe('');
+  });
+
+  it('muestra mensaje seguro ante credenciales invalidas sin exponer Supabase', async () => {
+    auth.login.mockRejectedValue(
+      new AuthAppError('Correo o contrasena incorrectos.', 'INVALID_CREDENTIALS')
+    );
+
+    component.correo = 'admin@schoolmanager.com';
+    component.password = 'mala';
+
+    await component.login();
+
+    expect(component.error).toBe('Correo o contrasena incorrectos.');
+    expect(component.error).not.toContain('invalid');
+    expect(auth.logout).toHaveBeenCalled();
+    expect(component.cargando).toBe(false);
+  });
+
+  it('muestra mensaje generico ante error inesperado sin exponer el error crudo', async () => {
+    auth.login.mockRejectedValue(new Error('Supabase: network breakdown 500'));
+
+    component.correo = 'admin@schoolmanager.com';
+    component.password = 'secreto';
+
+    await component.login();
+
+    expect(component.error).toBe('Ocurrio un error inesperado. Intenta nuevamente.');
+    expect(component.error).not.toContain('network');
+    expect(component.error).not.toContain('Supabase');
+    expect(auth.logout).toHaveBeenCalled();
+  });
+
+  it('entra en loading mientras autentica y bloquea doble submit', async () => {
+    let resolver!: (usuario: typeof rolAdmin) => void;
+    auth.login.mockImplementation(
+      () =>
+        new Promise<typeof rolAdmin>((resolve) => {
+          resolver = resolve;
+        })
+    );
+
+    component.correo = 'admin@schoolmanager.com';
+    component.password = 'secreto';
+
+    const promesa = component.login();
+
+    // Tras iniciar, el componente queda en loading (la promesa aun no resuelve).
+    expect(component.cargando).toBe(true);
+    expect(component.error).toBe('');
+
+    resolver(rolAdmin);
+    await promesa;
+
+    expect(component.cargando).toBe(false);
+    expect(router.navigate).toHaveBeenCalledWith(['/dashboard']);
   });
 });

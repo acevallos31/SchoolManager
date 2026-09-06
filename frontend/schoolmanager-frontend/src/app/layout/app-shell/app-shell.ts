@@ -33,12 +33,12 @@ export class AppShell implements OnDestroy {
   navAbierta = false;
   roles: string[] = [];
 
-  // Panel y Matrículas sin permiso concreto (regla histórica: siempre visibles).
-  // Cargos/Pagos/Responsables/Alumnos con permiso; Configuración con OR de dos.
+  // Enlaces con el permiso real que exige cada ruta; el guard sigue siendo la
+  // autoridad para navegación directa por URL. Panel: sin permiso concreto.
   readonly items: NavItem[] = [
     { etiqueta: 'Panel', ruta: '/dashboard' },
     { etiqueta: 'Alumnos', ruta: '/alumnos', permiso: 'academico.alumnos.ver' },
-    { etiqueta: 'Matrículas', ruta: '/matriculas' },
+    { etiqueta: 'Matrículas', ruta: '/matriculas', permiso: 'academico.matriculas.ver' },
     { etiqueta: 'Responsables', ruta: '/responsables', permiso: 'academico.responsables.ver' },
     { etiqueta: 'Cargos', ruta: '/cargos', permiso: 'academico.cargos.ver' },
     { etiqueta: 'Pagos', ruta: '/pagos', permiso: 'academico.pagos.ver' }
@@ -65,7 +65,8 @@ export class AppShell implements OnDestroy {
   }
 
   mostrarItem(item: NavItem): boolean {
-    // Panel y Matrículas: sin permiso concreto, siempre visibles para autenticados.
+    // Panel (sin permiso) siempre visible para autenticados; el resto exige el
+    // mismo permiso que su ruta.
     if (!item.permiso) return true;
     return this.auth.tienePermiso(item.permiso);
   }

@@ -44,13 +44,13 @@ describe('AppShell', () => {
     const texto = fixture.nativeElement.textContent;
     expect(texto).toContain('SchoolManager');
     expect(texto).toContain('Alumnos');
-    expect(texto).toContain('Matrículas');
     expect(texto).toContain('Cerrar sesión');
   });
 
-  it('oculta Responsables y Configuración sin permisos', () => {
+  it('oculta Responsables, Matrículas y Configuración sin permisos', () => {
     const texto = fixture.nativeElement.textContent;
     expect(texto).not.toContain('Responsables');
+    expect(texto).not.toContain('Matrículas');
     expect(texto).not.toContain('Configuración');
   });
 
@@ -62,6 +62,16 @@ describe('AppShell', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     expect(fixture.nativeElement.textContent).toContain('Responsables');
+  });
+
+  it('muestra Matrículas con permiso', async () => {
+    permisos.add('academico.matriculas.ver');
+    fixture.destroy();
+    fixture = TestBed.createComponent(AppShell);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(fixture.nativeElement.textContent).toContain('Matrículas');
   });
 
   it('cierra sesión y navega a login', () => {
@@ -95,8 +105,8 @@ describe('AppShell', () => {
 
   it('muestra los enlaces sin permiso y filtra los que exigen permiso', () => {
     expect(component.mostrarItem(component.items[0])).toBe(true); // Panel
-    expect(component.mostrarItem(component.items[2])).toBe(true); // Matrículas
     expect(component.mostrarItem(component.items[1])).toBe(true); // Alumnos (mock tiene permiso)
+    expect(component.mostrarItem(component.items[2])).toBe(false); // Matrículas sin permiso
     expect(component.mostrarItem(component.items[3])).toBe(false); // Responsables sin permiso
     expect(component.puedeVerConfiguracion).toBe(false);
   });
