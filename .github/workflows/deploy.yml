@@ -82,6 +82,53 @@ jobs:
           cd frontend/schoolmanager-frontend
           npm run build -- --configuration production
 
+  # ETAPA 1.5: ANÁLISIS SONARCLOUD (opcional, requiere SONAR_TOKEN)
+  # Se ejecuta SOLO si existe el secret SONAR_TOKEN; si no, el job se salta y
+  # NO se importa nada a SonarCloud. No bloquea el despliegue (deploy solo
+  # depende de validate-code).
+  # La desactivación de Automatic Analysis es un paso manual del usuario en el
+  # panel de SonarCloud (ver docs/handoffs/020.5A-hardening-ci.md).
+  sonarcloud:
+    name: Análisis SonarCloud (CI Analysis)
+    needs: validate-code
+    if: ${{ secrets.SONAR_TOKEN != '' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Java 17 (requerido por sonar-scanner)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Descargar cobertura backend
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-backend-cobertura
+          path: coverage-backend
+
+      - name: Descargar cobertura frontend
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-frontend-lcov
+          path: frontend/schoolmanager-frontend/coverage
+
+      - name: Analizar con sonar-scanner (lee sonar-project.properties)
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-7.1.0.12063-linux-x64.zip
+          unzip -q sonar-scanner-cli-*.zip
+          SONAR_SCANNER_HOME=$(ls -d sonar-scanner-* | head -1)
+          "$SONAR_SCANNER_HOME/bin/sonar-scanner" \
+            -Dsonar.token="$SONAR_TOKEN" \
+            -Dsonar.host.url="https://sonarcloud.io"
+
   # ETAPA 2: DESPLIEGUE (Solo se ejecuta si la etapa anterior pasa Y estamos en la rama main)
   deploy:
     name: Desplegar a Producción
