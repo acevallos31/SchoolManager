@@ -36,7 +36,15 @@ jobs:
           dotnet build backend/SchoolManager.API/SchoolManager.API.csproj --configuration Release
 
       - name: Ejecutar tests de identidad y autorizacion
-        run: dotnet test tests/SchoolManager.API.IntegrationTests/SchoolManager.API.IntegrationTests.csproj --configuration Release
+        run: dotnet test tests/SchoolManager.API.IntegrationTests/SchoolManager.API.IntegrationTests.csproj --configuration Release --collect:"XPlat Code Coverage" --settings tests/SchoolManager.API.IntegrationTests/coverlet.runsettings --results-directory coverage-backend
+        continue-on-error: false
+
+      - name: Subir cobertura backend (cobertura.xml) como artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-backend-cobertura
+          path: coverage-backend/**/coverage.cobertura.xml
+          if-no-files-found: error
 
       - name: Ejecutar tests de base de datos
         run: dotnet test tests/SchoolManager.Database.IntegrationTests/SchoolManager.Database.IntegrationTests.csproj --configuration Release
@@ -56,10 +64,18 @@ jobs:
           cd frontend/schoolmanager-frontend
           npm ci --ignore-scripts
 
-      - name: Ejecutar tests unitarios del frontend (headless)
+      - name: Ejecutar tests unitarios del frontend (headless, con cobertura lcov)
         run: |
           cd frontend/schoolmanager-frontend
           npm test -- --watch=false
+        continue-on-error: false
+
+      - name: Subir cobertura frontend (lcov.info) como artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-frontend-lcov
+          path: frontend/schoolmanager-frontend/coverage/**/lcov.info
+          if-no-files-found: error
 
       - name: Validar Frontend (Angular)
         run: |
