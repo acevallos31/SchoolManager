@@ -8,38 +8,59 @@ import { PortalPadre } from './pages/portal-padre/portal-padre';
 import { Configuracion } from './pages/configuracion/configuracion';
 import { ConfiguracionCiclos } from './pages/configuracion-ciclos/configuracion-ciclos';
 import { ConfiguracionEstructuraAcademica } from './pages/configuracion-estructura-academica/configuracion-estructura-academica';
+import { permissionGuard } from './core/guards/permission.guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'login', pathMatch: 'full' },
   { path: 'home', redirectTo: 'login', pathMatch: 'full' },
   { path: 'login', component: Login },
-  { path: 'dashboard', component: Dashboard },
+  // Dashboard: autenticación pura (sin permiso concreto en Permisos.cs).
+  { path: 'dashboard', component: Dashboard, canActivate: [permissionGuard] },
   {
     path: 'alumnos',
     component: AppShell,
+    canActivate: [permissionGuard],
+    data: { permiso: 'academico.alumnos.ver' },
     children: [
       { path: '', component: Alumnos }
     ]
   },
-  { path: 'matriculas', component: Matriculas },
+  {
+    path: 'matriculas',
+    component: Matriculas,
+    canActivate: [permissionGuard],
+    data: { permiso: 'academico.matriculas.ver' }
+  },
+  // portal-padre: fuera de alcance en este PR (esquema/pagos intocables), se
+  // conserva su navegación existente sin guard adicional.
   { path: 'portal-padre', component: PortalPadre },
-  { path: 'configuracion', component: Configuracion },
-  { path: 'configuracion/ciclos', component: ConfiguracionCiclos },
-  { path: 'configuracion/estructura-academica', component: ConfiguracionEstructuraAcademica },
+  // Configuracion y sus vistas genéricas no tienen permiso concreto en
+  // Permisos.cs (solo autenticación). Los submenús financieros sí.
+  { path: 'configuracion', component: Configuracion, canActivate: [permissionGuard] },
+  { path: 'configuracion/ciclos', component: ConfiguracionCiclos, canActivate: [permissionGuard] },
+  { path: 'configuracion/estructura-academica', component: ConfiguracionEstructuraAcademica, canActivate: [permissionGuard] },
   {
     path: 'configuracion/conceptos-financieros',
+    canActivate: [permissionGuard],
+    data: { permiso: 'configuracion.conceptos_financieros.ver' },
     loadComponent: () => import('./pages/configuracion-conceptos-financieros/configuracion-conceptos-financieros').then(m => m.ConfiguracionConceptosFinancieros)
   },
   {
     path: 'configuracion/planes-pago',
+    canActivate: [permissionGuard],
+    data: { permiso: 'configuracion.planes_pago.ver' },
     loadComponent: () => import('./pages/configuracion-planes-pago/configuracion-planes-pago').then(m => m.ConfiguracionPlanesPago)
   },
   {
     path: 'responsables',
+    canActivate: [permissionGuard],
+    data: { permiso: 'academico.responsables.ver' },
     loadComponent: () => import('./pages/responsables/responsables').then(m => m.Responsables)
   },
   {
     path: 'cargos',
+    canActivate: [permissionGuard],
+    data: { permiso: 'academico.cargos.ver' },
     loadComponent: () => import('./pages/cargos/cargos').then(m => m.Cargos)
   },
   { path: '**', redirectTo: 'login' }

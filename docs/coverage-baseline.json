@@ -1,0 +1,13 @@
+{
+  "backend": {
+    "paquete": "SchoolManager.API",
+    "lineas": 81.54,
+    "medido": "2026-09-06",
+    "nota": "Cobertura de lineas del paquete productivo SchoolManager.API (excluye proyectos de test), medida con dotnet test --collect:XPlat Code Coverage sobre SchoolManager.API.IntegrationTests."
+  },
+  "frontend": {
+    "lineas": 64.86,
+    "medido": "2026-09-06",
+    "nota": "Cobertura de lineas global del frontend Angular (lcov.info), medida con ng test --coverage. Incluye codigo historico; no es un umbral aspiracional."
+  }
+}
