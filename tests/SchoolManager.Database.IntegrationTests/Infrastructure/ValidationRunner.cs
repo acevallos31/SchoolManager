@@ -75,6 +75,24 @@ public static class ValidationRunner
         }
     }
 
+    /// <summary>
+    /// Valida un archivo de validacion concreto contra un dataSource dado: ejecuta
+    /// su SQL y lanza <see cref="ValidationFailedException"/> si alguna consulta
+    /// devuelve filas o si hay error SQL. Reutiliza la misma deteccion que
+    /// <see cref="RunAllAsync(NpgsqlDataSource, CancellationToken)"/> para que
+    /// validaciones positivas y negativas compartan el mecanismo real.
+    /// </summary>
+    public static async Task RunFileAsync(
+        NpgsqlDataSource dataSource,
+        string validationPath,
+        CancellationToken cancellationToken = default)
+    {
+        if (await TryRunFileAsync(dataSource, validationPath, cancellationToken) is { } failure)
+        {
+            throw new ValidationFailedException(new[] { failure });
+        }
+    }
+
     private static async Task ExecuteBootstrapAsync(
         NpgsqlDataSource dataSource,
         string fileName,

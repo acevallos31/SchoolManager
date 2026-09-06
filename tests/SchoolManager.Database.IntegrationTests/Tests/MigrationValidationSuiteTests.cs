@@ -39,7 +39,7 @@ public sealed class MigrationValidationSuiteTests
             await ExecuteBootstrapAsync(dataSource, "LegacySchemaBootstrap.sql");
             await MigrationRunner.ApplyActiveAsync(dataSource);
 
-            // Validacion ad-hoc que SIEMPRE devuelve una fila (simula un hallazgo real).
+            // Hallazgo real: un rol de sistema no esperado en el estado canonico.
             await using (var seed = dataSource.CreateCommand(
                 "insert into public.roles (codigo, nombre, descripcion, es_sistema) " +
                 "values ('cajero', 'Cajero', 'Reservado finanzas', true) " +
@@ -54,24 +54,26 @@ public sealed class MigrationValidationSuiteTests
                 Assert.True(await reader.ReadAsync()); // el hallazgo existe
             }
 
-            // Ejecuta una validacion simple que devuelve la fila como hallazgo -> debe fallar.
-            var ex = await Assert.ThrowsAsync<ValidationFailedException>(() =>
-                RunSingleValidationAsync(dataSource, "select codigo from public.roles"));
-            Assert.Contains(ex.Failures, f => f.FileName.EndsWith(".validation.sql", StringComparison.Ordinal));
+            // Archivo de validacion real en disco que SIEMPRE devuelve filas: al
+            // ejecutarlo via ValidationRunner.RunFileAsync (mecanismo real, misma
+            // deteccion que RunAllAsync) debe fallar con ValidationFailedException.
+            var validationFile = Path.Combine(Path.GetTempPath(), "negativa.validation.sql");
+            await File.WriteAllTextAsync(validationFile, "select codigo from public.roles;");
+            try
+            {
+                var ex = await Assert.ThrowsAsync<ValidationFailedException>(() =>
+                    ValidationRunner.RunFileAsync(dataSource, validationFile));
+                Assert.Contains(ex.Failures, f =>
+                    f.FileName.EndsWith("negativa.validation.sql", StringComparison.Ordinal));
+            }
+            finally
+            {
+                File.Delete(validationFile);
+            }
         }
         finally
         {
             await container.DisposeAsync();
-        }
-    }
-
-    private static async Task RunSingleValidationAsync(NpgsqlDataSource dataSource, string sql)
-    {
-        await using var command = dataSource.CreateCommand(sql);
-        await using var reader = await command.ExecuteReaderAsync();
-        if (await reader.ReadAsync())
-        {
-            throw new ValidationFailedException(new[] { new ValidationFailure("negativa.validation.sql", "hallazgo detectado") });
         }
     }
 
