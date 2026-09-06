@@ -1,30 +1,78 @@
-<div class="app-shell">
-  <aside class="sidebar">
-    <div class="brand-block">
-      <p class="brand-kicker">SchoolManager</p>
-      <h2>Panel escolar</h2>
-      <span>Control administrativo diario</span>
+<div class="sm-shell">
+
+  <!-- Cabecera superior: siempre visible. Hamburguesa solo en móvil/tablet. -->
+  <header class="sm-topbar">
+    <button
+      type="button"
+      class="sm-topbar__toggle"
+      aria-label="Abrir menú de navegación"
+      aria-expanded="false"
+      (click)="alternarNav()">☰</button>
+
+    <div class="sm-topbar__brand">
+      <span class="sm-topbar__brand-name">SchoolManager</span>
+      <span class="sm-topbar__brand-sub">Panel escolar</span>
     </div>
 
-    <nav aria-label="Secciones">
-      <a routerLink="/alumnos" routerLinkActive="active">Alumnos</a>
-      @if (puedeVerResponsables) {
-        <a routerLink="/responsables" routerLinkActive="active">Responsables</a>
+    <div class="sm-topbar__actions">
+      @if (roles.length > 0) {
+        <span class="sm-badge sm-badge--info" [title]="roles.join(', ')">{{ roles[0] }}</span>
       }
-      <a routerLink="/matriculas" routerLinkActive="active">Matrículas</a>
+      <button type="button" class="sm-btn sm-btn--ghost sm-btn--sm" (click)="logout()">
+        Cerrar sesión
+      </button>
+    </div>
+  </header>
+
+  <!-- Overlay que oscurece el contenido al abrir el drawer en móvil. -->
+  @if (navAbierta) {
+    <button
+      type="button"
+      class="sm-shell__overlay"
+      aria-label="Cerrar menú"
+      (click)="cerrarNav()"></button>
+  }
+
+  <!-- Sidebar: columna fija en escritorio; drawer deslizante en móvil/tablet. -->
+  <aside class="sm-sidebar" [class.sm-sidebar--open]="navAbierta" aria-label="Secciones">
+    <div class="sm-sidebar__brand">
+      <p class="sm-eyebrow">SchoolManager</p>
+      <span class="sm-sidebar__brand-name">Panel escolar</span>
+    </div>
+
+    <nav class="sm-sidebar__nav">
+      @for (item of items; track item.ruta) {
+        @if (mostrarItem(item)) {
+          <a
+            class="sm-sidebar__link"
+            [class.sm-sidebar__link--active]="esRutaActiva(item)"
+            routerLink="{{ item.ruta }}"
+            (click)="cerrarNav()">
+            <span class="sm-sidebar__link-dot" aria-hidden="true"></span>
+            {{ item.etiqueta }}
+          </a>
+        }
+      }
       @if (puedeVerConfiguracion) {
-        <a routerLink="/configuracion" routerLinkActive="active">Configuración</a>
+        <a
+          class="sm-sidebar__link"
+          routerLink="/configuracion"
+          routerLinkActive="sm-sidebar__link--active"
+          (click)="cerrarNav()">
+          <span class="sm-sidebar__link-dot" aria-hidden="true"></span>
+          Configuración
+        </a>
       }
     </nav>
 
-    <div class="sidebar-footer">
-      <p>Acceso conectado con Supabase</p>
-      <button class="btn-volver-panel" type="button" (click)="volverAlPanel()">← Volver al panel</button>
-      <button class="btn-logout" type="button" (click)="logout()">Cerrar sesión</button>
+    <div class="sm-sidebar__footer">
+      <span class="sm-metadata">Acceso conectado con Supabase</span>
     </div>
   </aside>
 
-  <main class="main-content">
+  <!-- Contenido de la ruta hija. -->
+  <main class="sm-content">
     <router-outlet></router-outlet>
   </main>
+
 </div>

@@ -1,18 +1,18 @@
 <div class="page-container">
   <div class="page-header">
-    <h1>Gestión de Alumnos</h1>
+    <h1 class="sm-page-title">Gestión de Alumnos</h1>
     @if (puedeCrear) {
-      <button class="btn-nuevo" type="button" (click)="abrirFormulario()" [disabled]="guardando">
+      <button class="sm-btn sm-btn--primary" type="button" (click)="abrirFormulario()" [disabled]="guardando">
         + Nuevo Alumno
       </button>
     }
   </div>
 
   @if (mensaje) {
-    <div class="mensaje" [class.mensaje-error]="esError" role="status">
+    <div class="sm-alert" [class.sm-alert--error]="esError" [class.sm-alert--success]="!esError" role="status">
       <span>{{ mensaje }}</span>
       @if (ultimoAlumnoCreadoId && !esError) {
-        <button class="btn-matricular" type="button" (click)="matricularAlumno()">
+        <button class="btn-matricular sm-btn sm-btn--primary sm-btn--sm" type="button" (click)="matricularAlumno()">
           Matricular alumno
         </button>
       }
@@ -20,29 +20,29 @@
   }
 
   @if (mostrarFormulario) {
-    <form class="formulario" (ngSubmit)="guardarAlumno()">
-      <h3>Datos personales</h3>
+    <form class="formulario sm-card" (ngSubmit)="guardarAlumno()">
+      <h3 class="sm-section-title">Datos personales</h3>
       <div class="form-grid">
-        <div class="form-group"><label for="nombres">Nombres *</label><input id="nombres" name="nombres" type="text" [(ngModel)]="nuevoAlumno.nombres" /></div>
-        <div class="form-group"><label for="apellidos">Apellidos *</label><input id="apellidos" name="apellidos" type="text" [(ngModel)]="nuevoAlumno.apellidos" /></div>
-        <div class="form-group"><label for="tipoIdentificacion">Tipo de documento *</label>
+        <div class="sm-field form-group"><label class="sm-label" for="nombres">Nombres *</label><input id="nombres" name="nombres" class="sm-input" type="text" [(ngModel)]="nuevoAlumno.nombres" /></div>
+        <div class="sm-field form-group"><label class="sm-label" for="apellidos">Apellidos *</label><input id="apellidos" name="apellidos" class="sm-input" type="text" [(ngModel)]="nuevoAlumno.apellidos" /></div>
+        <div class="sm-field form-group"><label class="sm-label" for="tipoIdentificacion">Tipo de documento *</label>
           @if (configuracionIdentificadores?.tiposIdentificacionPermitidos?.length) {
-            <select id="tipoIdentificacion" name="tipoIdentificacion" [(ngModel)]="nuevoAlumno.tipoIdentificacion">
+            <select id="tipoIdentificacion" name="tipoIdentificacion" class="sm-select" [(ngModel)]="nuevoAlumno.tipoIdentificacion">
               @for (tipo of configuracionIdentificadores!.tiposIdentificacionPermitidos; track tipo) { <option [value]="tipo">{{ tipo }}</option> }
             </select>
           } @else {
-            <input id="tipoIdentificacion" name="tipoIdentificacion" type="text" [(ngModel)]="nuevoAlumno.tipoIdentificacion" />
+            <input id="tipoIdentificacion" name="tipoIdentificacion" class="sm-input" type="text" [(ngModel)]="nuevoAlumno.tipoIdentificacion" />
           }
         </div>
-        <div class="form-group"><label for="numeroIdentificacion">Número de documento *</label><input id="numeroIdentificacion" name="numeroIdentificacion" type="text" [(ngModel)]="nuevoAlumno.numeroIdentificacion" /></div>
-        <div class="form-group"><label for="fechaNacimiento">Fecha de nacimiento</label><input id="fechaNacimiento" name="fechaNacimiento" type="date" [(ngModel)]="nuevoAlumno.fechaNacimiento" /></div>
-        <div class="form-group"><label for="rne">RNE{{ configuracionIdentificadores?.rneRequerido ? ' *' : '' }}</label><input id="rne" name="rne" type="text" [(ngModel)]="nuevoAlumno.rne" [required]="configuracionIdentificadores?.rneRequerido ?? false" /></div>
-        <div class="form-group"><label for="codigoInterno">Código interno{{ configuracionIdentificadores?.codigoInternoRequerido ? ' *' : '' }}</label><input id="codigoInterno" name="codigoInterno" type="text" [(ngModel)]="nuevoAlumno.codigoInterno" [required]="configuracionIdentificadores?.codigoInternoRequerido ?? false" /></div>
+        <div class="sm-field form-group"><label class="sm-label" for="numeroIdentificacion">Número de documento *</label><input id="numeroIdentificacion" name="numeroIdentificacion" class="sm-input" type="text" [(ngModel)]="nuevoAlumno.numeroIdentificacion" /></div>
+        <div class="sm-field form-group"><label class="sm-label" for="fechaNacimiento">Fecha de nacimiento</label><input id="fechaNacimiento" name="fechaNacimiento" class="sm-input" type="date" [(ngModel)]="nuevoAlumno.fechaNacimiento" /></div>
+        <div class="sm-field form-group"><label class="sm-label" for="rne">RNE{{ configuracionIdentificadores?.rneRequerido ? ' *' : '' }}</label><input id="rne" name="rne" class="sm-input" type="text" [(ngModel)]="nuevoAlumno.rne" [required]="configuracionIdentificadores?.rneRequerido ?? false" /></div>
+        <div class="sm-field form-group"><label class="sm-label" for="codigoInterno">Código interno{{ configuracionIdentificadores?.codigoInternoRequerido ? ' *' : '' }}</label><input id="codigoInterno" name="codigoInterno" class="sm-input" type="text" [(ngModel)]="nuevoAlumno.codigoInterno" [required]="configuracionIdentificadores?.codigoInternoRequerido ?? false" /></div>
       </div>
 
       <div class="form-actions">
-        <button class="btn-cancelar" type="button" (click)="cerrarFormulario()" [disabled]="guardando">Cancelar</button>
-        <button class="btn-guardar" type="submit" [disabled]="guardando">{{ guardando ? 'Guardando...' : 'Crear alumno' }}</button>
+        <button class="sm-btn sm-btn--secondary" type="button" (click)="cerrarFormulario()" [disabled]="guardando">Cancelar</button>
+        <button class="sm-btn sm-btn--primary" type="submit" [disabled]="guardando">{{ guardando ? 'Guardando...' : 'Crear alumno' }}</button>
       </div>
     </form>
   }
@@ -50,12 +50,12 @@
   @if (puedeVer) {
     <div class="workspace">
       <section class="workspace-master" aria-label="Listado de alumnos">
-        <div class="buscador"><input type="search" [(ngModel)]="busqueda" placeholder="Buscar por nombre, identidad, RNE, código interno, ciclo, grado o sección" aria-label="Buscar alumno" /></div>
+        <div class="buscador"><input class="sm-input" type="search" [(ngModel)]="busqueda" placeholder="Buscar por nombre, identidad, RNE, código interno, ciclo, grado o sección" aria-label="Buscar alumno" /></div>
         @if (cargando) {
-          <p class="cargando">Cargando alumnos...</p>
+          <div class="sm-state"><span class="sm-spinner" aria-hidden="true"></span><p class="cargando">Cargando alumnos...</p></div>
         } @else {
-          <div class="tabla-contenedor">
-            <table class="tabla">
+          <div class="tabla-contenedor sm-table-wrap">
+            <table class="tabla sm-table">
               <thead><tr><th>Nombre</th><th>Identidad</th><th>Código interno</th><th>Ciclo</th><th>Grado</th><th>Sección</th><th>Estado</th><th>Acciones</th></tr></thead>
               <tbody>
                 @for (alumno of alumnosFiltrados; track alumno.id) {
@@ -77,21 +77,21 @@
                     <td>{{ alumno.matriculaActual?.ciclo || 'Sin matrícula' }}</td>
                     <td>{{ alumno.matriculaActual?.grado || 'Sin matrícula' }}</td>
                     <td>{{ alumno.matriculaActual?.seccion || 'Sin matrícula' }}</td>
-                    <td><span [class]="alumno.estado === 'activo' ? 'badge-activo' : 'badge-inactivo'">{{ alumno.estado }}</span></td>
+                    <td><span [class]="alumno.estado === 'activo' ? 'badge-activo sm-badge sm-badge--success' : 'badge-inactivo sm-badge sm-badge--error'">{{ alumno.estado }}</span></td>
                     <td>
                       @if (alumno.estado === 'activo' && puedeDesactivar) {
-                        <button class="btn-desactivar" type="button" [disabled]="guardando" (click)="$event.stopPropagation(); desactivarAlumno(alumno)">Desactivar</button>
+                        <button class="btn-desactivar sm-btn sm-btn--danger sm-btn--sm" type="button" [disabled]="guardando" (click)="$event.stopPropagation(); desactivarAlumno(alumno)">Desactivar</button>
                       } @else if (alumno.estado === 'inactivo' && puedeEditar) {
-                        <button class="btn-activar" type="button" [disabled]="guardando" (click)="$event.stopPropagation(); reactivarAlumno(alumno)">Reactivar</button>
+                        <button class="btn-activar sm-btn sm-btn--sm" type="button" [disabled]="guardando" (click)="$event.stopPropagation(); reactivarAlumno(alumno)">Reactivar</button>
                       }
                       @if (alumno.estado === 'activo' && puedeMatricular) {
-                        <button class="btn-matricular-fila" type="button" (click)="$event.stopPropagation(); matricularAlumnoId(alumno.id)">Matricular</button>
+                        <button class="btn-matricular-fila sm-btn sm-btn--primary sm-btn--sm" type="button" (click)="$event.stopPropagation(); matricularAlumnoId(alumno.id)">Matricular</button>
                       }
                       @if (puedeVerResponsables) {
-                        <button class="btn-matricular-fila" type="button" (click)="$event.stopPropagation(); verResponsables(alumno)">Responsables</button>
+                        <button class="btn-matricular-fila sm-btn sm-btn--secondary sm-btn--sm" type="button" (click)="$event.stopPropagation(); verResponsables(alumno)">Responsables</button>
                       }
                       @if (puedeVerCargos) {
-                        <button class="btn-matricular-fila" type="button" (click)="$event.stopPropagation(); verCargos(alumno)">Cargos</button>
+                        <button class="btn-matricular-fila sm-btn sm-btn--secondary sm-btn--sm" type="button" (click)="$event.stopPropagation(); verCargos(alumno)">Cargos</button>
                       }
                     </td>
                   </tr>
@@ -105,12 +105,12 @@
       </section>
 
       @if (alumnoSeleccionado) {
-        <aside class="alumno-detalle" aria-label="Detalle del alumno">
+        <aside class="alumno-detalle sm-card" aria-label="Detalle del alumno">
           <div class="detalle-header">
-            <h2>{{ alumnoSeleccionado.nombreCompleto }}</h2>
-            <button class="btn-cerrar-detalle" type="button" (click)="cerrarSeleccion()" aria-label="Cerrar detalle">✕</button>
+            <h2 class="sm-section-title">{{ alumnoSeleccionado.nombreCompleto }}</h2>
+            <button class="btn-cerrar-detalle sm-btn sm-btn--ghost" type="button" (click)="cerrarSeleccion()" aria-label="Cerrar detalle">✕</button>
           </div>
-          <span [class]="alumnoSeleccionado.estado === 'activo' ? 'badge-activo' : 'badge-inactivo'">{{ alumnoSeleccionado.estado }}</span>
+          <span [class]="alumnoSeleccionado.estado === 'activo' ? 'badge-activo sm-badge sm-badge--success' : 'badge-inactivo sm-badge sm-badge--error'">{{ alumnoSeleccionado.estado }}</span>
 
           <dl class="detalle-datos">
             <div><dt>Identidad</dt><dd>{{ alumnoSeleccionado.identidad || '—' }}</dd></div>
@@ -131,18 +131,18 @@
 
           <div class="detalle-acciones">
             @if (alumnoSeleccionado.estado === 'activo' && puedeMatricular) {
-              <button class="btn-matricular-fila" type="button" (click)="matricularAlumnoId(alumnoSeleccionado.id)">Matricular</button>
+              <button class="btn-matricular-fila sm-btn sm-btn--primary sm-btn--sm" type="button" (click)="matricularAlumnoId(alumnoSeleccionado.id)">Matricular</button>
             }
             @if (puedeVerResponsables) {
-              <button class="btn-matricular-fila" type="button" (click)="verResponsables(alumnoSeleccionado)">Responsables</button>
+              <button class="btn-matricular-fila sm-btn sm-btn--secondary sm-btn--sm" type="button" (click)="verResponsables(alumnoSeleccionado)">Responsables</button>
             }
             @if (puedeVerCargos) {
-              <button class="btn-matricular-fila" type="button" (click)="verCargos(alumnoSeleccionado)">Cargos</button>
+              <button class="btn-matricular-fila sm-btn sm-btn--secondary sm-btn--sm" type="button" (click)="verCargos(alumnoSeleccionado)">Cargos</button>
             }
             @if (alumnoSeleccionado.estado === 'activo' && puedeDesactivar) {
-              <button class="btn-desactivar" type="button" [disabled]="guardando" (click)="desactivarAlumno(alumnoSeleccionado)">Desactivar</button>
+              <button class="btn-desactivar sm-btn sm-btn--danger sm-btn--sm" type="button" [disabled]="guardando" (click)="desactivarAlumno(alumnoSeleccionado)">Desactivar</button>
             } @else if (alumnoSeleccionado.estado === 'inactivo' && puedeEditar) {
-              <button class="btn-activar" type="button" [disabled]="guardando" (click)="reactivarAlumno(alumnoSeleccionado)">Reactivar</button>
+              <button class="btn-activar sm-btn sm-btn--sm" type="button" [disabled]="guardando" (click)="reactivarAlumno(alumnoSeleccionado)">Reactivar</button>
             }
           </div>
         </aside>

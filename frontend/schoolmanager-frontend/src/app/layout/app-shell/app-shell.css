@@ -1,97 +1,221 @@
-.app-shell {
-  min-height: 100vh;
+/* ==========================================================================
+   AppShell global — estructura: topbar + sidebar (drawer en móvil) + contenido.
+   Consume tokens de styles.css. Ver docs/ui/design-system.md.
+   ========================================================================== */
+
+.sm-shell {
+  min-height: 100dvh;
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-rows: var(--sm-topbar-h) 1fr;
+  grid-template-columns: var(--sm-sidebar-w) 1fr;
+  grid-template-areas:
+    "topbar topbar"
+    "sidebar content";
+  background: var(--sm-bg);
 }
 
-.sidebar {
+/* ---- Topbar ---- */
+.sm-topbar {
+  grid-area: topbar;
   display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 2rem;
-  padding: 2rem 1.4rem;
-  color: #f5f0e7;
-  background: linear-gradient(180deg, #153554 0%, #10263e 100%);
+  align-items: center;
+  gap: var(--sm-space-3);
+  padding: 0 var(--sm-space-4);
+  background: var(--sm-surface);
+  border-bottom: 1px solid var(--sm-border);
+  z-index: var(--sm-z-sticky);
 }
 
-.brand-kicker {
-  margin: 0 0 0.35rem;
-  font-size: 0.78rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #d7a86d;
-  font-weight: 700;
+.sm-topbar__toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--sm-border-strong);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-surface);
+  color: var(--sm-text);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
 }
 
-.brand-block h2 {
-  margin: 0;
-  font-size: 1.8rem;
-}
-
-.brand-block span {
-  display: block;
-  margin-top: 0.55rem;
-  color: rgba(245, 240, 231, 0.72);
-}
-
-.sidebar nav {
+.sm-topbar__brand {
   display: flex;
-  flex-direction: column;
-  gap: 0.7rem;
+  align-items: baseline;
+  gap: var(--sm-space-2);
+  margin-right: auto;
 }
 
-.sidebar nav a,
-.sidebar button {
+.sm-topbar__brand-name {
+  font-size: var(--sm-fs-lg);
+  font-weight: var(--sm-weight-bold);
+  color: var(--sm-text-strong);
+}
+
+.sm-topbar__brand-sub {
+  display: none;
+  font-size: var(--sm-fs-sm);
+  color: var(--sm-text-soft);
+}
+
+.sm-topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-3);
+}
+
+/* ---- Overlay (móvil) ---- */
+.sm-shell__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(12, 31, 51, 0.45);
   border: 0;
-  width: 100%;
-  text-align: left;
-  text-decoration: none;
-  color: #f8f4ed;
-  background: rgba(255, 255, 255, 0.06);
-  padding: 0.95rem 1rem;
-  border-radius: 1rem;
-  font-size: 0.96rem;
-  transition: transform 0.2s ease, background 0.2s ease;
+  cursor: pointer;
+  z-index: calc(var(--sm-z-overlay) - 1);
+  animation: sm-fade 0.2s ease;
 }
 
-.sidebar nav a.active,
-.sidebar nav a:hover,
-.sidebar button:hover {
-  background: rgba(255, 255, 255, 0.14);
-  transform: translateX(2px);
+@keyframes sm-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-.sidebar-footer {
+/* ---- Sidebar ---- */
+.sm-sidebar {
+  grid-area: sidebar;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  background: linear-gradient(180deg, var(--sm-inverse) 0%, var(--sm-inverse-soft) 100%);
+  color: var(--sm-text-on-inverse);
+  overflow-y: auto;
 }
 
-.sidebar-footer p {
-  margin: 0 0 0.2rem;
-  font-size: 0.88rem;
-  color: rgba(245, 240, 231, 0.7);
+.sm-sidebar__brand {
+  padding: var(--sm-space-5) var(--sm-space-4) var(--sm-space-4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.btn-volver-panel {
-  color: #d7a86d !important;
+.sm-sidebar__brand .sm-eyebrow {
+  color: var(--sm-accent);
+  margin-bottom: var(--sm-space-1);
 }
 
-.main-content {
-  padding: 2rem;
+.sm-sidebar__brand-name {
+  font-size: var(--sm-fs-xl);
+  font-weight: var(--sm-weight-bold);
+  letter-spacing: -0.02em;
 }
 
-@media (max-width: 900px) {
-  .app-shell {
+.sm-sidebar__nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-1);
+  padding: var(--sm-space-4) var(--sm-space-3);
+}
+
+.sm-sidebar__link {
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-3);
+  padding: 0.6rem 0.85rem;
+  border-radius: var(--sm-radius-md);
+  color: rgba(245, 240, 231, 0.82);
+  font-size: var(--sm-fs-md);
+  font-weight: var(--sm-weight-medium);
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.sm-sidebar__link:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.sm-sidebar__link--active {
+  background: rgba(15, 95, 168, 0.55);
+  color: #ffffff;
+}
+
+.sm-sidebar__link--active:hover {
+  background: rgba(15, 95, 168, 0.55);
+}
+
+.sm-sidebar__link-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: rgba(245, 240, 231, 0.4);
+  flex: none;
+}
+
+.sm-sidebar__link--active .sm-sidebar__link-dot {
+  background: var(--sm-accent);
+}
+
+.sm-sidebar__footer {
+  padding: var(--sm-space-4);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sm-sidebar__footer .sm-metadata {
+  color: rgba(245, 240, 231, 0.55);
+}
+
+/* ---- Contenido ---- */
+.sm-content {
+  grid-area: content;
+  padding: var(--sm-space-5);
+  overflow-x: hidden;
+  background: var(--sm-bg);
+  min-width: 0;
+}
+
+/* ---- Responsive: tablet (<= 1100px) y móvil (<= 768px) ---- */
+
+/* Tablet vertical: sidebar se colapsa a drawer con el toggle visible. */
+@media (max-width: 1100px) {
+  .sm-shell {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "topbar"
+      "content";
   }
 
-  .sidebar {
-    padding: 1rem;
-    gap: 1rem;
+  .sm-topbar__toggle {
+    display: inline-flex;
   }
 
-  .main-content {
-    padding: 1rem;
+  .sm-sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: var(--sm-sidebar-w);
+    max-width: 85vw;
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+    z-index: var(--sm-z-drawer);
+    box-shadow: var(--sm-shadow-lg);
+  }
+
+  .sm-sidebar--open {
+    transform: translateX(0);
+  }
+
+  .sm-topbar__brand-sub {
+    display: inline;
+  }
+}
+
+@media (max-width: 640px) {
+  .sm-content {
+    padding: var(--sm-space-4);
+  }
+
+  .sm-topbar__brand-name {
+    font-size: var(--sm-fs-md);
   }
 }

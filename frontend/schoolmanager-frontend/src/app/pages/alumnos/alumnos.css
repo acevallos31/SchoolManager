@@ -1,375 +1,174 @@
+/* Gestión de Alumnos — pantalla piloto de la foundation (Bloque 024).
+   La barra/topbar viven en el AppShell. Aquí solo maquetación específica del
+   workspace master/detalle; los primitivos (botones, tabla, badges, cards,
+   inputs, alertas) se consumen de styles.css. Ver docs/ui/design-system.md. */
+
 .page-container {
-  min-height: 100%;
-  padding: 0;
   width: 100%;
-  max-width: 1100px;
+  max-width: 1180px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-4);
 }
 
 .page-header {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  margin-bottom: 1.25rem;
+  justify-content: space-between;
+  gap: var(--sm-space-4);
 }
 
-.page-header h1 {
-  flex: 1;
-  margin: 0;
-  font-size: clamp(1.8rem, 3vw, 2.7rem);
-  color: var(--sm-text);
-  letter-spacing: -0.04em;
-}
-
-.btn-volver,
-.btn-cancelar {
-  border: 1px solid var(--sm-border);
-  background: rgba(255, 255, 255, 0.72);
-  color: var(--sm-text);
-}
-
-.btn-volver,
-.btn-nuevo,
-.btn-cancelar,
-.btn-guardar,
-.btn-desactivar,
-.btn-activar {
-  padding: 0.8rem 1rem;
-  border-radius: 999px;
-  cursor: pointer;
-  font-weight: 700;
-  border: none;
-}
-
-.btn-nuevo,
-.btn-guardar {
-  background: linear-gradient(135deg, var(--sm-primary), var(--sm-primary-strong));
-  color: #fffef9;
-}
-
-.mensaje,
-.formulario,
-.tabla {
-  border: 1px solid var(--sm-border);
-  box-shadow: var(--sm-shadow);
-}
-
+/* Mensaje de éxito/error usa .sm-alert global; solo espacio extra aquí. */
 .mensaje {
-  margin-bottom: 1rem;
-  padding: 0.95rem 1rem;
-  border-radius: 1rem;
-  background: #edf8f1;
-  color: var(--sm-success);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-}
-
-.mensaje-error {
-  background: #fff0ed;
-  color: var(--sm-danger);
+  gap: var(--sm-space-3);
 }
 
 .formulario {
-  margin-bottom: 1.25rem;
-  padding: 1.5rem;
-  border-radius: 1.5rem;
-  background: rgba(255, 255, 255, 0.82);
+  padding: var(--sm-space-5);
 }
 
 .formulario h3 {
-  margin: 0 0 1rem;
-}
-
-.btn-matricular {
-  padding: 0.65rem 0.9rem;
-  border: 0;
-  border-radius: 999px;
-  background: var(--sm-primary);
-  color: white;
-  cursor: pointer;
-  font-weight: 700;
+  margin-bottom: var(--sm-space-4);
 }
 
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-}
-
-.form-group label {
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: var(--sm-text);
-}
-
-.form-group input,
-.form-group select,
-.buscador input {
-  width: 100%;
-  padding: 0.9rem 1rem;
-  border: 1px solid rgba(19, 43, 71, 0.12);
-  border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.94);
+  gap: var(--sm-space-4);
 }
 
 .form-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 0.8rem;
-  margin-top: 1rem;
+  gap: var(--sm-space-3);
+  margin-top: var(--sm-space-5);
 }
 
 .buscador {
-  margin-bottom: 1rem;
+  margin-bottom: var(--sm-space-4);
 }
 
-.tabla {
-  width: 100%;
-  border-collapse: collapse;
-  overflow: hidden;
-  border-radius: 1.5rem;
-  background: rgba(255, 255, 255, 0.84);
-}
-
-.tabla-contenedor {
-  overflow-x: auto;
-}
-
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.65;
-}
-
-.tabla thead {
-  background: #163455;
-  color: #fffef9;
-}
-
-.tabla th,
-.tabla td {
-  padding: 1rem;
-  text-align: left;
-}
-
-.tabla td {
-  border-bottom: 1px solid rgba(19, 43, 71, 0.08);
-}
-
-.tabla tbody tr:hover {
-  background: rgba(15, 95, 168, 0.05);
-}
-
-.badge-activo,
-.badge-inactivo {
-  display: inline-flex;
-  padding: 0.35rem 0.7rem;
-  border-radius: 999px;
-  font-size: 0.78rem;
-  font-weight: 800;
-}
-
-.badge-activo {
-  background: #edf8f1;
-  color: var(--sm-success);
-}
-
-.badge-inactivo {
-  background: #fff0ed;
-  color: var(--sm-danger);
-}
-
-.btn-desactivar {
-  background: #fff0ed;
-  color: var(--sm-danger);
-}
-
-.btn-matricular-fila {
-  background: linear-gradient(135deg, var(--sm-accent), #8e521c);
-  color: #fffef9;
-  border: none;
-  font-weight: 700;
-  margin-left: 0.4rem;
-}
-
-.btn-activar {
-  background: #edf8f1;
-  color: var(--sm-success);
-}
-
-.sin-datos,
-.cargando {
-  padding: 2rem;
-  text-align: center;
-  color: var(--sm-text-soft);
-}
-
+/* ---- Workspace master / detalle ---- */
 .workspace {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 1.25rem;
+  gap: var(--sm-space-5);
   align-items: start;
 }
 
-.workspace.fila-seleccionada { /* noop: helper */ }
+.workspace-master {
+  min-width: 0;
+}
 
 .fila-alumno {
   cursor: pointer;
-  transition: background 0.15s ease;
 }
 
 .fila-seleccionada {
-  background: rgba(15, 95, 168, 0.12) !important;
+  background: var(--sm-primary-soft) !important;
   box-shadow: inset 3px 0 0 var(--sm-primary);
 }
 
 .btn-detalle-fila {
-  border: 0;
   background: none;
+  border: 0;
   padding: 0;
-  margin: 0;
   text-align: left;
   font: inherit;
-  font-weight: 700;
+  font-weight: var(--sm-weight-semibold);
   color: var(--sm-primary-strong);
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
+/* Detalle lateral */
 .alumno-detalle {
-  border: 1px solid var(--sm-border);
-  border-radius: 1.5rem;
-  background: rgba(255, 255, 255, 0.86);
-  box-shadow: var(--sm-shadow);
-  padding: 1.5rem;
+  padding: var(--sm-space-5);
+  box-shadow: var(--sm-shadow-md);
 }
 
 .detalle-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
-}
-
-.detalle-header h2 {
-  margin: 0 0 0.4rem;
-  font-size: clamp(1.4rem, 2.5vw, 2rem);
-  color: var(--sm-text);
-  letter-spacing: -0.02em;
-}
-
-.btn-cerrar-detalle {
-  border: 1px solid var(--sm-border);
-  background: rgba(255, 255, 255, 0.72);
-  color: var(--sm-text-soft);
-  width: 2.2rem;
-  height: 2.2rem;
-  border-radius: 50%;
-  cursor: pointer;
-  font-weight: 700;
+  gap: var(--sm-space-3);
+  margin-bottom: var(--sm-space-3);
 }
 
 .detalle-datos {
-  margin: 1.25rem 0 0;
+  margin: var(--sm-space-5) 0 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  gap: var(--sm-space-3);
 }
 
 .detalle-datos div {
-  padding: 0.9rem 1rem;
-  border-radius: 1rem;
+  padding: var(--sm-space-3);
+  border-radius: var(--sm-radius-md);
   background: var(--sm-bg-soft);
   border: 1px solid var(--sm-border);
 }
 
 .detalle-datos dt {
-  font-size: 0.78rem;
-  font-weight: 800;
+  font-size: var(--sm-fs-xs);
+  font-weight: var(--sm-weight-bold);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--sm-text-soft);
-  margin-bottom: 0.25rem;
+  margin-bottom: var(--sm-space-1);
 }
 
 .detalle-datos dd {
   margin: 0;
-  font-size: 1rem;
+  font-size: var(--sm-fs-md);
   color: var(--sm-text);
 }
 
 .detalle-acciones {
-  margin-top: 1.5rem;
+  margin-top: var(--sm-space-5);
   display: flex;
   flex-wrap: wrap;
-  gap: 0.6rem;
+  gap: var(--sm-space-2);
+}
+
+.sin-datos {
+  padding: var(--sm-space-6);
+  text-align: center;
+  color: var(--sm-text-soft);
+}
+
+.cargando {
+  margin: 0;
+  color: var(--sm-text-soft);
 }
 
 @media (min-width: 1000px) {
   .workspace {
-    grid-template-columns: minmax(0, 1fr) 360px;
-  }
-
-  .workspace-master {
-    min-width: 0;
+    grid-template-columns: minmax(0, 1fr) 380px;
   }
 
   .alumno-detalle {
     position: sticky;
-    top: 1rem;
+    top: var(--sm-space-4);
   }
 }
 
-@media (max-width: 900px) {
-  .page-container {
-    padding: 1rem;
-  }
-
-  .page-header,
-  .form-grid {
-    grid-template-columns: 1fr;
-    display: grid;
-  }
-
-  .detalle-datos {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 640px) {
-  .page-container {
-    padding: 0.75rem;
-  }
-
+@media (max-width: 700px) {
   .page-header {
     flex-wrap: wrap;
-    gap: 0.75rem;
   }
 
   .page-header h1 {
     flex-basis: 100%;
   }
 
-  .alumno-detalle {
-    padding: 1.1rem;
-  }
-
-  .detalle-acciones .btn-matricular-fila {
-    margin-left: 0;
-  }
-
-  .detalle-acciones button {
-    flex: 1 1 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  .form-grid,
+  .detalle-datos {
+    grid-template-columns: 1fr;
   }
 }

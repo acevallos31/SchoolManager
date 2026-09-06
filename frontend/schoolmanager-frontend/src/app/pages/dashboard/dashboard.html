@@ -1,83 +1,75 @@
-<div class="dashboard-shell">
-  <aside class="sidebar">
-    <div class="brand-block">
-      <p class="brand-kicker">SchoolManager</p>
-      <h2>Panel escolar</h2>
-      <span>Control administrativo diario</span>
+<div class="sm-page">
+  <section class="sm-dash-hero">
+    <div>
+      <p class="sm-eyebrow">Resumen operativo</p>
+      <h1 class="sm-page-title">Gestiona la operación escolar con una vista clara y rápida.</h1>
+      <p class="sm-helper sm-dash-hero__copy">
+        Consulta estudiantes, registra matrículas y administra cobranza desde una sola interfaz.
+      </p>
     </div>
 
-    <nav>
+    <div class="sm-dash-hero__actions">
       @if (puedeVerAlumnos) {
-        <a routerLink="/alumnos" routerLinkActive="active">Alumnos</a>
+        <a class="sm-btn sm-btn--primary" routerLink="/alumnos">Ver alumnos</a>
       }
-      @if (puedeVerResponsables) {
-        <a routerLink="/responsables" routerLinkActive="active">Responsables</a>
+      @if (puedeVerCargos) {
+        <a class="sm-btn sm-btn--secondary" routerLink="/cargos">Revisar cargos</a>
       }
-      <a routerLink="/matriculas" routerLinkActive="active">Matrículas</a>
-      @if (puedeVerConfiguracion) {
-        <a routerLink="/configuracion" routerLinkActive="active">Configuración</a>
-      }
-    </nav>
-
-    <div class="sidebar-footer">
-      <p>Acceso conectado con Supabase</p>
-      <button (click)="logout()">Cerrar sesión</button>
     </div>
-  </aside>
+  </section>
 
-  <main class="main-content">
-    <section class="hero-card">
-      <div>
-        <p class="eyebrow">Resumen operativo</p>
-        <h1>Gestiona la operación escolar con una vista clara y rápida.</h1>
-        <p class="hero-copy">
-          Consulta estudiantes, registra matrículas y administra mensualidades desde una sola interfaz.
-        </p>
-      </div>
+  <section class="sm-stats" aria-label="Resumen de módulos">
+    <article class="sm-card sm-stat">
+      <span class="sm-metadata">Estudiantes</span>
+      <strong class="sm-stat__value">Expedientes</strong>
+      <p class="sm-helper">Consulta y administra expedientes académicos.</p>
+      @if (puedeVerAlumnos) {
+        <a class="sm-link-action" routerLink="/alumnos">Ir a alumnos →</a>
+      }
+    </article>
 
-      <div class="hero-actions">
-        @if (puedeVerAlumnos) {
-          <a routerLink="/alumnos">Ver alumnos</a>
-        }
-        <a routerLink="/alumnos" class="secondary">Revisar cargos de un alumno</a>
-      </div>
-    </section>
+    <article class="sm-card sm-stat">
+      <span class="sm-metadata">Matrículas</span>
+      <strong class="sm-stat__value">Ciclo escolar</strong>
+      <p class="sm-helper">Registro por ciclo con seguimiento de estado.</p>
+      <a class="sm-link-action" routerLink="/matriculas">Ir a matrículas →</a>
+    </article>
 
-    <section class="stats-grid">
-      <article class="stat-card primary">
-        <span class="stat-label">Estudiantes activos</span>
-        <strong>Control</strong>
-        <p>Consulta y administra expedientes académicos.</p>
-      </article>
-      <article class="stat-card success">
-        <span class="stat-label">Matrículas</span>
-        <strong>Proceso</strong>
-        <p>Registro por ciclo escolar con seguimiento de estado.</p>
-      </article>
-      <article class="stat-card warning">
-        <span class="stat-label">Cobranza</span>
-        <strong>Mensualidades</strong>
-        <p>Pagos pendientes, vencidos y registrados en una sola vista.</p>
-      </article>
-    </section>
+    <article class="sm-card sm-stat">
+      <span class="sm-metadata">Cobranza</span>
+      <strong class="sm-stat__value">Pagos y cargos</strong>
+      <p class="sm-helper">Cargos pendientes, vencidos y pagos registrados.</p>
+      @if (puedeVerCargos) {
+        <a class="sm-link-action" routerLink="/cargos">Ir a cargos →</a>
+      }
+    </article>
+  </section>
 
-    <section class="dashboard-grid">
-      <article class="panel-card">
-        <h3>Qué puedes hacer hoy</h3>
-        <ul>
+  <section class="sm-dash-grid">
+    <article class="sm-card">
+      <div class="sm-card__body">
+        <h2 class="sm-section-title">Qué puedes hacer hoy</h2>
+        <ul class="sm-dash-list">
           <li>Registrar nuevos alumnos y gestionar su estado.</li>
-          <li>Crear matrículas por ciclo y marcar pagos de inscripción.</li>
-          <li>Generar mensualidades y registrar pagos del mes.</li>
+          <li>Crear matrículas por ciclo.</li>
+          <li>Registrar cargos y pagos.</li>
         </ul>
-      </article>
+      </div>
+    </article>
 
-      <article class="panel-card emphasis">
-        <h3>Sistema en línea</h3>
-        <p>
-          El frontend productivo ya está desplegado y listo para seguir iterando sobre autenticación,
-          métricas y experiencia de usuario.
-        </p>
-      </article>
-    </section>
-  </main>
+    <article class="sm-card">
+      <div class="sm-card__body">
+        <h2 class="sm-section-title">Área académica</h2>
+        <p class="sm-helper">Acceso directo a responsables y configuración según tu rol.</p>
+        <div class="sm-dash-actions">
+          @if (puedeVerResponsables) {
+            <a class="sm-btn sm-btn--secondary sm-btn--sm" routerLink="/responsables">Responsables</a>
+          }
+          @if (puedeVerConfiguracion) {
+            <a class="sm-btn sm-btn--secondary sm-btn--sm" routerLink="/configuracion">Configuración</a>
+          }
+        </div>
+      </div>
+    </article>
+  </section>
 </div>
