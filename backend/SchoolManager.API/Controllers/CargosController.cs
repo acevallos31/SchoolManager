@@ -34,6 +34,8 @@ public class CargosController(NpgsqlDataSource dataSource) : ApiControllerBase(d
         FechaAnulacion = r.IsDBNull(12) ? null : r.GetFieldValue<DateTimeOffset>(12),
         MotivoAnulacion = r.IsDBNull(13) ? null : r.GetString(13),
         EsVencido = r.GetBoolean(14),
+        Saldo = r.GetDecimal(15),
+        Aplicado = r.GetDecimal(16),
     };
 
     [HttpGet("matricula/{matriculaId:guid}")]
@@ -114,6 +116,7 @@ public class CargosController(NpgsqlDataSource dataSource) : ApiControllerBase(d
                 TotalPendiente = r.GetDecimal(4),
                 TotalVencido = r.GetDecimal(5),
                 TotalAnulado = r.GetDecimal(6),
+                TotalAplicado = r.GetDecimal(7),
             };
             await r.DisposeAsync();
             await tx.CommitAsync(ct);

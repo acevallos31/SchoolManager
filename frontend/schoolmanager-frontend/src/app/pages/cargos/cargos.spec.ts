@@ -12,13 +12,15 @@ describe('Cargos (020)', () => {
     montoOriginal: 200, fechaVencimiento: '2026-09-30', estado: 'pendiente',
     fechaGeneracion: new Date().toISOString(), fechaAnulacion: null, motivoAnulacion: null,
     esVencido: false,
+    saldo: 200, aplicado: 0,
   };
   const cargoVencido: Cargo = {
     ...cargoPendiente, id: 'c2', orden: 2, esVencido: true, fechaVencimiento: '2026-08-01',
   };
   const resumen: ResumenFinanciero = {
     alumnoId: 'a1', institucionId: '11111111-1111-1111-1111-111111111111',
-    totalObligaciones: 2, totalMontoOriginal: 400, totalPendiente: 400, totalVencido: 200, totalAnulado: 0,
+    totalObligaciones: 2, totalMontoOriginal: 400, totalPendiente: 400, totalVencido: 200,
+    totalAnulado: 0, totalAplicado: 0,
   };
 
   let f: ComponentFixture<Cargos>;

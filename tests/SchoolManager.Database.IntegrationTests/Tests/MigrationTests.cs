@@ -30,7 +30,8 @@ public sealed class MigrationTests(PostgreSqlFixture fixture) : IClassFixture<Po
             "017_responsables_gestion_rpc.sql",
             "018_configuracion_financiera.sql",
             "019_cargos_mensualidades_obligaciones.sql",
-            "020_grados_jornadas_multiinstitucion.sql"
+            "020_grados_jornadas_multiinstitucion.sql",
+            "021_pagos_cobranza.sql"
         }, names);
     }
 

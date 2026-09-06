@@ -20,6 +20,10 @@ public class CargoDto
     public DateTimeOffset? FechaAnulacion { get; set; }
     public string? MotivoAnulacion { get; set; }
     public bool EsVencido { get; set; }
+    // Bloque 021: saldo derivado (monto_original - aplicaciones vigentes) y
+    // total aplicado, anexados por la migracion. El saldo NO se almacena.
+    public decimal Saldo { get; set; }
+    public decimal Aplicado { get; set; }
 }
 
 // Resumen financiero de un alumno (rpc_resumen_financiero_alumno).
@@ -32,6 +36,8 @@ public class ResumenFinancieroDto
     public decimal TotalPendiente { get; set; }
     public decimal TotalVencido { get; set; }
     public decimal TotalAnulado { get; set; }
+    // Bloque 021: total aplicado (vigente) anexado por la migracion.
+    public decimal TotalAplicado { get; set; }
 }
 
 // Entrada para asignar un plan de pago a una matricula.

@@ -1,0 +1,179 @@
+<div class="page-container">
+  <div class="page-header">
+    <h1>Pagos y cobranza</h1>
+    <button class="btn-volver" type="button" (click)="volver()">Volver a cargos</button>
+  </div>
+
+  @if (mensaje) {
+    <div class="mensaje" [class.mensaje-error]="esError" role="status">
+      {{ mensaje }}
+    </div>
+  }
+
+  @if (alumnoId) {
+    <section class="resumen-grid" aria-label="Resumen de cobranza">
+      <article class="resumen-card">
+        <span class="resumen-label">Cargos cobrables</span>
+        <strong class="resumen-valor">{{ cargoCobrables.length }}</strong>
+      </article>
+      <article class="resumen-card">
+        <span class="resumen-label">Saldo pendiente por cobrar</span>
+        <strong class="resumen-valor">${{ cargoCobrables.reduce((a, c) => a + c.saldo, 0).toFixed(2) }}</strong>
+      </article>
+      <article class="resumen-card">
+        <span class="resumen-label">Pagos registrados</span>
+        <strong class="resumen-valor">{{ pagos.length }}</strong>
+      </article>
+    </section>
+
+    @if (puedeRegistrar && cargoCobrables.length > 0 && !showFormulario) {
+      <div class="barra-accion">
+        <button class="btn-primario" type="button" (click)="abrirFormulario()">Registrar pago</button>
+      </div>
+    }
+
+    @if (showFormulario) {
+      <form class="formulario" (ngSubmit)="registrar()" #form="ngForm">
+        <h2>Registrar pago</h2>
+        <p class="correo">Indique el monto a aplicar a cada cargo. El total no puede superar los saldos pendientes.</p>
+        <table class="tabla">
+          <thead>
+            <tr>
+              <th>Concepto</th>
+              <th>Vencimiento</th>
+              <th>Saldo</th>
+              <th>Aplicar</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (cargo of cargoCobrables; track cargo.id) {
+              <tr>
+                <td>
+                  <strong>{{ cargo.conceptoNombre || 'Cargo' }}</strong>
+                  @if (cargo.descripcion) { <br /><span class="correo">{{ cargo.descripcion }}</span> }
+                </td>
+                <td>{{ cargo.fechaVencimiento }}</td>
+                <td>${{ cargo.saldo.toFixed(2) }}</td>
+                <td>
+                  <input
+                    class="input-monto"
+                    type="number"
+                    min="0"
+                    [max]="cargo.saldo"
+                    step="0.01"
+                    [name]="'monto_' + cargo.id"
+                    [(ngModel)]="montos[cargo.id]"
+                    aria-label="Monto a aplicar" />
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        <div class="form-grid">
+          <label class="campo">
+            <span>Método de pago (opcional)</span>
+            <input type="text" name="metodo" [(ngModel)]="metodoPago" placeholder="Ej. transferencia, efectivo" />
+          </label>
+          <label class="campo">
+            <span>Referencia externa (opcional)</span>
+            <input type="text" name="referencia" [(ngModel)]="referenciaExterna" />
+          </label>
+        </div>
+        <div class="form-pie">
+          <strong>Total a cobrar: ${{ totalMontoTotal.toFixed(2) }}</strong>
+          <div class="form-botones">
+            <button class="btn-secundario" type="button" (click)="cerrarFormulario()">Cancelar</button>
+            <button class="btn-primario" type="submit" [disabled]="!totalSeleccionadoValido || registrando">
+              {{ registrando ? 'Registrando…' : 'Confirmar pago' }}
+            </button>
+          </div>
+        </div>
+      </form>
+    }
+
+    @if (cargando) {
+      <div class="cargando">Cargando pagos…</div>
+    } @else if (!pagos.length) {
+      <div class="sin-datos">Este alumno no tiene pagos registrados.</div>
+    } @else {
+      <div class="tabla-contenedor">
+        <table class="tabla">
+          <thead>
+            <tr>
+              <th>Recibo</th>
+              <th>Monto</th>
+              <th>Fecha</th>
+              <th>Método</th>
+              <th>Estado</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (p of pagos; track p.id) {
+              <tr>
+                <td>#{{ p.numeroRecibo }}</td>
+                <td>${{ p.montoTotal.toFixed(2) }}</td>
+                <td>{{ p.fechaPago | date: 'dd/MM/yyyy' }}</td>
+                <td>{{ p.metodoPago || '—' }}</td>
+                <td>
+                  <span class="badge-estado"
+                    [class.badge-activo]="p.estado === 'registrado'"
+                    [class.badge-inactivo]="p.estado === 'anulado'">
+                    {{ p.estado }}
+                  </span>
+                  @if (p.motivoAnulacion) { <br /><span class="correo">{{ p.motivoAnulacion }}</span> }
+                </td>
+                <td class="acciones">
+                  <button class="btn-link" type="button" (click)="verDetalle(p)">Detalle</button>
+                  @if (p.estado === 'registrado' && puedeAnular) {
+                    <button class="btn-anular" type="button" (click)="anular(p)" [disabled]="anulandoPagoId === p.id">
+                      {{ anulandoPagoId === p.id ? 'Anulando…' : 'Anular' }}
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        @if (puedeAnular) {
+          <div class="anular-box">
+            <label class="campo">
+              <span>Motivo de anulación (para anular un pago registrado)</span>
+              <input type="text" name="motivo" [(ngModel)]="motivoAnulacion" placeholder="Escriba el motivo y pulse Anular" />
+            </label>
+          </div>
+        }
+      </div>
+    }
+  } @else {
+    <div class="sin-datos">Acceda a los pagos desde un alumno para gestionar su cobranza.</div>
+  }
+
+  @if (detalle) {
+    <div class="modal" role="dialog" aria-modal="true" (click)="cerrarDetalle()">
+      <div class="modal-contenido" (click)="$event.stopPropagation()">
+        <h2>Pago #{{ detalle.numeroRecibo }} — ${{ detalle.montoTotal.toFixed(2) }}</h2>
+        <p class="correo">
+          Fecha: {{ detalle.fechaPago | date: 'dd/MM/yyyy HH:mm' }} ·
+          Método: {{ detalle.metodoPago || '—' }} ·
+          Referencia: {{ detalle.referenciaExterna || '—' }} ·
+          Estado: {{ detalle.estado }}
+        </p>
+        <table class="tabla">
+          <thead>
+            <tr><th>Concepto</th><th>Monto aplicado</th></tr>
+          </thead>
+          <tbody>
+            @for (a of aplicaciones; track $index) {
+              <tr>
+                <td>{{ a.concepto || 'Cargo' }}</td>
+                <td>${{ a.monto.toFixed(2) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        <button class="btn-secundario" type="button" (click)="cerrarDetalle()">Cerrar</button>
+      </div>
+    </div>
+  }
+</div>

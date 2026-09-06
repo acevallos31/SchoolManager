@@ -34,6 +34,22 @@
 - Backend `CargosController` (`api/cargos`): listar por matrícula/alumno, resumen financiero, asignar plan, generar, anular. Institución desde claim `sub`; nullables `?? DBNull.Value`. **Lección**: RPC `RETURNS TABLE` con fila única agregada colapsa a `record` con `select public.rpc_(…)` → usar SIEMPRE `select * from public.rpc_(…)`.
 - Frontend: página `/cargos` (lazy, contextual `alumnoId`, acceso desde Alumnos) + `cargos.service.ts` (API .NET); se **retiró** la página legacy `mensualidades` (Supabase `.from('mensualidades')`, tablas inexistentes).
 
+## Módulo Pagos / Cobranza (021)
+- Migración **021** (rama `feature/pagos-cobranza-fase-021`): `pagos` (cabecera) + `pagos_aplicaciones`
+  (detalle), 1 pago → varios cargos; `alumno_id` obligatorio, `responsable_id` opcional validado en
+  contexto, `referencia_externa` opcional única por institución. Superficie solo-RPC (RLS + revoke directo).
+- **Saldo SIEMPRE derivado** = `monto_original − SUM(aplicaciones vigentes)`, nunca almacenado;
+  `monto_total` = Σ aplicaciones vigentes; sin sobrepago (aplicación ≤ saldo pendiente).
+- `cargos.estado` → `pendiente|parcial|pagado|anulado` sincronizado por **triggers en la DB**
+  (anulado = explícito; parcial/pagado derivados). Anulación atómica con trazabilidad, sin DELETE físico.
+- Permisos `academico.pagos.{ver,registrar,anular}` (iniciales solo admin).
+- RPC 019 readaptadas (DROP+CREATE, fix 42P13) anexan `saldo`/`aplicado`/`total_aplicado`; leídas en
+  `CargosController` **por índice ordinal**.
+- Backend: `PagosController` (`/api/pagos`), `PagoDto`; `CargoDto`/`ResumenFinancieroDto` extendidos.
+- Frontend: página `/pagos` (lazy, contextual `alumnoId`, acceso desde Cargos) + `pagos.service.ts`; la
+  página `/cargos` muestra saldo derivado y estados parcial/pagado. Detalle en
+  `docs/handoffs/021-pagos-cobranza.md`.
+
 ## Modelo académico
 Institución -> Ciclo -> Período matrícula -> Grado -> Jornada opcional -> Sección -> Matrícula -> Alumno.
 

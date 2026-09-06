@@ -3,8 +3,9 @@ import { Injectable } from '@angular/core';
 import { environment } from '../../environments/environment';
 
 // Cargo/obligacion generado a partir de una cuota de un plan de pago.
-// En 020 el estado es 'pendiente' | 'anulado'; el vencido es derivado por
-// fecha (esVencido), NO persistido. pagado/parcial quedan para 021.
+// 021: el estado es 'pendiente' | 'parcial' | 'pagado' | 'anulado' (anulado =
+// explicito); el saldo es SIEMPRE derivado (montoOriginal - aplicaciones
+// vigentes) y viaja en 'saldo'/'aplicado'; el vencido es derivado por fecha.
 export interface Cargo {
   id: string;
   matriculaId: string;
@@ -16,11 +17,13 @@ export interface Cargo {
   descripcion: string | null;
   montoOriginal: number;
   fechaVencimiento: string; // yyyy-MM-dd
-  estado: 'pendiente' | 'anulado';
+  estado: 'pendiente' | 'parcial' | 'pagado' | 'anulado';
   fechaGeneracion: string;
   fechaAnulacion: string | null;
   motivoAnulacion: string | null;
   esVencido: boolean;
+  saldo: number;   // montoOriginal - SUM(aplicaciones vigentes); nunca almacenado
+  aplicado: number; // SUM(aplicaciones vigentes)
 }
 
 // Resumen financiero de un alumno (rpc_resumen_financiero_alumno).
@@ -32,6 +35,7 @@ export interface ResumenFinanciero {
   totalPendiente: number;
   totalVencido: number;
   totalAnulado: number;
+  totalAplicado: number; // 021: aplicado vigente
 }
 
 export class CargoError extends Error {
