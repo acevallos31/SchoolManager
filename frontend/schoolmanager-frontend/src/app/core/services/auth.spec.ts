@@ -95,4 +95,78 @@ describe('AuthService', () => {
     expect(service.getToken()).toBeNull();
     expect(service.tieneRol('padre')).toBe(false);
   });
+
+  it('asegurarUsuarioInicial restaura sesión y carga /auth/me cuando hay sesión', async () => {
+    vi.spyOn(service.supabase.auth, 'getSession').mockResolvedValue({
+      data: { session },
+      error: null
+    } as never);
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: 'usuario-id',
+          personaId: 'persona-id',
+          roles: ['admin'],
+          permisos: ['academico.responsables.ver']
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+
+    await service.asegurarUsuarioInicial();
+
+    expect(service.isLoggedIn()).toBe(true);
+    expect(service.tienePermiso('academico.responsables.ver')).toBe(true);
+    expect(fetchMock.mock.calls[0][0]).toContain('/api/auth/me');
+  });
+
+  it('asegurarUsuarioInicial deja el estado nulo cuando no hay sesión', async () => {
+    vi.spyOn(service.supabase.auth, 'getSession').mockResolvedValue({
+      data: { session: null },
+      error: null
+    } as never);
+    const fetchMock = vi.spyOn(globalThis, 'fetch');
+
+    await service.asegurarUsuarioInicial();
+
+    expect(service.isLoggedIn()).toBe(false);
+    expect(service.tienePermiso('academico.alumnos.ver')).toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('un error de /auth/me en asegurarUsuarioInicial no bloquea el bootstrap', async () => {
+    vi.spyOn(service.supabase.auth, 'getSession').mockResolvedValue({
+      data: { session },
+      error: null
+    } as never);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 500 }));
+
+    await expect(service.asegurarUsuarioInicial()).resolves.toBeUndefined();
+
+    expect(service.isLoggedIn()).toBe(false);
+    expect(signOut).toHaveBeenCalled();
+  });
+
+  it('asegurarUsuarioInicial es idempotente y evita dobles cargas', async () => {
+    vi.spyOn(service.supabase.auth, 'getSession').mockResolvedValue({
+      data: { session },
+      error: null
+    } as never);
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: 'usuario-id',
+          personaId: 'persona-id',
+          roles: ['admin'],
+          permisos: ['academico.matriculas.ver']
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+
+    await Promise.all([service.asegurarUsuarioInicial(), service.asegurarUsuarioInicial()]);
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(service.tienePermiso('academico.matriculas.ver')).toBe(true);
+  });
 });
