@@ -122,6 +122,39 @@ app.MapGet("/health", () => Results.Ok(new
     timestamp = DateTimeOffset.UtcNow
 }));
 
+// Readiness: verifica conectividad real con PostgreSQL. Devuelve 200 si la
+// API esta lista para recibir trafico y 503 si una dependencia critica (DB)
+// falla. No expone secretos ni connection strings; el chequeo usa el
+// NpgsqlDataSource singleton registrado.
+app.MapGet("/health/ready", async (NpgsqlDataSource dataSource) =>
+{
+    try
+    {
+        await using var command = dataSource.CreateCommand("SELECT 1");
+        command.CommandTimeout = 3;
+        await command.ExecuteScalarAsync();
+        return Results.Ok(new
+        {
+            status = "ready",
+            service = "SchoolManager.API",
+            database = "ok",
+            timestamp = DateTimeOffset.UtcNow
+        });
+    }
+    catch (NpgsqlException)
+    {
+        return Results.Json(
+            new
+            {
+                status = "not_ready",
+                service = "SchoolManager.API",
+                database = "unavailable",
+                timestamp = DateTimeOffset.UtcNow
+            },
+            statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+});
+
 app.MapControllers();
 
 app.Run();
