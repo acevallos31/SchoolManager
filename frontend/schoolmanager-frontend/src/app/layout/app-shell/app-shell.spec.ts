@@ -74,4 +74,34 @@ describe('AppShell', () => {
     component.volverAlPanel();
     expect(navigate).toHaveBeenCalledWith(['/dashboard']);
   });
+
+  it('alterna el drawer móvil y lo cierra al navegar', () => {
+    expect(component.navAbierta).toBe(false);
+    component.alternarNav();
+    expect(component.navAbierta).toBe(true);
+    component.alternarNav();
+    expect(component.navAbierta).toBe(false);
+    component.alternarNav();
+    component.cerrarNav();
+    expect(component.navAbierta).toBe(false);
+  });
+
+  it('marca activo el panel solo en su ruta exacta', () => {
+    const panel = component.items[0]; // /dashboard
+    const alumnos = component.items[1]; // /alumnos
+    expect(component.esRutaActiva(panel)).toBe(false);
+    expect(component.esRutaActiva(alumnos)).toBe(false);
+  });
+
+  it('muestra los enlaces sin permiso y filtra los que exigen permiso', () => {
+    expect(component.mostrarItem(component.items[0])).toBe(true); // Panel
+    expect(component.mostrarItem(component.items[2])).toBe(true); // Matrículas
+    expect(component.mostrarItem(component.items[1])).toBe(true); // Alumnos (mock tiene permiso)
+    expect(component.mostrarItem(component.items[3])).toBe(false); // Responsables sin permiso
+    expect(component.puedeVerConfiguracion).toBe(false);
+  });
+
+  it('expone el rol real del usuario autenticado', () => {
+    expect(component.roles).toEqual(['admin']);
+  });
 });
