@@ -29,7 +29,9 @@ export class PortalPadre implements OnInit {
   cargos: Cargo[] = [];
   pagos: Pago[] = [];
   aplicacionesPorPago: Record<string, AplicacionPago[]> = {};
+  aplicacionesErrorPorPago: Record<string, string> = {};
   pagoAbiertoId: string | null = null;
+  aplicacionesCargando = false;
 
   cargandoTab = false;
   errorTab: string | null = null;
@@ -80,7 +82,9 @@ export class PortalPadre implements OnInit {
     this.cargos = [];
     this.pagos = [];
     this.aplicacionesPorPago = {};
+    this.aplicacionesErrorPorPago = {};
     this.pagoAbiertoId = null;
+    this.aplicacionesCargando = false;
     this.errorTab = null;
     await this.cargarAlumno();
   }
@@ -114,18 +118,31 @@ export class PortalPadre implements OnInit {
   async alternarAplicaciones(pago: Pago): Promise<void> {
     if (this.pagoAbiertoId === pago.id) {
       this.pagoAbiertoId = null;
+      this.aplicacionesCargando = false;
       this.cdr.detectChanges();
       return;
     }
     this.pagoAbiertoId = pago.id;
+    // Solo se consulta si aun no hay datos cargados (exito) para este pago.
     if (!this.aplicacionesPorPago[pago.id]) {
-      try {
-        this.aplicacionesPorPago[pago.id] = await this.portal.aplicacionesPago(pago.id);
-      } catch (e: unknown) {
-        this.aplicacionesPorPago[pago.id] = [];
-      }
+      await this.cargarAplicaciones(pago.id);
     }
     this.cdr.detectChanges();
+  }
+
+  async cargarAplicaciones(pagoId: string): Promise<void> {
+    this.aplicacionesCargando = true;
+    this.aplicacionesErrorPorPago[pagoId] = ''; // limpia error previo para reintentar
+    try {
+      this.aplicacionesPorPago[pagoId] = await this.portal.aplicacionesPago(pagoId);
+    } catch (e: unknown) {
+      // No se convierte un fallo en lista vacia: se expone el error y el detalle
+      // queda sin datos hasta que el usuario reintente abriendo/cerrando.
+      delete this.aplicacionesPorPago[pagoId];
+      this.aplicacionesErrorPorPago[pagoId] = this.mensajeDe(e);
+    } finally {
+      this.aplicacionesCargando = false;
+    }
   }
 
   async logout(): Promise<void> {

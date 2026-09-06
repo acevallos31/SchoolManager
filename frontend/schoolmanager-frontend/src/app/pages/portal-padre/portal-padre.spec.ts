@@ -137,6 +137,39 @@ describe('PortalPadre (022)', () => {
     expect(c.pagoAbiertoId).toBeNull();
   });
 
+  it('distingue "sin aplicaciones" (éxito vacío) de un fallo de consulta', async () => {
+    await armar();
+    await c.cargarHijos();
+    s['aplicacionesPago'].mockClear();
+    // éxito con lista vacía: se expone como estado vacío, sin error.
+    s['aplicacionesPago'] = vi.fn().mockResolvedValue([]);
+    await c.alternarAplicaciones({ ...pago, id: 'pg-vacio' });
+    expect(c.aplicacionesPorPago['pg-vacio']).toHaveLength(0);
+    expect(c.aplicacionesErrorPorPago['pg-vacio']).toBeFalsy();
+  });
+
+  it('no convierte un error de aplicaciones en lista vacía y expone el fallo', async () => {
+    await armar();
+    await c.cargarHijos();
+    s['aplicacionesPago'] = vi.fn().mockRejectedValue(new Error('No se pudo consultar aplicaciones'));
+    await c.alternarAplicaciones(pago);
+    expect(c.aplicacionesPorPago['pg1']).toBeUndefined();
+    expect(c.aplicacionesErrorPorPago['pg1']).toContain('No se pudo consultar aplicaciones');
+  });
+
+  it('muestra el mensaje de error de aplicaciones en el DOM', async () => {
+    await armar();
+    await c.cargarHijos();
+    c.tab = 'pagos';
+    f.detectChanges();
+    s['aplicacionesPago'] = vi.fn().mockRejectedValue(new Error('Fallo de red'));
+    await c.alternarAplicaciones(pago);
+    f.detectChanges();
+    const html = f.nativeElement.innerHTML as string;
+    expect(html).toContain('No se pudieron cargar las aplicaciones');
+    expect(html).toContain('Fallo de red');
+  });
+
   it('muestra estado vacío cuando no hay hijos', async () => {
     await armar();
     s['misAlumnos'] = vi.fn().mockResolvedValue([]);

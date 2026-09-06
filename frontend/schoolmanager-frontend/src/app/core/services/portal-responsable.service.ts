@@ -34,7 +34,7 @@ export interface Cargo {
   id: string;
   matriculaId: string;
   alumnoId: string;
-  planPagoId: string;
+  planPagoId: string | null;
   orden: number;
   conceptoId: string | null;
   conceptoNombre: string | null;
@@ -55,7 +55,7 @@ export interface Pago {
   id: string;
   institucionId: string;
   alumnoId: string;
-  responsableId: string;
+  responsableId: string | null;
   numeroRecibo: number;
   montoTotal: number;
   fechaPago: string;

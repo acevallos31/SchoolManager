@@ -171,7 +171,13 @@
                     @if (pagoAbiertoId === pago.id) {
                       <tr>
                         <td colspan="6" class="aplicaciones-celda">
-                          @if ((aplicacionesPorPago[pago.id] ?? []).length === 0) {
+                          @if (aplicacionesErrorPorPago[pago.id]) {
+                            <div class="mensaje mensaje-error">
+                              No se pudieron cargar las aplicaciones: {{ aplicacionesErrorPorPago[pago.id] }}
+                            </div>
+                          } @else if (aplicacionesCargando && !(aplicacionesPorPago[pago.id] ?? []).length) {
+                            <span class="sin-datos">Cargando aplicaciones...</span>
+                          } @else if ((aplicacionesPorPago[pago.id] ?? []).length === 0) {
                             <span class="sin-datos">Sin aplicaciones detalladas.</span>
                           } @else {
                             <table class="tabla-aplicaciones">
