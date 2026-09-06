@@ -10,7 +10,8 @@ namespace SchoolManager.API.Controllers;
 // Gestion de obligaciones financieras (cargos) por matricula/alumno.
 // En 020: listar por matricula/alumno, resumen de saldo, asignar plan a
 // matricula, generar cargos desde el plan (atomico) y anular cargo (soft).
-// No hay pagos reales: pagado/parcial son bloque 021.
+// En 021 (en main): pagos/cobranza; el estado pagado/parcial deriva del
+// saldo y se sincroniza por triggers.
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]

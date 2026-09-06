@@ -1,9 +1,10 @@
 # Bloque 022 — Portal Responsable (prototipo funcional de SOLO LECTURA)
 
-## Estado: FASE COMPLETA (prototipo navegable end-to-end) — verificado 2026-09-06
+## Estado: MERGEADO a main — PR #45 (`bed6a85`, 2026-09-06)
 
 Rama: `feature/portal-responsable-fase-022` (base `main` post-merge de PR #44 = `f61c931`).
-PR contra main: **abierto — NO mergear** (revisión humana).
+PR contra main: **mergeado** (`bed6a85`). Revisión humana aplicada en `cfc877e`.
+Integrado en `main`; este handoff es el registro histórico del bloque.
 
 ## Objetivo cumplido
 Un usuario padre/responsable autenticado puede: iniciar sesión → entrar a `/portal-padre` →

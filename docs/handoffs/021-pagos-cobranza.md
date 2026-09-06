@@ -1,10 +1,10 @@
 # HANDOFF — Bloque 021: Pagos / Cobranza / cuentas por cobrar (FASE 2)
 
-## Estado: LISTO PARA REVISIÓN — PR contra main (sin mergear por regla)
+## Estado: MERGEADO a main — PR #44 (`f61c931`, 2026-09-06)
 
 Rama: `feature/pagos-cobranza-fase-021`.
-Base: `origin/main` = `490c5e8` (+ `2111c05` handoff + `21794a8` docs Fase 1).
-**No mergear.** No iniciar 022. No producción / Supabase remoto.
+Base: `origin/main` = `f61c931` (merge PR #44).
+Integrado en `main`; este handoff es el registro histórico del bloque.
 
 ## Contrato rector
 `docs/decisiones/021-pagos-cobranza-fase1-invariantes.md` (Fase 1, `21794a8`) — INVARIANTES
