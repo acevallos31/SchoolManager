@@ -77,6 +77,13 @@ jobs:
           path: frontend/schoolmanager-frontend/coverage/**/lcov.info
           if-no-files-found: error
 
+      - name: Gate de cobertura (deuda #9, regresiones frente a baseline)
+        run: |
+          python3 scripts/check-coverage-gate.py \
+            --backend coverage-backend/**/coverage.cobertura.xml \
+            --frontend frontend/schoolmanager-frontend/coverage/**/lcov.info
+        continue-on-error: false
+
       - name: Validar Frontend (Angular)
         run: |
           cd frontend/schoolmanager-frontend
