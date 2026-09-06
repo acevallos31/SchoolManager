@@ -1,17 +1,17 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, RouterLinkActive],
+  imports: [CommonModule, RouterLink],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css'
 })
 export class Dashboard {
-  constructor(private auth: AuthService, private router: Router) {}
+  constructor(private auth: AuthService) {}
 
   get puedeVerAlumnos(): boolean {
     return this.auth.tienePermiso('academico.alumnos.ver');
@@ -21,13 +21,12 @@ export class Dashboard {
     return this.auth.tienePermiso('academico.responsables.ver');
   }
 
+  get puedeVerCargos(): boolean {
+    return this.auth.tienePermiso('academico.cargos.ver');
+  }
+
   get puedeVerConfiguracion(): boolean {
     return this.auth.tienePermiso('configuracion.sistema.ver')
       || this.auth.tienePermiso('configuracion.instituciones.ver');
-  }
-
-  logout() {
-    this.auth.logout();
-    this.router.navigate(['/login']);
   }
 }
