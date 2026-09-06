@@ -90,16 +90,20 @@ jobs:
           npm run build -- --configuration production
 
   # ETAPA 1.5: ANÁLISIS SONARCLOUD (opcional, requiere SONAR_TOKEN)
-  # Se ejecuta SOLO si existe el secret SONAR_TOKEN; si no, el job se salta y
-  # NO se importa nada a SonarCloud. No bloquea el despliegue (deploy solo
-  # depende de validate-code).
+  # El job siempre se crea (así GitHub Actions genera runs correctamente); la
+  # presencia del secret SONAR_TOKEN se lee via env (no evaluando secrets.* en
+  # un if del workflow, que impedía que se creasen los runs). Si el secret no
+  # existe, SONAR_TOKEN es '' y SOLO el paso de analisis se salta; no se importa
+  # nada a SonarCloud. No bloquea el despliegue (deploy solo depende de
+  # validate-code).
   # La desactivación de Automatic Analysis es un paso manual del usuario en el
   # panel de SonarCloud (ver docs/handoffs/020.5A-hardening-ci.md).
   sonarcloud:
     name: Análisis SonarCloud (CI Analysis)
     needs: validate-code
-    if: ${{ secrets.SONAR_TOKEN != '' }}
     runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
     steps:
       - name: Checkout del código
@@ -126,8 +130,7 @@ jobs:
           path: frontend/schoolmanager-frontend/coverage
 
       - name: Analizar con sonar-scanner (lee sonar-project.properties)
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        if: ${{ env.SONAR_TOKEN != '' }}
         run: |
           wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-7.1.0.12063-linux-x64.zip
           unzip -q sonar-scanner-cli-*.zip
