@@ -40,9 +40,9 @@ sistema frágil (principios ISW2 #4, #5 y #12).
     `configuracion.conceptos_financieros.ver`, `configuracion.planes_pago.ver`.
     Rutas de autenticación pura sin permiso concreto: `dashboard`,
     `configuracion`, `configuracion/ciclos`, `configuracion/estructura-academica`.
-  - `AdminGuard`/`PadreGuard` se conservan (no usados por ninguna ruta
-    actual); no se fuerza conversión a roles donde la autorización es por
-    permisos. `portal-padre` y `login` se dejan intactos.
+  - `AdminGuard`/`PadreGuard` quedaron sin uso (ninguna ruta los usaba) y se
+    **eliminaron en 023** (código muerto). `portal-padre` y `login` no requieren
+    guard adicional: la autorización la valida el backend.
 - **Pruebas**: 7 casos nuevos en `auth.spec.ts` (restauración de sesión, sin
   sesión, error de `/auth/me` no bloquea, idempotencia) y 8 en
   `permission.guard.spec.ts` (permiso→acceso, sin permiso→/dashboard,
@@ -138,17 +138,16 @@ sistema frágil (principios ISW2 #4, #5 y #12).
 
 ## 6. Coste de generación de mensualidades (backend de pagos/cuentas por cobrar)
 
-- **Estado: PARCIAL.**
-- **Problema**: la fase 020 materializó el modelo de **cargos** (obligaciones
-  generadas) con su migración `019` y controlador `CargosController`/`/cargos`.
-  **Pero** el backend de **pagos/cuentas por cobrar reales** (fase 021) sigue
-  sin existir: no hay `MensualidadController` ni `PagoController`; la generación
-  masiva de mensualidades con ACID (transacción única + verificación) está
-  pendiente.
-- **Riesgo**: implementar la generación sin considerar ACID (transacción
-  única + verificación) repetiría errores de fases previas.
-- **Prioridad**: Media (solo cuando se toque 021 con flujo de dinero).
-- **Cuándo abordarlo**: durante el diseño de 021 (contrato + tests primero).
+- **Estado: RESUELTO (Bloque 021, en main — PR #44 `f61c931`).**
+- **Problema (histórico)**: la fase 020 materializó el modelo de **cargos**
+  (obligaciones generadas) con su migración `019` y controlador `CargosController`,
+  pero el backend de **pagos/cuentas por cobrar** (fase 021) aún no existía
+  (sin `PagoController`, sin modelo transaccional).
+- **Resuelto en 021**: migración `021_pagos_cobranza` (`pagos` + `pagos_aplicaciones`,
+  saldo siempre derivado, triggers de sincronización de `cargos.estado`, anulación
+  atómica sin DELETE físico) y `PagosController` (`/api/pagos`) con registro/anulación
+  ACID. Detalle: `docs/handoffs/021-pagos-cobranza.md`.
+- **Prioridad**: Resuelta.
 
 ## 7. SonarCloud — cobertura generada en CI; import a Sonar pendiente de SONAR_TOKEN y paso manual
 
@@ -166,9 +165,11 @@ sistema frágil (principios ISW2 #4, #5 y #12).
     (`frontend/schoolmanager-frontend/coverage/**/lcov.info`), con exclusiones
     de `node_modules`/`dist`/`bin`/`obj`/`coverage`.
   - Job `sonarcloud` en `deploy.yml` (etapa 1.5): usa `sonar-scanner` CLI (no
-    `dotnet-sonarscanner`, que no procesa LCOV de TypeScript), **condicionado a
-    `if: ${{ secrets.SONAR_TOKEN != '' }}`** — sin el secret el job se salta y
-    no importa nada, sin fallar ni bloquear el deploy.
+    `dotnet-sonarscanner`, que no procesa LCOV de TypeScript). El job **siempre
+    se crea** y el secret se lee **vía env** (`SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}`),
+    no evaluando `secrets.*` en un `if` del workflow; el **paso** de análisis se
+    salta si `env.SONAR_TOKEN == ''` — sin el secret no se importa nada, sin
+    fallar ni bloquear el deploy (ver `deploy.yml`).
 - **Riesgo**: la métrica de cobertura en SonarCloud sigue vacía hasta que el
   mantenedor complete el paso manual; no se puede exigir Quality Gate de
   cobertura.
@@ -182,13 +183,12 @@ sistema frágil (principios ISW2 #4, #5 y #12).
 
 ## 8. Duplicación de código — estructural (no por permisos)
 
-- **Estado: PARCIAL — lo corregible corregido en PR A #41; lo deliberado
-  documentado como aceptado; portal-padre pendiente junto al bloque 021.**
+- **Estado: RESUELTO (PR A #41 en main; sub-entrada de portal-padre resuelta por 022).**
 - **Problema**: la duplicación reportada por SonarCloud (~22.5% histórica) no
   proviene de los strings de permisos (verificado: cada permiso
   `configuracion.*` / `academico.*` aparece definido una sola vez en el
   backend). Las fuentes reales son estructurales.
-- **Resuelta en PR A (deuda #8, 2026-09-05)** — lo corregible se corrigió:
+- **Resuelta en PR A (deuda #8, en main — `95e834b`)** — lo corregible se corrigió:
   1. *Boilerplate de controllers duplicado* (5 controllers repetían
      `AbrirComoUsuarioAsync` + `FijarClaimAsync` + `ToError` con un switch
      divergente: Cargos/Conceptos/Planes no contemplaban `SM001`/`SM003`
@@ -208,14 +208,13 @@ sistema frágil (principios ISW2 #4, #5 y #12).
     (nombres y nullabilidad idénticos). No refactorizar.
   - Estados de matrícula como strings (`'pendiente'`, `'activa'`, …)
     SQL↔backend↔frontend: sin divergencia verificada hoy. Sin refactor.
-- **Nuevo hallazgo (pendiente, no es deuda #8 corregible aquí)**:
-  `frontend/.../pages/portal-padre/portal-padre.ts` (enrutado desde login)
-  consume vía Supabase un esquema inexistente: `alumnos.tutor_id` (no existe
-  en DDL), y tablas `mensualidades`/`pagos` con columnas `monto_final`,
-  `fecha_pago` (no hay `CREATE TABLE` ni RPC de ellas; la migración 019 solo
-  crea `cargos`). Es funcionalidad de pagos del **bloque 021** (fuera de
-  alcance actual). Re-cablear la página a cargos reales no es una abstracción
-  simple: se documenta y se resuelve junto a 021.
+- **Resuelta en 022 (PR #45, en main — `bed6a85`)**: la página
+  `frontend/.../pages/portal-padre/portal-padre.ts` se reescribió para consumir
+  la **API .NET** (`PortalResponsableController`) en modo lectura real contra
+  cargos/pagos/RLS existentes (021), eliminando el acceso vía Supabase al
+  esquema inexistente (`alumnos.tutor_id`, tablas `mensualidades`/`pagos` legacy
+  que la migración 019 nunca creó). La deuda de portal-padre queda **resuelta**;
+  re-cablear no requirió tocar 021. Detalle: `docs/handoffs/022-portal-responsable.md`.
 - **Riesgo**: la métrica de duplicación de SonarCloud puede seguir alta en el
   código estructural restante, sin reflejar duplicación de lógica de negocio.
 - **Prioridad**: Baja (informativa) tras la corrección anterior.
@@ -249,6 +248,32 @@ sistema frágil (principios ISW2 #4, #5 y #12).
 - **Cuándo abordarlo**: la parte restante (New Code real) depende de completar
   #7. El gate de regresión local ya está activo y no requiere infraestructura
   externa.
+
+## 10. Páginas de negocio que consultan Supabase directo (sin pasar por la API .NET)
+
+- **Estado: ABIERTO (deliberado) — no es un flujo roto; funciona contra Supabase.**
+- **Problema**: varias páginas de negocio leen/escriben **directo contra
+  Supabase** (vía `SUPABASE_CLIENT`) en lugar de la API .NET, rompiendo el
+  patrón del resto del frontend. Afecta a:
+  - `pages/alumnos` y `pages/matriculas` → `core/services/alumno.service.ts`
+    (`.from('alumnos')`, RPC `rpc_*`), pese a que existe (o existía) un
+    controlador .NET equivalente. El `AlumnosController` era un **stub** que
+    nunca consultó Postgres y se eliminó en 023.
+  - `pages/configuracion/ciclos` → `core/services/ciclo-escolar.service.ts`
+    (RPC `rpc_listar/crear_*_ciclo_escolar`, `rpc_*_periodo_matricula`).
+  - `pages/configuracion/estructura-academica` → `estructura-academica.service.ts`
+    y `configuracion.service.ts` (RPC de grados/jornadas/secciones).
+- **Por qué no se resuelve en 023**: los flujos **funcionan** contra Supabase
+  real y, para ciclos/estructura-académica/configuración, **no existe un
+  controller .NET** que reemplace el acceso (migrarlos = construir endpoints
+  nuevos + re-cablear páginas, es decir, **funcionalidad nueva**, no reparación).
+  La única vía coherente es un **bloque dedicado de migración a API .NET** con
+  tests por cada dominio.
+- **Riesgo**: dependencia de Supabase directo en el frontend (menos centralizado
+  que el patrón API .NET); fuga de la regla «backend .NET → Postgres».
+- **Prioridad**: Media (bloque de arquitectura posterior a 023/UX).
+- **Cuándo abordarlo**: bloque dedicado de migración a la API .NET, tras el
+  cierre funcional 023 y el bloque visual/UX.
 
 ---
 
