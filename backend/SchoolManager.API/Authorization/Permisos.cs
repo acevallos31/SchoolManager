@@ -47,6 +47,13 @@ public static class Permisos
         public const string Anular = "academico.cargos.anular";
     }
 
+    public static class Pagos
+    {
+        public const string Ver = "academico.pagos.ver";
+        public const string Registrar = "academico.pagos.registrar";
+        public const string Anular = "academico.pagos.anular";
+    }
+
     public static IReadOnlyList<string> Todos { get; } =
     [
         Alumnos.Ver,
@@ -69,6 +76,9 @@ public static class Permisos
         PlanesPago.Desactivar,
         Cargos.Ver,
         Cargos.Generar,
-        Cargos.Anular
+        Cargos.Anular,
+        Pagos.Ver,
+        Pagos.Registrar,
+        Pagos.Anular
     ];
 }
