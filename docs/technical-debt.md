@@ -12,20 +12,53 @@ sistema frágil (principios ISW2 #4, #5 y #12).
 
 ## 1. Autorización frontend por permiso (guards) — sin cobertura central
 
-- **Estado: PENDIENTE.**
-- **Problema**: `app.routes.ts` no declara `canActivate` con guards. Existen
-  `AdminGuard` y `PadreGuard` (rol `admin`, con comentario «compatibilidad de
-  navegación») pero **no** están aplicados en el router; la verificación de
-  permisos por operación vive dentro de componentes y, de forma autoritativa,
-  en el backend. No hay guards que comprueben permisos concretos
-  (`responsables.ver`, `conceptos_financieros.ver`, …) a nivel de ruta.
-- **Riesgo**: navegación que muestra UI no accionable según el rol; la UI puede
-  desincronizarse del permiso real. La seguridad **no** depende de esto (el
-  backend autoriza), pero empeora la experiencia y puede filtrar opciones.
+- **Estado: RESUELTO (PR de hardening pre-021)** — alternativa mínima de la
+  opción (a), sin rediseño del router.
+- **Problema (root cause)**: `AuthService` cargaba la sesión de forma
+  **asíncrona y fire-and-forget** (`getSession().then(...)` en el constructor)
+  y `AdminGuard`/`PadreGuard` leían estado **síncrono** de `BehaviorSubject`s
+  sin poblar; además `app.routes.ts` **no aplicaba ningún guard**. No existía
+  un modelo de permisos cargado y esperado **antes** de resolver las rutas, por
+  lo que un guard evaluaría contra estado sin cargar (carrera).
+- **Solución (barrera de inicialización + guard reutilizable)**:
+  - `provideAppInitializer(() => inject(AuthService).asegurarUsuarioInicial())`
+    en `app.config.ts`: espera la restauración de sesión y `/auth/me` **antes**
+    del bootstrap. `asegurarUsuarioInicial()` es **idempotente** (una sola
+    ejecución), nunca lanza (error de sesión o de `/auth/me` → estado "sin
+    sesión", no bloquea el bootstrap) y **reutiliza** la lógica existente de
+    `restaurarSesion`/`getUsuarioActual` (refactorizada, no duplicada).
+  - Nuevo `PermissionGuard` funcional (`core/guards/permission.guard.ts`) que
+    lee `route.data['permiso']` contra el modelo de permisos de `AuthService`
+    (respaldado por `/auth/me`). Sin sesión → `/login`; sesión sin permiso →
+    `/dashboard` (no existe ruta 403; limitación documentada, no se crea
+    mini-módulo); con permiso → acceso; sin `data.permiso` → guard de
+    autenticación puro. No sustituye la autorización backend/RLS (solo
+    navegación/UI coherente).
+  - Rutas cableadas **solo con permiso verificable** en `Permisos.cs`:
+    `academico.alumnos.ver`, `academico.matriculas.ver`,
+    `academico.responsables.ver`, `academico.cargos.ver`,
+    `configuracion.conceptos_financieros.ver`, `configuracion.planes_pago.ver`.
+    Rutas de autenticación pura sin permiso concreto: `dashboard`,
+    `configuracion`, `configuracion/ciclos`, `configuracion/estructura-academica`.
+  - `AdminGuard`/`PadreGuard` se conservan (no usados por ninguna ruta
+    actual); no se fuerza conversión a roles donde la autorización es por
+    permisos. `portal-padre` y `login` se dejan intactos.
+- **Pruebas**: 7 casos nuevos en `auth.spec.ts` (restauración de sesión, sin
+  sesión, error de `/auth/me` no bloquea, idempotencia) y 8 en
+  `permission.guard.spec.ts` (permiso→acceso, sin permiso→/dashboard,
+  no autenticado→/login, permisos distintos por módulo, ruta sin permiso,
+  contexto multiinstitución no se modifica, el guard no sustituye al backend).
+- **Riesgo residual**: las rutas `configuracion/ciclos`,
+  `configuracion/estructura-academica` y `configuracion` (raíz) y `dashboard`
+  se protegen **solo por autenticación** porque **no existe un permiso backend
+  inequívoco** en `Permisos.cs` para ellas (no hay `configuracion.ciclos.ver`
+  ni `estructura_academica.ver`; el app-shell usa `configuracion.sistema.ver` /
+  `configuracion.instituciones.ver` que **no** están definidos en el backend).
+  Aplicarles un permiso exigiría un permiso backend nuevo (fuera de alcance).
 - **Prioridad**: Media.
-- **Cuándo abordarlo**: cuando se consolide la navegación por rol/perfil
-  (fase de UX/perfiles), junto con un modelo de permisos del frontend
-  derivado del backend.
+- **Cuándo abordarlo**: no aplica (resuelto en su alternativa mínima). Si se
+  quieren proteger las rutas genéricas de configuración por permiso, hay que
+  definir esos permisos en el backend primero.
 
 ## 2. Grados y jornadas globales — riesgo futuro multiinstitución
 
@@ -87,16 +120,19 @@ sistema frágil (principios ISW2 #4, #5 y #12).
   métricas de aplicación; solo el logging por consola de ASP.NET por defecto.
   No hay monitoreo del estado de los endpoints `/api` en producción. Ver
   `docs/observabilidad.md`.
-- **Estado (PR A #5)**: el readiness quedó implementado en `GET /health/ready`
-  — comprueba conectividad real con PostgreSQL vía `NpgsqlDataSource`
-  (`SELECT 1`, timeout 3 s): `200` cuando responde, `503` cuando la base falla;
-  no expone secretos ni connection strings. `GET /health` se mantiene como
-  liveness. Pendiente de merge del PR A.
+- **Estado (PR A #5, MERGEADO en main)**: el readiness quedó implementado en
+  `GET /health/ready` — comprueba conectividad real con PostgreSQL vía
+  `NpgsqlDataSource` (`SELECT 1`, timeout 3 s): `200` cuando responde, `503`
+  cuando la base falla; no expone secretos ni connection strings. `GET /health`
+  se mantiene como liveness. Verificado de nuevo en el PR de hardening pre-021
+  (`/health` liveness y `/health/ready` chequea Postgres en `Program.cs`;
+  `HealthReadinessTests.cs` en verde; **sin** logging/telemetría añadidos en
+  este PR).
 - **Riesgo**: degradaciones o errores en producción pasan desapercibidos;
   diagnóstico lento. «Funciona en mi máquina» no es evidencia del servicio vivo.
 - **Prioridad**: Media (post-020): lo que hoy protege es el CI + RLS, no el
   runtime.
-- **Cuándo abordarlo**: (resuelto por el readiness en PR A) el logging
+- **Cuándo abordarlo**: (resuelto por el readiness mergeado) el logging
   estructurado y las métricas de aplicación quedan como deuda futura separada
   si se necesita trazabilidad en producción.
 
@@ -186,35 +222,33 @@ sistema frágil (principios ISW2 #4, #5 y #12).
 
 ## 9. Cobertura de tests — línea base real y umbral propuesto
 
-- **Estado: PENDIENTE (línea base documentada; sin umbral de CI activo).**
-- **Línea base real (2026-09-05, reportes generados localmente con la misma
-  configuración que el CI):**
-  - **Backend** (`SchoolManager.API`, 13 archivos productivos, incl. `Program.cs`):
-    **79.6%** de líneas (904/1136). El reporte Cobertura global del
-    `dotnet test` mezcla también el ensamblado `SchoolManager.Database`
-    (fixtures de tests de migración, no productivas), que al promediar lo
-    reduce; por eso SonarCloud debe mirar solo el código productivo (ver
-    exclusiones en `sonar-project.properties`).
-  - **Frontend** (Vitest, 39 archivos): **Lines 63.98%** (1430/2235), Functions
-    45.18%, Branches 50.37%.
-- **Riesgo**: sin umbral no se evita regresión de cobertura; con un umbral
-  arbitrario se bloquea por deuda histórica (sobre todo el frontend, que parte
-  de 64%).
+- **Estado: PARCIAL (PR de hardening pre-021)** — gate de regresión local/CI
+  implementado; el Quality Gate de "New Code" de SonarCloud sigue pendiente de
+  #7 (requiere SONAR_TOKEN, no simulado).
+- **Gate implementado (`scripts/check-coverage-gate.py` + step en
+  `deploy.yml`/`validate-code`)**: compara la cobertura de líneas generada por
+  CI contra un **baseline versionado** (`docs/coverage-baseline.json`) y falla
+  solo si la actual cae por debajo de `baseline - 1.0 punto` (tolerancia para
+  absorber fluctuaciones de medición, no regresiones reales). **No** impone un
+  umbral global aspiracional sobre el histórico, por lo que no bloquea PRs por
+  la deuda histórica del frontend (64%) ni exige subir cobertura.
+- **Baselines medidos (2026-09-06, misma config que el CI):**
+  - **Backend** (`SchoolManager.API`, paquete productivo, excluye tests):
+    **81.54%** líneas (1758/2156) — subió vs el 79.6% histórico.
+  - **Frontend** (lcov.info, 40 archivos): **64.86%** líneas (1460/2251).
+- **Limitación documentada (por qué PARCIAL)**: el gate protege contra
+  **regresiones globales**, no contra caídas de cobertura en código **nuevo**
+  (New Code / diff coverage). La métrica real de New Code exige SonarCloud CI
+  Analysis (#7, `SONAR_TOKEN` + paso manual del mantenedor); no se simula esa
+  métrica. Una vez activo #7, aplicar el Quality Gate New Code ≥ 80% backend /
+  ≥ 70% frontend (recomendado en la propuesta original).
+- **Riesgo**: si se añade mucho código nuevo sin tests, la cobertura global
+  puede no caer bajo el gate pese a bajar la cobertura marginal de lo nuevo.
+  Es un gate mínimo de contención, no un sustituto del New Code de Sonar.
 - **Prioridad**: Media.
-- **Propuesta de umbral (diferenciando global vs New Code):**
-  - **No imponer umbral global** de CI todavía: el backend va bien (79.6%) pero
-    el frontend global (64%) refleja deuda histórica; un gate global bloquea
-    todo PR por el frontend.
-  - **Recomendado: Quality Gate de "New Code"** en SonarCloud una vez activo
-    CI Analysis (#7), con línea base razonable: **Cobertura en New Code ≥ 80%
-    para backend** y **≥ 70% para frontend** — así se exige cobertura en lo
-    nuevo sin penalizar la deuda histórica acumulada.
-  - Alternativa local/CI inmediata sin esperar a Sonar: umbral de regresión
-    "no bajar de la línea base" (backend 79.6%, frontend 63.98%) en el runner,
-    en vez de un % absoluto.
-- **Cuándo abordarlo**: el gate de New Code con SonarCloud depende de completar
-  #7 (paso manual del mantenedor). El umbral de regresión local puede
-  implementarse en paralelo sin dependencias.
+- **Cuándo abordarlo**: la parte restante (New Code real) depende de completar
+  #7. El gate de regresión local ya está activo y no requiere infraestructura
+  externa.
 
 ---
 
