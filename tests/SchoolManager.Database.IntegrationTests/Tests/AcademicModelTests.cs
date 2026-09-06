@@ -12,8 +12,8 @@ public sealed class AcademicModelTests(PostgreSqlFixture fixture) : IClassFixtur
         var institucion = await InsertInstitucionAsync();
         var ciclo2026 = await InsertCicloAsync(institucion, "2026");
         var ciclo2027 = await InsertCicloAsync(institucion, "2027");
-        var grado7 = await InsertGradoAsync("7mo");
-        var grado8 = await InsertGradoAsync("8vo");
+        var grado7 = await InsertGradoAsync(institucion, "7mo");
+        var grado8 = await InsertGradoAsync(institucion, "8vo");
 
         await CrearSeccionAsync(institucion, ciclo2026, grado7, "A");
         await CrearSeccionAsync(institucion, ciclo2026, grado7, "B");
@@ -41,7 +41,7 @@ public sealed class AcademicModelTests(PostgreSqlFixture fixture) : IClassFixtur
         var institucionA = await InsertInstitucionAsync();
         var institucionB = await InsertInstitucionAsync();
         var cicloA = await InsertCicloAsync(institucionA);
-        var grado = await InsertGradoAsync();
+        var grado = await InsertGradoAsync(institucionA);
 
         await Assert.ThrowsAsync<PostgresException>(() =>
             CrearSeccionAsync(institucionB, cicloA, grado, "A"));
@@ -282,7 +282,7 @@ public sealed class AcademicModelTests(PostgreSqlFixture fixture) : IClassFixtur
     {
         var institucion = await InsertInstitucionAsync();
         var ciclo = await InsertCicloAsync(institucion);
-        var grado = await InsertGradoAsync();
+        var grado = await InsertGradoAsync(institucion);
         var periodo = await InsertPeriodoAsync(ciclo);
         var seccion = await CrearSeccionAsync(institucion, ciclo, grado, "A", cupo);
         return new ContextoAcademico(institucion, ciclo, grado, seccion, periodo);
@@ -296,9 +296,9 @@ public sealed class AcademicModelTests(PostgreSqlFixture fixture) : IClassFixtur
         "insert into public.ciclos_escolares (institucion_id, nombre) values ($1, $2) returning id",
         institucionId, nombre ?? $"Ciclo {Guid.NewGuid():N}");
 
-    private Task<Guid> InsertGradoAsync(string? nombre = null) => ScalarGuidAsync(
-        "insert into public.grados (nombre) values ($1) returning id",
-        $"{nombre ?? "Grado"} {Guid.NewGuid():N}");
+    private Task<Guid> InsertGradoAsync(Guid institucionId, string? nombre = null) => ScalarGuidAsync(
+        "insert into public.grados (nombre, institucion_id) values ($1, $2) returning id",
+        $"{nombre ?? "Grado"} {Guid.NewGuid():N}", institucionId);
 
     private Task<Guid> InsertPeriodoAsync(Guid cicloId) => ScalarGuidAsync(
         "insert into public.periodos_matricula (ciclo_id, nombre, fecha_inicio, fecha_fin) values ($1, $2, current_date, current_date + 30) returning id",

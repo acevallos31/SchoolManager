@@ -300,9 +300,11 @@ public sealed class CargosMultitenancyTests(PostgreSqlFixture fixture)
             "insert into public.ciclos_escolares (institucion_id, nombre, fecha_inicio, fecha_fin) values ($1,$2,$3,$4) returning id",
             institucion, $"Ciclo {Guid.NewGuid():N}", cicloInicio, cicloInicio.AddDays(cicloDias));
         var grado = await ScalarAsync<Guid>(
-            "insert into public.grados (nombre, orden) values ($1, 0) returning id", $"Grado {Guid.NewGuid():N}");
+            "insert into public.grados (nombre, orden, institucion_id) values ($1, 0, $2) returning id",
+            $"Grado {Guid.NewGuid():N}", institucion);
         var jornada = await ScalarAsync<Guid>(
-            "insert into public.jornadas (nombre) values ($1) returning id", $"Jornada {Guid.NewGuid():N}");
+            "insert into public.jornadas (nombre, institucion_id) values ($1, $2) returning id",
+            $"Jornada {Guid.NewGuid():N}", institucion);
         var seccion = await ScalarAsync<Guid>(
             "insert into public.secciones (nombre, institucion_id, ciclo_id, grado_id) values ($1,$2,$3,$4) returning id",
             $"Seccion {Guid.NewGuid():N}", institucion, ciclo, grado);

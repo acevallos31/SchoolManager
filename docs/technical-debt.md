@@ -29,18 +29,54 @@ sistema frágil (principios ISW2 #4, #5 y #12).
 
 ## 2. Grados y jornadas globales — riesgo futuro multiinstitución
 
-- **Estado: PENDIENTE.**
-- **Problema**: grados y jornadas son globales (sin `institucion_id`), mientras
-  secciones son por institución/ciclo. La persona del alumno vive en una
-  tabla única compartida entre instituciones. No hay selector global
-  multiinstitución aún (hoy hay institución activa implícita).
-- **Riesgo**: si se abre una segunda institución, datos de catálogo globales
-  filtran entre instituciones y la persona compartida complica el aislamiento.
-  RLS mitiga lo actual, pero el modelo no escala a multiinstitución limpia.
-- **Prioridad**: Baja (hoy monoinstitucional) / Alta si se planifica multi.
-- **Cuándo abordarlo**: antes de cualquier fase multiinstitución; como
-  preparación de Fase 020 revisar si los catálogos de configuración financiera
-  siguen el patrón por-institución.
+- **Estado: RESUELTO (PR B, deuda #2)** — migración `020_grados_jornadas_multiinstitucion`.
+- **Problema (root cause)**: grados y jornadas eran catálogos globales (sin
+  `institucion_id`) mientras secciones/ciclos/matrículas ya eran por institución.
+  Las RPC de configuración (`rpc_listar/crear/actualizar/cambiar_estado_*`) sólo
+  validaban el permiso del rol pero **no filtraban sus SELECT por institución**, y
+  el RLS de `grados`/`jornadas` usaba `usuario_tiene_permiso_en_algun_ambito` (una
+  institución autorizada en cualquier ámbito podía leer el catálogo de todas).
+  Resultado: una institución autorizada veía/editaria los catálogos de todas las
+  demás — fuga de aislamiento multiinstitución.
+- **Decisión de modelo**: `institucion_id` **directo** en `grados` y `jornadas`
+  (el patrón canónico por-institución de `secciones`/`ciclos_escolares`/
+  `conceptos`/`planes`/`responsables`); sin tabla puente intermedia.
+- **Backfill**: determinista. Modo monoinstitucional → todo se asigna a la
+  institución activa única. Modo multiinstitucional → se infiere por referencia
+  inequívoca desde `secciones`; un grado/jornada compartido por varias
+  instituciones u huérfano **aborta la migración con error explícito** (no se
+  duplica silenciosamente, preservando identidad funcional). `NOT NULL` sólo
+  después del backfill.
+- **Invariantes tras 020**:
+  - FK a `institucion_id` → `instituciones(id)` en grados y jornadas.
+  - Unicidad de nombre **por institución** (`ux_*_institucion_nombre` sobre
+    `(institucion_id, lower(btrim(nombre)))`); se retira el `UNIQUE(nombre)`
+    global pre-020 (`grados_nombre_key`/`jornadas_nombre_key`).
+  - FK **compuesta** en `secciones`: `(grado_id, institucion_id)` y
+    `(jornada_id, institucion_id)` — una sección sólo puede referenciar
+    grado/jornada de su misma institución.
+  - RLS de lectura scoped por fila (`usuario_tiene_permiso_actual(…, institucion_id)`).
+  - RPC filtran sus `SELECT`/`UPDATE` por `institucion_id` (contexto resuelto vía
+    `resolver_institucion_operacion`) y devuelven la columna `institucion_id`.
+  - Grants a `authenticated` cubren todas las firmas (incl. `rpc_cambiar_estado_*`).
+- **Pruebas**: 16 casos multitenancy en `GradosJornadasMultitenancyTests`
+  (aislamiento de listado, no-lectura/no-escritura/no-cambio-de-estado por UUID
+  ajeno, mismos nombres en instituciones distintas, duplicado intra-institución
+  rechazado, FK compuesta de secciones, contexto multi-rol, denegación explícita).
+  Más validations SQL de 020 (cero filas en diagnósticos `*_faltante`/`*_indebido`)
+  y round-trip rollback→reapply en `RollbackTests`.
+- **Legado que conserva catálogo global** (a propósito): seed de la baseline
+  `001` (resuelto por el backfill al migrar), migraciones históricas `008`/`016`,
+  y `rollback/020` (restaura el modelo global).
+- **Riesgo/pendiente**: nada conocido tras 020; el Bloque 021 (pagos, `portal-padre`,
+  `Vertic`) queda fuera de alcance y se consume el esquema de pagos existente.
+- **Prioridad**: Resuelta por esta deuda.
+- **Cuándo/archivos**: `database/migrations/020_*.sql`, `rollback/020_*.sql`,
+  `validation/020_*.sql`, `tests/…/GradosJornadasMultitenancyTests.cs`,
+  `tests/…/{AcademicModel,SchemaConstraints,CargosMultitenancy,RlsSecurity,
+  ResponsablesGestion,AcademicStructureConfiguration}Tests.cs`,
+  factories `CargosApiFactory`/`MatriculasApiFactory`, `perf/benchmark/seed.sql`.
+  Handoff: `docs/handoffs/020-grados-jornadas-multiinstitucion.md`.
 
 ## 5. Observabilidad de producción — mínima
 

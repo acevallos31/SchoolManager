@@ -331,8 +331,8 @@ public sealed class ResponsablesGestionTests(PostgreSqlFixture fixture) : IClass
             "insert into public.ciclos_escolares (nombre, institucion_id) values ($1, $2) returning id",
             $"Ciclo {Guid.NewGuid():N}", institucion);
         var grado = await AdminScalarGuidAsync(
-            "insert into public.grados (nombre) values ($1) returning id",
-            $"Grado {Guid.NewGuid():N}");
+            "insert into public.grados (nombre, institucion_id) values ($1, $2) returning id",
+            $"Grado {Guid.NewGuid():N}", institucion);
         var seccion = await AdminScalarGuidAsync(
             "insert into public.secciones (nombre, institucion_id, ciclo_id, grado_id) values ($1, $2, $3, $4) returning id",
             $"Seccion {Guid.NewGuid():N}", institucion, ciclo, grado);
