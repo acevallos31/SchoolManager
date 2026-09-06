@@ -71,4 +71,5 @@ where conname in (
 )
 and confdeltype <> 'r';
 
-select version, nombre from public.schema_migrations where version = '008';
+select '008' as migracion_no_registrada
+where not exists (select 1 from public.schema_migrations where version = '008');

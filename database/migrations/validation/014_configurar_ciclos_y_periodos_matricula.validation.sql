@@ -13,4 +13,5 @@ select esperado.codigo as permiso_faltante from (values
  ('configuracion.periodos_matricula.editar'),('configuracion.periodos_matricula.desactivar')
 ) esperado(codigo)
 where not exists(select 1 from public.permisos p where p.codigo=esperado.codigo);
-select version,nombre from public.schema_migrations where version='014';
+select '014' as migracion_no_registrada
+where not exists (select 1 from public.schema_migrations where version='014');

@@ -24,4 +24,5 @@ from (values
 ) esperado(codigo)
 where not exists (select 1 from public.permisos p where p.codigo = esperado.codigo);
 
-select version, nombre from public.schema_migrations where version = '012';
+select '012' as migracion_no_registrada
+where not exists (select 1 from public.schema_migrations where version = '012');

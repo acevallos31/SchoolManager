@@ -31,4 +31,5 @@ select 'Indice de secciones incorrecto' error where not exists(
 select firma_legacy from (values ('rpc_actualizar_seccion(uuid,uuid,uuid,uuid,text,integer)'),('rpc_desactivar_seccion(uuid,text)'),('rpc_reactivar_seccion(uuid)')) esperado(firma_legacy)
 where to_regprocedure('public.'||esperado.firma_legacy) is not null;
 
-select version,nombre from public.schema_migrations where version='016';
+select '016' as migracion_no_registrada
+where not exists (select 1 from public.schema_migrations where version='016');

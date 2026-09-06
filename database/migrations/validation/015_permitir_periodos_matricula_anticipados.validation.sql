@@ -14,4 +14,5 @@ where n.nspname='public'
     or p.prosrc ilike '%p_fecha_inicio<c.fecha_inicio%'
     or p.prosrc ilike '%p_fecha_fin>c.fecha_fin%');
 
-select version,nombre from public.schema_migrations where version='015';
+select '015' as migracion_no_registrada
+where not exists (select 1 from public.schema_migrations where version='015');

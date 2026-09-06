@@ -23,4 +23,5 @@ where has_function_privilege(
   'EXECUTE'
 );
 
-select version, nombre from public.schema_migrations where version = '011';
+select '011' as migracion_no_registrada
+where not exists (select 1 from public.schema_migrations where version = '011');

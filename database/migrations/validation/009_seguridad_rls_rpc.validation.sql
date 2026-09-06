@@ -56,4 +56,5 @@ where not exists (
     and routine_name = esperado.nombre and privilege_type = 'EXECUTE'
 );
 
-select version, nombre from public.schema_migrations where version = '009';
+select '009' as migracion_no_registrada
+where not exists (select 1 from public.schema_migrations where version = '009');
