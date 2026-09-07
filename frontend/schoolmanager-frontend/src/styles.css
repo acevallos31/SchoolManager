@@ -511,3 +511,45 @@ img, svg {
   border-color: var(--sm-info);
   color: var(--sm-info);
 }
+
+/* ---- Modal (diálogo reutilizable) ---- */
+.sm-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--sm-z-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sm-space-4);
+  background: rgba(11, 24, 39, 0.45);
+  backdrop-filter: blur(6px);
+}
+
+.sm-modal {
+  width: min(100%, 30rem);
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: var(--sm-space-5);
+  border-radius: var(--sm-radius-xl);
+  background: var(--sm-surface);
+  box-shadow: var(--sm-shadow-lg);
+}
+
+.sm-modal__title {
+  font-size: var(--sm-fs-xl);
+  font-weight: var(--sm-weight-semibold);
+  color: var(--sm-text-strong);
+  margin-bottom: var(--sm-space-2);
+}
+
+.sm-modal__detail {
+  color: var(--sm-text-soft);
+  margin-bottom: var(--sm-space-4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sm-modal-overlay {
+    backdrop-filter: none;
+  }
+}
+
