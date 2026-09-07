@@ -78,13 +78,17 @@ Institución -> Ciclo -> Período matrícula -> Grado -> Jornada opcional -> Sec
   `academico.matriculas.ver`**.
 - **Foundation aplicada a**: AppShell, Dashboard (sin sidebar duplicado),
   `/alumnos` (piloto master/detalle).
-- **Adoptado en 025 (rama `feature/ui-ux-adopcion-025`, sin mergear)**:
+- **Adoptado en 025 (PR #48, mergeado en `main`)**:
   `/matriculas`, `/responsables`, `/configuracion` (raíz) y los submódulos
   `/configuracion/ciclos`, `/configuracion/estructura-academica`,
   `/configuracion/conceptos-financieros`, `/configuracion/planes-pago` — todos
   consumen tokens/primitivas (botones, cards, tablas, badges, inputs, modal, tabs)
   sin estilos paralelos ni cambio de lógica de negocio.
-- **Pendiente de migrar**: `/cargos`, `/pagos` (bloque financiero siguiente).
+- **Adoptado en 026 (rama `feature/ui-ux-finanzas-026`)**: `/cargos` y `/pagos`
+  (bloque financiero) migrados a la misma foundation `sm-*`. Los KPIs de resumen
+  quedan como maquetación local por página (mismo criterio que `.sm-stats` del
+  Dashboard); se resolvió el warning de budget de `pagos.css` (duplicación de
+  foundation eliminada). Sin cambio de lógica funcional ni backend/DB.
 - Módulos navegables (rutas lazy): `/configuracion`, `/configuracion/ciclos`,
   `/configuracion/estructura-academica`, `/configuracion/conceptos-financieros`,
   `/configuracion/planes-pago`, `/responsables`, `/matriculas`, `/alumnos`,
@@ -106,7 +110,8 @@ Las reglas operativas de Git, migraciones y validación están en `AGENTS.md`.
 Estado real del repo: 001-022 en `main`; **023 (cierre funcional pre-UX) mergeado
 en `main` (`702d2f1`, PR #46)**. Bloque **024 (UI/UX foundation + AppShell)
 mergeado en `main` (`e876ae1`, PR #47)**. Bloque **025 (adopción foundation en
-matrículas/responsables/configuración) completo en la rama
-`feature/ui-ux-adopcion-025`**, PR contra main pendiente de revisión humana
-(no mergear). **Sin cambios backend/DB en 025; deuda #10 (Supabase directo)
+matrículas/responsables/configuración) mergeado en `main` (`38fe128`, PR #48)**.
+Bloque **026 (adopción foundation en cargos/pagos, bloque financiero) en la rama
+`feature/ui-ux-finanzas-026`**, PR contra main pendiente de revisión humana
+(no mergear). **Sin cambios backend/DB en 025/026; deuda #10 (Supabase directo)
 sigue pendiente.**
