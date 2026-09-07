@@ -113,7 +113,7 @@
 
   @if (mostrarCiclo) {
     <div class="sm-modal-overlay">
-      <form class="sm-modal" (ngSubmit)="guardarCiclo()">
+      <form class="sm-modal" role="dialog" aria-modal="true" aria-label="{{ editandoCiclo ? 'Editar ciclo' : 'Nuevo ciclo' }}" (ngSubmit)="guardarCiclo()">
         <h3 class="sm-modal__title">{{ editandoCiclo ? 'Editar' : 'Nuevo' }} ciclo</h3>
         <div class="form-grid">
           <label class="sm-field"><span class="sm-label">Nombre *</span><input class="sm-input" name="cn" [(ngModel)]="cicloForm.nombre"></label>
@@ -130,7 +130,7 @@
 
   @if (mostrarPeriodo) {
     <div class="sm-modal-overlay">
-      <form class="sm-modal" (ngSubmit)="guardarPeriodo()">
+      <form class="sm-modal" role="dialog" aria-modal="true" aria-label="{{ editandoPeriodo ? 'Editar período' : 'Nuevo período' }}" (ngSubmit)="guardarPeriodo()">
         <h3 class="sm-modal__title">{{ editandoPeriodo ? 'Editar' : 'Nuevo' }} período</h3>
         <div class="form-grid">
           <label class="sm-field"><span class="sm-label">Nombre *</span><input class="sm-input" name="pn" [(ngModel)]="periodoForm.nombre"></label>

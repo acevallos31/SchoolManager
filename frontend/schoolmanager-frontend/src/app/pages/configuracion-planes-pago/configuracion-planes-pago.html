@@ -95,12 +95,12 @@
         @for (cuota of planForm.cuotas; track $index) {
           <div class="cuota-row">
             <div class="sm-field">
-              <label class="sm-label">Orden</label>
-              <input type="number" min="1" class="sm-input" name="co{{ $index }}" [ngModel]="cuota.orden" (ngModelChange)="cuota.orden = $event" />
+              <label class="sm-label" for="co{{ $index }}">Orden</label>
+              <input id="co{{ $index }}" type="number" min="1" class="sm-input" name="co{{ $index }}" [ngModel]="cuota.orden" (ngModelChange)="cuota.orden = $event" />
             </div>
             <div class="sm-field sm-field--grow">
-              <label class="sm-label">Concepto</label>
-              <select class="sm-input sm-select" name="cc{{ $index }}" [ngModel]="cuota.conceptoId" (ngModelChange)="cuota.conceptoId = $event">
+              <label class="sm-label" for="cc{{ $index }}">Concepto</label>
+              <select id="cc{{ $index }}" class="sm-input sm-select" name="cc{{ $index }}" [ngModel]="cuota.conceptoId" (ngModelChange)="cuota.conceptoId = $event">
                 <option [ngValue]="null">— Sin concepto —</option>
                 @for (c of conceptos; track c.id) {
                   <option [ngValue]="c.id">{{ c.nombre }}</option>
@@ -108,16 +108,16 @@
               </select>
             </div>
             <div class="sm-field sm-field--grow">
-              <label class="sm-label">Descripción</label>
-              <input class="sm-input" name="cd{{ $index }}" [(ngModel)]="cuota.descripcion" />
+              <label class="sm-label" for="cd{{ $index }}">Descripción</label>
+              <input id="cd{{ $index }}" class="sm-input" name="cd{{ $index }}" [(ngModel)]="cuota.descripcion" />
             </div>
             <div class="sm-field">
-              <label class="sm-label">Monto</label>
-              <input type="number" min="0" step="0.01" class="sm-input" name="cm{{ $index }}" [(ngModel)]="cuota.monto" />
+              <label class="sm-label" for="cm{{ $index }}">Monto</label>
+              <input id="cm{{ $index }}" type="number" min="0" step="0.01" class="sm-input" name="cm{{ $index }}" [(ngModel)]="cuota.monto" />
             </div>
             <div class="sm-field">
-              <label class="sm-label">Vencimiento (días)</label>
-              <input type="number" min="0" class="sm-input" name="cv{{ $index }}" [(ngModel)]="cuota.vencimientoDias" />
+              <label class="sm-label" for="cv{{ $index }}">Vencimiento (días)</label>
+              <input id="cv{{ $index }}" type="number" min="0" class="sm-input" name="cv{{ $index }}" [(ngModel)]="cuota.vencimientoDias" />
             </div>
             <div class="cuota-remove">
               <button type="button" class="sm-btn sm-btn--danger sm-btn--sm" (click)="quitarCuota($index)" [disabled]="planForm.cuotas.length === 1">Quitar</button>
