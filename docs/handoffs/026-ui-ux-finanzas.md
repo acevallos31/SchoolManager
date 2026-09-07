@@ -18,7 +18,7 @@ Base: `main` = `38fe128` (merge PR #48, Bloque 025). Rama: `feature/ui-ux-finanz
 Cadena de commits (sobre `38fe128`):
 1. `9956667` — `feat(ui): adopta foundation sm-* en página de cargos (bloque 026)`
 2. `469e7fd` — `feat(ui): adopta foundation sm-* en página de pagos y resuelve warning de budget (bloque 026)`
-3. *(final, pendiente al cierre)* — `docs(ui): cierra bloque 026`
+3. `5c5534e` — `docs(ui): cierra bloque 026`
 
 ## Módulos migrados
 | Módulo | Archivos | Cambios |
