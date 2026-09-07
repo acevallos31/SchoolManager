@@ -10,6 +10,21 @@ public static class Permisos
         public const string Desactivar = "academico.alumnos.desactivar";
     }
 
+    public static class CiclosEscolares
+    {
+        public const string Ver = "academico.ciclos.ver";
+        public const string Crear = "academico.ciclos.crear";
+        public const string Editar = "academico.ciclos.editar";
+        public const string Desactivar = "academico.ciclos.desactivar";
+    }
+
+    public static class EstructuraAcademica
+    {
+        public const string Ver = "academico.estructura.ver";
+        public const string Editar = "academico.estructura.editar";
+        public const string Desactivar = "academico.estructura.desactivar";
+    }
+
     public static class Matriculas
     {
         public const string Ver = "academico.matriculas.ver";
@@ -60,6 +75,13 @@ public static class Permisos
         Alumnos.Crear,
         Alumnos.Editar,
         Alumnos.Desactivar,
+        CiclosEscolares.Ver,
+        CiclosEscolares.Crear,
+        CiclosEscolares.Editar,
+        CiclosEscolares.Desactivar,
+        EstructuraAcademica.Ver,
+        EstructuraAcademica.Editar,
+        EstructuraAcademica.Desactivar,
         Matriculas.Ver,
         Matriculas.Crear,
         Matriculas.CambiarEstado,
