@@ -219,30 +219,13 @@ jobs:
       # Gate del análisis/PR en SonarCloud y crea/actualiza un check en GitHub,
       # fallando el job si el QG NO es verde. Anti falso-verde extendido al QG.
       - name: Verificar Quality Gate (SonarCloud)
-        uses: SonarSource/sonarqube-quality-gate-action@v1.2.1
+        uses: SonarSource/sonarqube-quality-gate-action@7a5fffe8e523c40e0c740b6bc2712ab503e52efa # v1.2.1 (pineado por SHA)
         timeout-minutes: 5
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: https://sonarcloud.io
         with:
           scanMetadataReportFile: .sonarqube/out/.sonar/report-task.txt
-
-      # Diagnóstico informativo del Quality Gate (Bloque 029B): imprime estado y
-      # condiciones (métrica/umbral/valor real) SIN exponer el token. No falla.
-      - name: Diagnóstico condiciones Quality Gate (info, no bloquea)
-        if: always()
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: |
-          PR="${{ github.event.pull_request.number }}"
-          if [ -z "$PR" ]; then PR_PARAM=""; else PR_PARAM="&pullRequest=${PR}"; fi
-          curl -s -H "Authorization: Bearer ${SONAR_TOKEN}" "https://sonarcloud.io/api/qualitygates/project_status?projectKey=SchoolManager${PR_PARAM}" | python3 -c "import sys,json; d=json.load(sys.stdin); p=d.get('projectStatus',{}); print('== QG status:', p.get('status')); [print('-', c.get('status'), '| metric:', c.get('metricKey'), '| actual:', c.get('actualValue'), '| threshold:', c.get('error'), '| op:', c.get('comparator')) for c in p.get('conditions',[])]"
-          echo "--- Issues de seguridad (vuln/hotspot) en el PR (respuesta cruda) ---"
-          if [ -n "$PR" ]; then
-            curl -s -w "\nHTTP_CODE:%{http_code}\n" -H "Authorization: Bearer ${SONAR_TOKEN}" "https://sonarcloud.io/api/issues/search?projectKeys=SchoolManager&pullRequest=${PR}&resolved=false&ps=100&types=VULNERABILITY,BUG" | head -c 3000
-          else
-            echo "  (no es PR; no se listan issues por pullRequest)"
-          fi
 
   # ETAPA 2: DESPLIEGUE (Solo se ejecuta si la etapa anterior pasa Y estamos en la rama main)
   deploy:
