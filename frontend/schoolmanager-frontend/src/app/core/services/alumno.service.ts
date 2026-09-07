@@ -1,5 +1,6 @@
 import { inject, Injectable } from '@angular/core';
-import { SUPABASE_CLIENT } from './auth';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { environment } from '../../environments/environment';
 
 export interface MatriculaActualAlumno {
   id: string;
@@ -19,6 +20,22 @@ export interface AlumnoListado {
   matriculaActual: MatriculaActualAlumno | null;
 }
 
+// Respuesta paginada server-side (PERF-02). Los items son el mismo AlumnoListado[].
+export interface PaginatedAlumnos {
+  items: AlumnoListado[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+export interface FiltroAlumnos {
+  termino?: string;
+  estado?: 'activo' | 'inactivo';
+  page?: number;
+  pageSize?: number;
+}
+
 export interface CrearAlumnoInput {
   institucionId: string;
   nombres: string;
@@ -30,47 +47,8 @@ export interface CrearAlumnoInput {
   codigoInterno: string | null;
 }
 
-interface PersonaRelacion {
-  nombres: string;
-  apellidos: string;
-  numero_identificacion: string | null;
-}
-
-interface MatriculaRelacion {
-  id: string;
-  seccion: {
-    nombre: string;
-    grado: { nombre: string } | null;
-    ciclo: { nombre: string } | null;
-  } | null;
-}
-
-interface AlumnoRow {
-  id: string;
-  persona_id: string;
-  rne: string | null;
-  codigo_interno: string | null;
-  estado: 'activo' | 'inactivo';
-  persona: PersonaRelacion | null;
-  matriculas: MatriculaRelacion[] | null;
-}
-
-interface AlumnoBasicoRow {
-  id: string;
-  persona_id: string;
-  rne: string | null;
-  codigo_interno: string | null;
-  estado: 'activo' | 'inactivo';
-  persona: PersonaRelacion | null;
-}
-
-interface SupabaseErrorLike {
-  code?: string;
-  message?: string;
-}
-
 export class AlumnoServiceError extends Error {
-  constructor(message: string, public readonly code: string) {
+  constructor(message: string, public readonly status: number) {
     super(message);
     this.name = 'AlumnoServiceError';
   }
@@ -78,196 +56,86 @@ export class AlumnoServiceError extends Error {
 
 @Injectable({ providedIn: 'root' })
 export class AlumnoService {
-  private readonly supabase = inject(SUPABASE_CLIENT);
+  private readonly baseUrl = `${environment.apiUrl}/alumnos`;
 
-  async listar(): Promise<AlumnoListado[]> {
-    const { data, error } = await this.supabase
-      .from('alumnos')
-      .select(`
-        id,
-        persona_id,
-        rne,
-        codigo_interno,
-        estado,
-        persona:personas!alumnos_persona_id_fkey(
-          nombres,
-          apellidos,
-          numero_identificacion
-        ),
-        matriculas:matriculas!fk_matriculas_alumno_institucion(
-          id,
-          estado,
-          created_at,
-          seccion:secciones!fk_matriculas_seccion_contexto(
-            nombre,
-            grado:grados!fk_secciones_grado(nombre),
-            ciclo:ciclos_escolares!fk_secciones_ciclo_institucion(nombre)
-          )
-        )
-      `)
-      .eq('matriculas.estado', 'activa')
-      .order('created_at', { referencedTable: 'matriculas', ascending: false });
+  constructor(private readonly http: HttpClient) {}
 
-    if (error) {
-      throw this.mapError(error, 'No se pudo cargar la lista de alumnos.');
-    }
-
-    return ((data ?? []) as unknown as AlumnoRow[]).map(row => {
-      const matricula = row.matriculas?.[0];
-      const seccion = matricula?.seccion;
-
-      return {
-        id: row.id,
-        personaId: row.persona_id,
-        nombreCompleto: [row.persona?.nombres, row.persona?.apellidos]
-          .filter(Boolean)
-          .join(' '),
-        identidad: row.persona?.numero_identificacion ?? null,
-        rne: row.rne,
-        codigoInterno: row.codigo_interno,
-        estado: row.estado,
-        matriculaActual: matricula && seccion
-          ? {
-              id: matricula.id,
-              ciclo: seccion.ciclo?.nombre ?? 'Sin ciclo',
-              grado: seccion.grado?.nombre ?? 'Sin grado',
-              seccion: seccion.nombre
-            }
-          : null
-      };
-    });
+  listar(): Promise<AlumnoListado[]> {
+    return this.http
+      .get<AlumnoListado[]>(this.baseUrl)
+      .toPromise()
+      .then(items => (items ?? []) as AlumnoListado[])
+      .catch(err => Promise.reject(this.mapError(err)));
   }
 
-  /** Búsqueda paginada server-side (PERF-02): la DB filtra y recorta la página
+  /** Búsqueda paginada server-side (PERF-02): la API filtra y recorta la página
    *  antes de devolver filas. Evita descargar todos los alumnos. */
-  async buscarPaginado(filtro: {
-    termino?: string;
-    estado?: 'activo' | 'inactivo';
-    page?: number;
-    pageSize?: number;
-  } = {}): Promise<{ items: AlumnoListado[]; total: number }> {
-    const page = Math.max(filtro.page ?? 1, 1);
-    const pageSize = Math.min(Math.max(filtro.pageSize ?? 20, 1), 100);
-    const termino = filtro.termino?.trim() || '';
-
-    let query = this.supabase
-      .from('alumnos')
-      .select(`id, persona_id, rne, codigo_interno, estado, persona:personas!alumnos_persona_id_fkey(nombres, apellidos, numero_identificacion)`,
-        { count: 'exact' });
-
-    if (filtro.estado) query = query.eq('estado', filtro.estado);
-    if (termino) {
-      query = query.or(
-        `personas!alumnos_persona_id_fkey.nombres.ilike.%${termino}%,` +
-        `personas!alumnos_persona_id_fkey.apellidos.ilike.%${termino}%,` +
-        `rne.ilike.%${termino}%,` +
-        `codigo_interno.ilike.%${termino}%`
-      );
-    }
-
-    query = query.range((page - 1) * pageSize, page * pageSize - 1);
-
-    const { data, error, count } = await query;
-    if (error) {
-      throw this.mapError(error, 'No se pudo buscar alumnos.');
-    }
-
-    const items = ((data ?? []) as unknown as AlumnoBasicoRow[]).map(row => ({
-      id: row.id,
-      personaId: row.persona_id,
-      nombreCompleto: [row.persona?.nombres, row.persona?.apellidos]
-        .filter(Boolean)
-        .join(' '),
-      identidad: row.persona?.numero_identificacion ?? null,
-      rne: row.rne,
-      codigoInterno: row.codigo_interno,
-      estado: row.estado,
-      matriculaActual: null
-    }));
-
-    return { items, total: count ?? items.length };
+  buscarPaginado(filtro: FiltroAlumnos = {}): Promise<PaginatedAlumnos> {
+    const params = new Map<string, string>();
+    if (filtro.termino) params.set('termino', filtro.termino);
+    if (filtro.estado) params.set('estado', filtro.estado);
+    if (filtro.page) params.set('page', String(filtro.page));
+    if (filtro.pageSize) params.set('pageSize', String(filtro.pageSize));
+    return this.http
+      .get<PaginatedAlumnos>(this.baseUrl, { params: Object.fromEntries(params) })
+      .toPromise()
+      .then(resultado => {
+        if (!resultado) throw new AlumnoServiceError('La búsqueda no devolvió resultados válidos.', 0);
+        return resultado;
+      })
+      .catch(err => Promise.reject(this.esAlumnoError(err) ? err : this.mapError(err)));
   }
 
-  async obtenerPorId(alumnoId: string): Promise<AlumnoListado | null> {
-    const { data, error } = await this.supabase
-      .from('alumnos')
-      .select(`
-        id,
-        persona_id,
-        rne,
-        codigo_interno,
-        estado,
-        persona:personas!alumnos_persona_id_fkey(
-          nombres,
-          apellidos,
-          numero_identificacion
-        )
-      `)
-      .eq('id', alumnoId)
-      .maybeSingle();
+  obtenerPorId(alumnoId: string): Promise<AlumnoListado | null> {
+    return this.http
+      .get<AlumnoListado>(`${this.baseUrl}/${alumnoId}`)
+      .toPromise()
+      .then(alumno => alumno ?? null)
+      .catch(err => {
+        const mapped = this.esAlumnoError(err) ? err : this.mapError(err);
+        // 404 (HTTP directo o ya mapeado) → null, igual que el acceso directo previo
+        if (mapped.status === 404) return null;
+        return Promise.reject(mapped);
+      });
+  }
 
-    if (error) {
-      throw this.mapError(error, 'No se pudo cargar el alumno.');
-    }
-    if (!data) return null;
-
-    const row = data as unknown as AlumnoBasicoRow;
-    return {
-      id: row.id,
-      personaId: row.persona_id,
-      nombreCompleto: [row.persona?.nombres, row.persona?.apellidos]
-        .filter(Boolean)
-        .join(' '),
-      identidad: row.persona?.numero_identificacion ?? null,
-      rne: row.rne,
-      codigoInterno: row.codigo_interno,
-      estado: row.estado,
-      matriculaActual: null
+  crear(input: CrearAlumnoInput): Promise<string> {
+    const body = {
+      institucionId: input.institucionId,
+      nombres: input.nombres.trim(),
+      apellidos: input.apellidos.trim(),
+      tipoIdentificacion: input.tipoIdentificacion.trim(),
+      numeroIdentificacion: input.numeroIdentificacion.trim(),
+      fechaNacimiento: input.fechaNacimiento,
+      rne: this.nullIfBlank(input.rne),
+      codigoInterno: this.nullIfBlank(input.codigoInterno)
     };
+    return this.http
+      .post<{ id: string }>(this.baseUrl, body)
+      .toPromise()
+      .then(resultado => {
+        if (!resultado?.id) {
+          throw new AlumnoServiceError('La creación no devolvió un alumno válido.', 0);
+        }
+        return resultado.id;
+      })
+      .catch(err => Promise.reject(this.esAlumnoError(err) ? err : this.mapError(err)));
   }
 
-  async crear(input: CrearAlumnoInput): Promise<string> {
-    const { data, error } = await this.supabase.rpc(
-      'rpc_crear_alumno_nueva_persona_con_documento',
-      {
-        p_institucion_id: input.institucionId,
-        p_nombres: input.nombres.trim(),
-        p_apellidos: input.apellidos.trim(),
-        p_tipo_identificacion: input.tipoIdentificacion.trim(),
-        p_numero_identificacion: input.numeroIdentificacion.trim(),
-        p_fecha_nacimiento: input.fechaNacimiento,
-        p_rne: this.nullIfBlank(input.rne),
-        p_codigo_interno: this.nullIfBlank(input.codigoInterno)
-      }
-    );
-
-    if (error) {
-      throw this.mapError(error, 'No se pudo crear el alumno.');
-    }
-    if (typeof data !== 'string') {
-      throw new AlumnoServiceError('La creación no devolvió un alumno válido.', 'INVALID_RESPONSE');
-    }
-
-    return data;
+  desactivar(alumnoId: string, motivo: string): Promise<void> {
+    return this.http
+      .post<void>(`${this.baseUrl}/${alumnoId}/desactivar`, { motivo: motivo.trim() })
+      .toPromise()
+      .then(() => undefined)
+      .catch(err => Promise.reject(this.esAlumnoError(err) ? err : this.mapError(err)));
   }
 
-  async desactivar(alumnoId: string, motivo: string): Promise<void> {
-    const { error } = await this.supabase.rpc('rpc_desactivar_alumno', {
-      p_alumno_id: alumnoId,
-      p_motivo: motivo.trim()
-    });
-    if (error) {
-      throw this.mapError(error, 'No se pudo desactivar el alumno.');
-    }
-  }
-
-  async reactivar(alumnoId: string): Promise<void> {
-    const { error } = await this.supabase.rpc('rpc_reactivar_alumno', {
-      p_alumno_id: alumnoId
-    });
-    if (error) {
-      throw this.mapError(error, 'No se pudo reactivar el alumno.');
-    }
+  reactivar(alumnoId: string): Promise<void> {
+    return this.http
+      .post<void>(`${this.baseUrl}/${alumnoId}/reactivar`, {})
+      .toPromise()
+      .then(() => undefined)
+      .catch(err => Promise.reject(this.esAlumnoError(err) ? err : this.mapError(err)));
   }
 
   private nullIfBlank(value: string | null): string | null {
@@ -275,18 +143,32 @@ export class AlumnoService {
     return normalized ? normalized : null;
   }
 
-  private mapError(error: SupabaseErrorLike, fallback: string): AlumnoServiceError {
-    switch (error.code) {
-      case '42501':
-        return new AlumnoServiceError('No tienes permiso para realizar esta operación.', error.code);
-      case '23505':
-        return new AlumnoServiceError('Ya existe una persona o alumno con esos identificadores.', error.code);
-      case '23503':
-        return new AlumnoServiceError('La institución o el contexto académico ya no está disponible.', error.code);
-      case '22023':
-        return new AlumnoServiceError(error.message || 'Los datos ingresados no son válidos.', error.code);
-      default:
-        return new AlumnoServiceError(fallback, error.code ?? 'UNKNOWN');
+  private esAlumnoError(err: unknown): err is AlumnoServiceError {
+    return err instanceof AlumnoServiceError;
+  }
+
+  private mapError(err: unknown): AlumnoServiceError {
+    let status = 0;
+    let message = 'No se pudo completar la operación.';
+    if (err instanceof HttpErrorResponse) {
+      status = err.status;
+      const body = err.error as { error?: string } | null;
+      if (body?.error) message = body.error;
+      switch (status) {
+        case 403:
+          message = 'No tienes permiso para realizar esta operación.';
+          break;
+        case 404:
+          message = 'El recurso no existe o no pertenece a la institución actual.';
+          break;
+        case 409:
+          message = body?.error ?? 'Ya existe una persona o alumno con esos identificadores.';
+          break;
+        case 400:
+          message = body?.error ?? message;
+          break;
+      }
     }
+    return new AlumnoServiceError(message, status);
   }
 }
