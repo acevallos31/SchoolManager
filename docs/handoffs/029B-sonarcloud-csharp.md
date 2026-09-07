@@ -24,10 +24,15 @@ En el job `sonarcloud` de `.github/workflows/deploy.yml`:
    existe en el `begin`). Todas las propiedades pasan como `/d:` en el `begin`:
    `sonar.organization`, `sonar.projectKey`, `sonar.host.url`,
    `sonar.scanner.scanAll=true` (clave: conserva el análisis TS/frontend standalone),
-   `sonar.sources`, `sonar.tests`, `sonar.cs.opencover.reportsPaths` (cobertura
-   backend Cobertura), `sonar.javascript.lcov.reportPaths` (frontend LCOV),
+   `sonar.cs.cobertura.reportsPaths` (cobertura backend Cobertura),
+   `sonar.typescript.lcov.reportPaths` (frontend LCOV),
    `sonar.exclusions` (ahora **incluye `e2e/**`**, además de node_modules/dist/bin/
    obj/coverage/lcov/spec/test/etc.).
+   **`sonar.sources`/`sonar.tests` NO se pasan**: el scanner .NET los ignora con un
+   WARNING (no los soporta) — C#/tests se obtienen automáticamente de los `.csproj`
+   (MSBuild) y `scanAll=true` incorpora el TS standalone; el alcance se afina solo
+   con `sonar.exclusions`/`sonar.inclusions` (ver warning real en el log del run
+   `34160844359`).
 3. Se fijó `set -f` en el paso `begin` para que los patrones `**` de `sonar.exclusions`
    se pasen **literales** al scanner (sin expansión por el shell).
 4. **Quality Gate explícito:** se añadió el paso
@@ -37,7 +42,8 @@ En el job `sonarcloud` de `.github/workflows/deploy.yml`:
    el QG del PR y **falla el job si NO es verde**. La app de SonarCloud **no crea check
    QG con el scanner CLI**, así que este paso es necesario para el anti falso-verde
    extendido al Quality Gate.
-5. `dotnet tool install` del scanner .NET en el runner (global-tool) antes del `begin`.
+5. `dotnet tool install --global dotnet-sonarscanner --version 11.3.0` (pin fijo de
+   versión para reproducibilidad del CI) antes del `begin`.
 
 ## Verificación (anti falso-verde: confirmado por LOG, no por conclusión)
 Run verde **34160443496** (head `6e3299a`). Del log del job `sonarcloud`:
@@ -63,8 +69,15 @@ en **código nuevo del propio `deploy.yml`**, invisibles con el scanner genéric
 
 Corrección (commits `143eb35`/`6e3299a`): se **eliminó el paso diagnóstico temporal**
 (redundante con la action QG) y se **pineó la action QG por SHA**. Con eso el QG pasó
-verde. No había vulnerabilidades en el código C# del backend: los `.cs` están limpios.
-Este ciclo rojo→verde es la prueba de que el QG ahora representa de verdad el backend.
+verde.
+
+> **Precisión importante:** el cierre es de **análisis C# completo + Quality Gate de
+> New Code en verde**, NO de un backend libre de issues. El análisis real detecta en
+> los `.cs` warnings históricos (p.ej. `S2077`, `S6964`, `S6966` y similares) que NO
+> rompen el QG porque no son New Code del PR #52 — son deuda de calidad ya existente,
+> visible ahora que el C# se analiza de verdad, y debería abordarse en un bloque de
+> hardening. El ciclo rojo→verde del QG prueba que ahora representa el backend; no
+> debe leerse como "0 issues en C#".
 
 > Nota de debugging: el `issues/search` de SonarCloud devuelve HTTP 400 si `types` incluye
 > `SECURITY_HOTSPOT` (no es valor válido para ese parámetro); solo acepta

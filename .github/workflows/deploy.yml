@@ -161,17 +161,19 @@ jobs:
       # es begin -> dotnet build (los analyzers de Roslyn corren en la compilación)
       # -> end. Sustituye a la action genérica SonarSource/sonarqube-scan-action
       # que solo cubría frontend/TS + importación de coberturas.
-      - name: Instalar SonarScanner for .NET
-        run: dotnet tool install --global dotnet-sonarscanner
+      - name: Instalar SonarScanner for .NET (11.3.0, pin fijo para reproducibilidad)
+        run: dotnet tool install --global dotnet-sonarscanner --version 11.3.0
 
       - name: Agregar dotnet-tools al PATH
         run: echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
 
       # BEGIN: SonarScanner for .NET. Todo va como /d: (NO usa sonar-project.properties,
-      # que fue eliminado: este scanner no lo lee y da error si existe). Con
-      # scanAll=true y sonar.sources explícito (backend + frontend/src) se analizan
-      # C# y TypeScript en el MISMO análisis/proyecto; exclusions y rutas de
-      # cobertura replican la config previa.
+      # que fue eliminado: este scanner no lo lee y da error si existe). El scanner .NET
+      # NO soporta sonar.sources/sonar.tests (los ignora con WARNING): obtiene C#/tests
+      # automáticamente desde MSBuild (los 3 .csproj que se compilan abajo) y con
+      # scanAll=true incorpora además el frontend TS/TSX standalone del repo. Por eso
+      # el alcance se afina SOLO con exclusions/inclusions + rutas de cobertura, que
+      # sí son propiedades soportadas (ver warning del scanner en el log del run 34160844359).
       - name: SonarScanner .NET — begin (configura análisis C# + TS)
         env:
           PR: ${{ github.event.pull_request.number }}
@@ -186,8 +188,6 @@ jobs:
           ARGS="${ARGS} /d:sonar.host.url=https://sonarcloud.io"
           ARGS="${ARGS} /d:sonar.scanner.scanAll=true"
           ARGS="${ARGS} /d:sonar.sourceEncoding=UTF-8"
-          ARGS="${ARGS} /d:sonar.sources=backend,frontend/schoolmanager-frontend/src"
-          ARGS="${ARGS} /d:sonar.tests=tests"
           ARGS="${ARGS} /d:sonar.exclusions=**/node_modules/**,**/dist/**,**/bin/**,**/obj/**,**/coverage/**,**/*.min.js,coverage-backend/**,**/lcov.info,**/*.cobertura.xml,**/*.spec.ts,**/*.test.ts,e2e/**"
           ARGS="${ARGS} /d:sonar.cs.cobertura.reportsPaths=coverage-backend/**/coverage.cobertura.xml"
           ARGS="${ARGS} /d:sonar.typescript.lcov.reportPaths=frontend/schoolmanager-frontend/coverage/**/lcov.info"

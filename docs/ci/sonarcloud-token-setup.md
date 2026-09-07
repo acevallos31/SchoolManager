@@ -69,41 +69,39 @@ evitar análisis duplicados. Se hace en el panel de SonarCloud (proyecto →
 Administration → Analysis Method → desactivar *Automatic Analysis*). No se
 puede automatizar desde el repo.
 
-## Regla importante: `sonar.sources` y `sonar.tests` aceptan DIRECTORIOS, no wildcards
+## Cómo se define el alcance con SonarScanner for .NET (029B)
 
-SonarScanner **rechaza comodines** (`**`, `*`) en las propiedades
-`sonar.sources` y `sonar.tests`. Si se usan, el análisis falla en la fase de
-configuración con (exit code 3):
+> **El scanner .NET NO soporta `sonar.sources` ni `sonar.tests`**: los ignora con un
+> WARNING explícito (*"are not supported by the Scanner for .NET and are ignored"*,
+> ver log del run `34160844359`). Por eso **no se pasan** en el `begin` y no aplica
+> ninguna regla de directorios/wildcards sobre ellos. Cómo se determina el alcance:
 
-```
-ERROR Invalid value of sonar.tests for SchoolManager
-ERROR Wildcards ** and * are not supported in "sonar.sources" and "sonar.tests".
-```
+- **C# y proyectos de tests:** se obtienen automáticamente de los `.csproj` que se
+  compilan en el paso *build* del job (backend + proyectos de tests) — MSBuild
+  reporta al scanner qué es MAIN y qué es TEST.
+- **Frontend TS/Angular standalone:** se incorpora con `sonar.scanner.scanAll=true`
+  (activo por defecto en el scanner .NET v8+), que además del MSBuild indexa el
+  resto de archivos del repo (TypeScript/TSX).
+- **El alcance se afina SOLO con** `sonar.exclusions` / `sonar.inclusions` /
+  `sonar.test.exclusions` / `sonar.test.inclusions` (sí soportadas y con wildcards)
+  y con las rutas de reportes de cobertura.
 
-> **Nota (029B):** con la migración a **SonarScanner for .NET**, `sonar-project.properties`
-> **ya no existe**: el scanner .NET no lo lee (da error si está presente). Las mismas
-> propiedades se pasan como argumentos `/d:` en el paso `begin` del job `sonarcloud`
-> de `deploy.yml`. La regla de directorios (sin wildcards en `sonar.sources`/`sonar.tests`)
-> sigue aplicando igual.
+En el `begin` de `deploy.yml` (todo vía `/d:`, porque el scanner .NET no lee
+`sonar-project.properties` — que fue eliminado — y da error si existe):
 
-Reglas (aplican igual en `sonar-project.properties` o vía `/d:` en el `begin`):
+- `sonar.exclusions` excluye artefactos/build/coverage, `e2e/**`, `.spec.ts` y
+  `.test.ts` colocalizados, `lcov.info`, `*.cobertura.xml`, etc. Por eso el paso fija
+  `set -f`: los patrones `**` deben llegar literales al scanner (sin expansión del
+  shell).
+- Los `.spec.ts` colocalizados en `frontend/src` no pueden clasificarse como tests
+  por patrón (sin `sonar.tests` para recogerlos), así que se **excluyen** vía
+  `sonar.exclusions`. La cobertura sigue siendo correcta porque el reporte LCOV de
+  vitest solo mide código productivo.
 
-- `sonar.sources` y `sonar.tests` aceptan **solo listas de directorios**
-  separadas por coma (sin `**` ni `*`).
-  - `sonar.sources=backend,frontend/schoolmanager-frontend/src`
-  - `sonar.tests=tests`
-- Los archivos que deban **excluirse** (artefactos, build, coverage, `e2e/`) y
-  los specs colocalizados se gestionan con `sonar.exclusions`, que **sí** admite
-  wildcards. Por eso el paso `begin` fija `set -f` para que los patrones `**` se
-  pasen literales al scanner (sin expansión del shell).
-- Los `.spec.ts` colocalizados bajo un directorio declarado en
-  `sonar.sources` **no se pueden clasificar como tests** por patrón (un dir
-  de `sonar.tests` no admite wildcards para recogerlos), así que se **excluyen**
-  del análisis vía `sonar.exclusions`. La cobertura sigue siendo correcta
-  porque el reporte LCOV de vitest solo mide código productivo.
-
-Esto se corrigió originalmente en el commit `e76cedc` (Bloque 029) y se mantuvo
-en el 029B al pasar la configuración a `/d:` en el `begin`.
+> Contexto histórico: la regla previa de "solo directorios sin wildcards en
+> `sonar.sources`/`sonar.tests`" aplicaba al **scanner genérico** (action
+> `sonarqube-scan-action`, corregido en `e76cedc` del 029). Con el SonarScanner for
+> .NET del 029B esa restricción quedó obsoleta porque esas propiedades se ignoran.
 
 ## Estado actual (2026-09-07)
 

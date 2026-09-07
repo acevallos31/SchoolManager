@@ -180,11 +180,14 @@ sistema frágil (principios ISW2 #4, #5 y #12).
     error si existe); todas las propiedades se pasan como `/d:` en el `begin`
     (`sonar.organization=acevallos31`, `sonar.projectKey=SchoolManager`,
     `sonar.host.url=https://sonarcloud.io`, `sonar.scanner.scanAll=true` para
-    conservar el análisis TS/frontend, `sonar.sources`, `sonar.tests`,
-    `sonar.cs.opencover.reportsPaths` para la cobertura backend Cobertura,
-    `sonar.javascript.lcov.reportPaths` para el frontend, y `sonar.exclusions`
-    que ahora **incluye `e2e/**`**). Se fijó `set -f` en el paso para que los
-    patrones `**` pasen literales al scanner.
+    conservar el análisis TS/frontend, `sonar.cs.cobertura.reportsPaths` para la
+    cobertura backend Cobertura, `sonar.typescript.lcov.reportPaths` para el
+    frontend, y `sonar.exclusions` que ahora **incluye `e2e/**`**). Se fijó
+    `set -f` en el paso para que los patrones `**` pasen literales al scanner.
+    `sonar.sources`/`sonar.tests` NO se pasan: el scanner .NET los ignora con un
+    WARNING (no los soporta) — C#/tests se obtienen de los `.csproj` que se
+    compilan y `scanAll=true` incorpora el TS; el alcance se afina solo con
+    exclusions/inclusions.
   - Se añadió el paso **`SonarSource/sonarqube-quality-gate-action`** (pineado
     por SHA `7a5fffe8e523c40e0c740b6bc2712ab503e52efa` = v1.2.1) tras el `end`:
     lee `report-task.txt`, consulta el QG del PR y **falla el job si no es
