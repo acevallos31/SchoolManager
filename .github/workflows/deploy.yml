@@ -237,6 +237,12 @@ jobs:
           PR="${{ github.event.pull_request.number }}"
           if [ -z "$PR" ]; then PR_PARAM=""; else PR_PARAM="&pullRequest=${PR}"; fi
           curl -s -H "Authorization: Bearer ${SONAR_TOKEN}" "https://sonarcloud.io/api/qualitygates/project_status?projectKey=SchoolManager${PR_PARAM}" | python3 -c "import sys,json; d=json.load(sys.stdin); p=d.get('projectStatus',{}); print('== QG status:', p.get('status')); [print('-', c.get('status'), '| metric:', c.get('metricKey'), '| actual:', c.get('actualValue'), '| threshold:', c.get('error'), '| op:', c.get('comparator')) for c in p.get('conditions',[])]"
+          echo "--- Issues de seguridad (vuln/hotspot) en el PR ---"
+          if [ -n "$PR" ]; then
+            curl -s -H "Authorization: Bearer ${SONAR_TOKEN}" "https://sonarcloud.io/api/issues/search?projectKeys=SchoolManager&pullRequest=${PR}&resolved=false&types=VULNERABILITY,SECURITY_HOTSPOT&ps=30" | python3 -c "import sys,json; d=json.load(sys.stdin); [print('-', i.get('type'), '|', i.get('rule'), '|', i.get('severity'), '|', i.get('component','').split(':')[-1], '| L'+str(i.get('line')), '|', (i.get('message') or '')[:140]) for i in d.get('issues',[])]; print('  total:', d.get('total'))"
+          else
+            echo "  (no es PR; no se listan issues por pullRequest)"
+          fi
 
   # ETAPA 2: DESPLIEGUE (Solo se ejecuta si la etapa anterior pasa Y estamos en la rama main)
   deploy:
