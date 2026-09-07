@@ -102,18 +102,19 @@ Institución -> Ciclo -> Período matrícula -> Grado -> Jornada opcional -> Sec
   (listado), `configuracion/ciclos` y `configuracion/estructura-academica`. Esta es
   deuda #10 registrada en `docs/technical-debt.md`; queda fuera del Bloque 029.
 
-## Calidad / Bloque 029 — CERRADO (verde)
+## Calidad / Bloque 029 — PARCIAL (casi cerrado)
 Rama: `feature/calidad-sonar-e2e-029`, creada desde `main` después del merge de PR #51.
 
-Estado final (2026-09-07): **SonarCloud real en verde** — `SONAR_TOKEN` configurado
-y válido; job `sonarcloud` migrado a la action oficial
-`SonarSource/sonarqube-scan-action@v8.2.1`; `sonar.sources`/`sonar.tests` corregidos
-a **solo directorios** (SonarScanner 8.x rechaza wildcards en esas dos propiedades).
+Estado final (2026-09-07): **SonarCloud real en verde para frontend + cobertura** —
+`SONAR_TOKEN` válido, action oficial `SonarSource/sonarqube-scan-action@v8.2.1`,
+`sonar.sources`/`sonar.tests` solo directorios (sin wildcards).
 Cobertura backend (Cobertura) y frontend (LCOV) importadas; Quality Gate del PR #52
 en verde (run **34154637093**, head `e76cedc`). Guard anti falso-verde activo.
-Deudas: **#7 resuelta**, **#9 actualizada** (New Code real ya disponible).
-E2E: smoke 3/3 local passed; **autenticado pendiente de staging** (acción humana #2,
-ver `docs/ci/e2e-auth-setup.md`). PR #52 abierto contra `main` sin merge.
+Deudas: **#7 parcial** (pipeline sin falso-verde + análisis real frontend, PERO el
+análisis estático **C# del backend NO está cubierto** — requiere SonarScanner for
+.NET), **#9 parcial/actualizada**. E2E: smoke 3/3 local passed; **autenticado
+pendiente de staging** (acción humana #2, ver `docs/ci/e2e-auth-setup.md`). PR #52
+abierto contra `main` sin merge.
 
 Objetivo del bloque (original):
 - restaurar análisis **real** de SonarCloud/quality gate en CI (el job actual puede quedar verde con `sonar-scanner` skipped cuando `SONAR_TOKEN` está vacío);
@@ -140,6 +141,8 @@ Flujos E2E prioritarios:
 Las reglas operativas de Git, migraciones y validación están en `AGENTS.md`.
 Estado real: 001-022 en `main`; 023 PR #46; 024 PR #47; 025 PR #48; 026 PR #49;
 027 PR #50; **028 PR #51 mergeado como `a80c19cc10520f0d2cc6c820c288db9bb28631ab`**.
-**029 CERRADO en verde** en `feature/calidad-sonar-e2e-029` (PR #52, sin merge):
-SonarCloud real restaurado (deuda #7 resuelta, #9 actualizada). Deuda #10
+**029 PARCIAL/casi cerrado** en `feature/calidad-sonar-e2e-029` (PR #52, sin
+merge): SonarCloud real restaurado para frontend + cobertura (deuda #7 parcial,
+#9 parcial/actualizada). **Pendiente técnico del 029**: análisis estático C# del
+backend (require SonarScanner for .NET). Deuda #10
 (Supabase directo) sigue pendiente y fuera de 029.

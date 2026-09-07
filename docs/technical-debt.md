@@ -151,16 +151,18 @@ sistema frágil (principios ISW2 #4, #5 y #12).
 
 ## 7. SonarCloud — cobertura generada en CI; import a Sonar pendiente de SONAR_TOKEN y paso manual
 
-- **Estado: RESUELTO (Bloque 029, 2026-09-07).** Análisis real de SonarCloud
-  en verde; cobertura backend (Cobertura) y frontend (LCOV) importadas; Quality
-  Gate del PR #52 en verde. Run validado: **34154637093** (head `e76cedc`).
+- **Estado: PARCIAL (casi cerrado, Bloque 029, 2026-09-07).** El pipeline ya **no
+  es falso-verde**: `SONAR_TOKEN` configurado y válido, el job `sonarcloud` corre
+  análisis **real** y sube Quality Gate. PERO el análisis **estático C# del backend
+  NO está cubierto** aún (ver «Residual crítico» abajo). No marcar como 100% RESUELTA.
 - **Problema (histórico)**: la cobertura **sí se genera** localmente y en CI
   (Coverlet → `coverage.cobertura.xml` para .NET; `@vitest/coverage-v8` →
   `lcov.info` para el frontend) y se sube como artifact en `deploy.yml`. El
   análisis automático de SonarCloud **no importa reportes de cobertura**: solo
   el modo **CI Analysis** (scanner con `SONAR_TOKEN` como secreto del repo) los
   consume.
-- **Qué se hizo en el Bloque 029 (cierre)**:
+- **Qué se hizo en el Bloque 029 (avance) — confirmado en el run validado
+  `34154637093`**:
   - `SONAR_TOKEN` configurado como secret del repo y **válido**
     (validado contra `/api/authentication/validate` → `valid=true`).
   - Job `sonarcloud` migrado de la descarga manual del CLI
@@ -173,10 +175,35 @@ sistema frágil (principios ISW2 #4, #5 y #12).
     Commits `f635a23` (action) y `e76cedc` (directorios).
   - Guard anti falso-verde conservado: si falta `SONAR_TOKEN`, el job **falla
     en rojo** en vez de quedar verde sin analizar.
-- **Riesgo residual**: desactivar *Automatic Analysis* en el panel de
+- **Qué SÍ se analiza e importa hoy (real):**
+  - Frontend TypeScript/Angular: análisis real (34 archivos TS) + Quality Gate.
+  - Cobertura backend Cobertura (`coverage.cobertura.xml`) y frontend LCOV
+    (`lcov.info`): **ambas se importan** (log: `39 files, 15 main files with
+    coverage` para Cobertura; LCOV frontend analizado).
+- **Residual crítico (pendiente técnico inmediato): análisis estático C# del
+  backend NO cubierto.** El log del run `34154637093` advierte:
+  ```
+  WARN Your project contains C# files which cannot be analyzed with the scanner
+  you are using. To analyze C# or VB.NET, you must use the SonarScanner for .NET
+  5.x or higher.
+  ```
+  El scanner CLI genérico (la action v8.2.1) analiza TS/otros y **salta el
+  análisis estático de los `.cs`** del backend (bugs/vulnerabilidades/code smells
+  en C# no se detectan). Solo se importa su cobertura. Esto significa que la
+  métrica de calidad del backend (sonar actual lo refleja como analizable) está
+  **incompleta**: el Quality Gate que pasa se basa en el frontend + cobertura,
+  no en el análisis estático C#.
+- **Fix propuesto (documentado, NO ejecutado en este cierre para no romperlo):**
+  usar **SonarScanner for .NET** (`dotnet-sonarscanner`) para el backend, o un
+  approach por lenguaje: el análisis C# requiere el wrapper .NET 5.x+ (begin →
+  build/test → end), mientras el frontend puede seguir con la action genérica.
+  Pendiente de un bloque de integración dedicado; conviene separar el paso del
+  backend (C#/SonarScanner for .NET) del frontend (TS/action genérica) en el
+  workflow, manteniendo `sonar-project.properties` y las coberturas existentes.
+- **Riesgo residual adicional**: desactivar *Automatic Analysis* en el panel de
   SonarCloud es un paso manual del mantenedor (evita análisis duplicados); el
   pin de la action `v8.2.1` conviene revisarlo al publicarse versiones nuevas.
-- **Prioridad**: Resuelta.
+- **Prioridad**: Media (backend C# estático = alta dentro de esta deuda).
 
 ## 8. Duplicación de código — estructural (no por permisos)
 
@@ -218,10 +245,12 @@ sistema frágil (principios ISW2 #4, #5 y #12).
 
 ## 9. Cobertura de tests — línea base real y umbral propuesto
 
-- **Estado: PARCIAL→ACTUALIZADA (Bloque 029, 2026-09-07).** Gate de regresión
-  local/CI activo; el New Code real de SonarCloud **ya está disponible** con la
-  deuda #7 resuelta (análisis CI Analysis en verde). Pendiente solo decidir/aplicar
-  el umbral de New Code (ver abajo).
+- **Estado: PARCIAL (Bloque 029, 2026-09-07).** Gate de regresión local/CI
+  activo. El CI Analysis real ya corre (deuda #7 **parcialmente** avanzada: token
+  OK, pipeline ya no es falso-verde, frontend analizado de verdad, ambas
+  coberturas importadas), pero **el análisis estático C# del backend sigue sin
+  cubrir** — ver deuda #7. Hasta que el backend C# se analice con SonarScanner
+  for .NET, el Quality Gate del proyecto no es completo para backend.
 - **Gate implementado (`scripts/check-coverage-gate.py` + step en
   `deploy.yml`/`validate-code`)**: compara la cobertura de líneas generada por
   CI contra un **baseline versionado** (`docs/coverage-baseline.json`) y falla
@@ -233,23 +262,27 @@ sistema frágil (principios ISW2 #4, #5 y #12).
   - **Backend** (`SchoolManager.API`, paquete productivo, excluye tests):
     **81.54%** líneas (1758/2156) — subió vs el 79.6% histórico.
   - **Frontend** (lcov.info, 40 archivos): **64.86%** líneas (1460/2251).
-- **Nuevo con 029**: con el CI Analysis real en verde (deuda #7 resuelta), la
-  métrica de **New Code / diff coverage** de SonarCloud ya se calcula para el
-  PR #52 y el Quality Gate del PR **pasa en verde**. Queda **recomendado**
-  configurar el Quality Gate de New Code ≥ 80% backend / ≥ 70% frontend
-  (según la propuesta original) en el panel de SonarCloud — paso manual del
-  mantenedor, no automatizable vía repo.
+- **Nuevo con 029 (parcial)**: con el CI Analysis real en verde, la métrica de
+  **New Code / diff coverage** de SonarCloud ya se calcula y el Quality Gate del
+  PR #52 **pasa en verde** — pero **solo sobre lo que el scanner genérico
+  analiza** (frontend TS + cobertura; el backend C# estático no entra hasta
+  resolver el residual de #7). Queda **recomendado** configurar el Quality Gate
+  de New Code ≥ 80% backend / ≥ 70% frontend en el panel de SonarCloud (paso
+  manual del mantenedor), una vez el backend C# esté analizado.
 - **Limitación documentada**: el gate local protege contra **regresiones
   globales**, no contra caídas de cobertura en código **nuevo** (eso lo cubre
-  el New Code de SonarCloud, ahora ya medible). El gate local es un mínimo de
-  contención, no un sustituto del New Code.
+  el New Code de SonarCloud, hoy medible solo para frontend + cobertura). El
+  gate local es un mínimo de contención, no un sustituto del New Code.
 - **Riesgo**: si se añade mucho código nuevo sin tests, la cobertura global
   puede no caer bajo el gate pese a bajar la cobertura marginal de lo nuevo,
-  a menos que se aplique el umbral de New Code en SonarCloud.
+  a menos que se aplique el umbral de New Code en SonarCloud. Además, mientras
+  el backend C# no se analice estáticamente, la calidad real del backend queda
+  invisible en SonarCloud.
 - **Prioridad**: Media.
-- **Cuándo abordarlo**: la parte restante (aplicar el umbral de New Code en
-  SonarCloud) es un paso manual del mantenedor en el panel; el gate de regresión
-  local ya está activo y no requiere infraestructura externa.
+- **Cuándo abordarlo**: la parte de backend C# (SonarScanner for .NET) es el
+  pendiente técnico inmediato de la deuda #7; el umbral de New Code en SonarCloud
+  es un paso manual del mantenedor en el panel. El gate de regresión local ya
+  está activo y no requiere infraestructura externa.
 
 ## 10. Páginas de negocio que consultan Supabase directo (sin pasar por la API .NET)
 

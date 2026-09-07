@@ -2,13 +2,20 @@
 
 **Rama:** `feature/calidad-sonar-e2e-029` · **Base:** `origin/main`
 **Fecha:** 2026-09-07 · **PR:** #52 contra `main` (sin merge)
-**Estado final:** SonarCloud real en verde · E2E autenticado pendiente de staging (acción humana #2)
+**Estado final: PARCIAL (casi cerrado)** — SonarCloud real en verde para
+frontend + cobertura; **análisis estático C# del backend pendiente** (residual,
+ver abajo) · E2E autenticado pendiente de staging (acción humana #2)
 
 ## Resumen ejecutivo
-- **SonarCloud real restaurado y en verde.** El job `sonarcloud` ya ejecuta un
-  análisis real (cobertura backend + frontend importadas, Quality Gate del PR
-  verde). Run validado: **34154637093** (HEAD técnico previo al cierre docs:
-  `e76cedc`).
+- **SonarCloud ya no es falso-verde: el job `sonarcloud` corre análisis real.**
+  `SONAR_TOKEN` válido; action oficial `SonarSource/sonarqube-scan-action@v8.2.1`;
+  `sonar.sources`/`sonar.tests` corregidos a solo directorios. El **frontend TS se
+  analiza de verdad**, la cobertura backend (Cobertura) y frontend (LCOV) **se
+  importan**, y el Quality Gate del PR #52 pasa en verde. Run validado:
+  **34154637093** (head técnico previo al cierre docs: `e76cedc`).
+- **PERO el análisis estático C# del backend NO está cubierto** (ver
+  «Residual crítico»): el scanner CLI genérico no analiza `.cs`. Por eso este
+  bloque NO se declara 100% cerrado en la deuda #7 (queda PARCIAL).
 - **Diagnóstico y causa raíz documentados** (ver «Diagnóstico» abajo): dos
   capas — el CLI manual moría con `exit 8` sin salida útil, y la causa raíz
   real eran **wildcards en `sonar.sources`/`sonar.tests`** rechazadas por
@@ -76,9 +83,26 @@ Run validado **34154637093** (head `e76cedc`, 2026-09-07):
   - Cobertura C#: `39 files, 15 main files, 15 main files with coverage, 24 test files`.
   - Cobertura TS (LCOV): `Analysing [.../coverage/schoolmanager-frontend/lcov.info]`.
   - `ANALYSIS SUCCESSFUL` · `EXECUTION SUCCESS`.
+- **⚠️ Alcance del análisis (importante):** el scanner CLI genérico **no realiza
+  análisis estático de los `.cs` del backend**. Log del run validado:
+  ```
+  WARN Your project contains C# files which cannot be analyzed with the scanner
+  you are using. To analyze C# or VB.NET, you must use the SonarScanner for .NET
+  5.x or higher.
+  ```
+  Es decir, el Quality Gate verde y el `ANALYSIS SUCCESSFUL` cubren **frontend TS
+  + cobertura (backend y frontend)**, pero **NO** el análisis estático C#
+  (bugs/vulnerabilidades/code smells del backend). Ver deuda técnica #7
+  (PARCIAL) y «Riesgos residuales» para el fix propuesto (SonarScanner for .NET).
 - Cobertura local medida (2026-09-06): backend **81.54%** líneas, frontend
   **64.86%** líneas (baseline versionado en `docs/coverage-baseline.json`;
   gate de regresión local activo).
+
+> **Nota de cierre técnico (2026-09-07):** este avance deja el pipeline sin
+> falso-verde y con CI Analysis real (frontend + cobertura). El bloque se
+> entrega como **PARCIAL/casi cerrado**: resolver el análisis estático C# del
+> backend es el siguiente paso técnico (integrar `dotnet-sonarscanner`), no
+> ejecutado para no romper el verde actual.
 
 ## Smoke E2E ejecutado (real, local, sin datos ni producción)
 ```
@@ -101,6 +125,13 @@ bloque):** añadir validación de formato email en `login.ts` + test unitario.
 No es un riesgo de seguridad (Supabase valida credenciales), solo UX/feedback.
 
 ## Riesgos residuales
+0. **Análisis estático C# del backend NO cubierto (NUEVO, principal).** El
+   scanner CLI genérico no analiza `.cs` (`SonarScanner for .NET 5.x+` requerido,
+   ver log del run `34154637093`). El Quality Gate pasa solo por frontend TS +
+   cobertura. Fix propuesto: usar `dotnet-sonarscanner` (begin → build/test →
+   end) para el backend o separar los pasos por lenguaje. Afecta a la deuda #7
+   (queda PARCIAL) y a la completitud del #9 (New Code solo completo para
+   frontend/cobertura hasta resolverlo).
 1. **E2E autenticado pendiente** de staging provisionado + credenciales de
    prueba (bloqueador recurrente documentado desde el 024; sin entorno
    staging/preview ni datos) — acción humana #2, ver `docs/ci/e2e-auth-setup.md`.
