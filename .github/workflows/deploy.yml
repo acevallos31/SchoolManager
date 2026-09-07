@@ -209,10 +209,23 @@ jobs:
           dotnet build tests/SchoolManager.API.IntegrationTests/SchoolManager.API.IntegrationTests.csproj --configuration Release
           dotnet build tests/SchoolManager.Database.IntegrationTests/SchoolManager.Database.IntegrationTests.csproj --configuration Release
 
-      # END: sube el análisis a SonarCloud. La app de SonarCloud decora el PR con
-      # el check de Quality Gate ("SonarCloud Code Analysis").
+      # END: sube el análisis a SonarCloud.
       - name: SonarScanner .NET — end (subir análisis)
         run: dotnet sonarscanner end /d:sonar.token="${SONAR_TOKEN}"
+
+      # Quality Gate (Bloque 029B): al usar el SonarScanner for .NET (CLI) la app
+      # de SonarCloud NO crea por sí sola un check visible de Quality Gate en el PR.
+      # Esta action lee report-task.txt (ruta específica .NET), consulta el Quality
+      # Gate del análisis/PR en SonarCloud y crea/actualiza un check en GitHub,
+      # fallando el job si el QG NO es verde. Anti falso-verde extendido al QG.
+      - name: Verificar Quality Gate (SonarCloud)
+        uses: SonarSource/sonarqube-quality-gate-action@v1.2.1
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
+        with:
+          scanMetadataReportFile: .sonarqube/out/.sonar/report-task.txt
 
   # ETAPA 2: DESPLIEGUE (Solo se ejecuta si la etapa anterior pasa Y estamos en la rama main)
   deploy:
