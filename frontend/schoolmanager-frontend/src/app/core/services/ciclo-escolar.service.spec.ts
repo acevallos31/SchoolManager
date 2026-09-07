@@ -1,1 +1,137 @@
-import{TestBed}from'@angular/core/testing';import{SupabaseClient}from'@supabase/supabase-js';import{vi}from'vitest';import{SUPABASE_CLIENT}from'./auth';import{CicloEscolarService}from'./ciclo-escolar.service';describe('CicloEscolarService',()=>{it('usa RPC para ciclos y períodos',async()=>{const rpc=vi.fn().mockResolvedValue({data:[],error:null});TestBed.configureTestingModule({providers:[CicloEscolarService,{provide:SUPABASE_CLIENT,useValue:{rpc}as unknown as SupabaseClient}]});const s=TestBed.inject(CicloEscolarService);await s.listar();await s.listarPeriodos('c1');expect(rpc).toHaveBeenNthCalledWith(1,'rpc_listar_ciclos_escolares',undefined);expect(rpc).toHaveBeenNthCalledWith(2,'rpc_listar_periodos_matricula',{p_ciclo_id:'c1'});});});
+import { TestBed } from '@angular/core/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { environment } from '../../environments/environment';
+import { CicloEscolarService, CicloEscolarError } from './ciclo-escolar.service';
+
+const BASE = `${environment.apiUrl}/ciclos-escolares`;
+
+const CICLO = {
+  id: 'c1', institucionId: 'i1', nombre: '2026', fechaInicio: '2026-01-01',
+  fechaFin: '2026-12-31', activo: true, motivoDesactivacion: null
+};
+const PERIODO = {
+  id: 'p1', cicloId: 'c1', nombre: 'Ordinaria', tipo: 'regular',
+  fechaInicio: '2026-03-01', fechaFin: '2026-06-30', activo: true
+};
+
+describe('CicloEscolarService', () => {
+  let service: CicloEscolarService;
+  let http: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()]
+    });
+    service = TestBed.inject(CicloEscolarService);
+    http = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => http.verify());
+
+  it('listar hace GET a /ciclos-escolares (sin acceso directo Supabase)', async () => {
+    const promesa = service.listar();
+    const req = http.expectOne(BASE);
+    expect(req.request.method).toBe('GET');
+    req.flush([CICLO]);
+
+    const ciclos = await promesa;
+    expect(ciclos).toHaveLength(1);
+    expect(ciclos[0]).toMatchObject({ nombre: '2026', activo: true });
+  });
+
+  it('crear hace POST a /ciclos-escolares con nombre limpio', async () => {
+    const promesa = service.crear({ nombre: ' 2027 ', fechaInicio: '2027-01-01', fechaFin: '2027-12-31' });
+    const req = http.expectOne(BASE);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ nombre: '2027', fechaInicio: '2027-01-01', fechaFin: '2027-12-31' });
+    req.flush({ id: 'c9' });
+    await expect(promesa).resolves.toBe('c9');
+  });
+
+  it('actualizar hace PUT a /{id}', async () => {
+    const promesa = service.actualizar(CICLO, { nombre: '2026b', fechaInicio: '2026-01-01', fechaFin: '2026-12-31' });
+    const req = http.expectOne(`${BASE}/c1`);
+    expect(req.request.method).toBe('PUT');
+    req.flush(null);
+    await expect(promesa).resolves.toBeUndefined();
+  });
+
+  it('desactivar hace POST /{id}/desactivar con motivo limpio', async () => {
+    const promesa = service.desactivar('c1', ' Cierre ');
+    const req = http.expectOne(`${BASE}/c1/desactivar`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ motivo: 'Cierre' });
+    req.flush(null);
+    await expect(promesa).resolves.toBeUndefined();
+  });
+
+  it('reactivar hace POST /{id}/reactivar', async () => {
+    const promesa = service.reactivar('c1');
+    const req = http.expectOne(`${BASE}/c1/reactivar`);
+    expect(req.request.method).toBe('POST');
+    req.flush(null);
+    await expect(promesa).resolves.toBeUndefined();
+  });
+
+  it('listarPeriodos hace GET /{cicloId}/periodos', async () => {
+    const promesa = service.listarPeriodos('c1');
+    const req = http.expectOne(`${BASE}/c1/periodos`);
+    expect(req.request.method).toBe('GET');
+    req.flush([PERIODO]);
+
+    const periodos = await promesa;
+    expect(periodos).toHaveLength(1);
+    expect(periodos[0]).toMatchObject({ cicloId: 'c1', nombre: 'Ordinaria' });
+  });
+
+  it('crearPeriodo hace POST /{cicloId}/periodos y normaliza tipo en blanco a null', async () => {
+    const promesa = service.crearPeriodo('c1', { nombre: ' Extra ', tipo: '  ', fechaInicio: '2026-03-01', fechaFin: '2026-06-30' });
+    const req = http.expectOne(`${BASE}/c1/periodos`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ nombre: 'Extra', tipo: null, fechaInicio: '2026-03-01', fechaFin: '2026-06-30' });
+    req.flush({ id: 'p9' });
+    await expect(promesa).resolves.toBe('p9');
+  });
+
+  it('actualizarPeriodo hace PUT /{cicloId}/periodos/{periodoId}', async () => {
+    const promesa = service.actualizarPeriodo(PERIODO, { nombre: 'Ordinaria 2', tipo: 'regular', fechaInicio: '2026-03-01', fechaFin: '2026-06-30' });
+    const req = http.expectOne(`${BASE}/c1/periodos/p1`);
+    expect(req.request.method).toBe('PUT');
+    req.flush(null);
+    await expect(promesa).resolves.toBeUndefined();
+  });
+
+  it('desactivarPeriodo hace POST /{cicloId}/periodos/{periodoId}/desactivar', async () => {
+    const promesa = service.desactivarPeriodo('c1', 'p1');
+    const req = http.expectOne(`${BASE}/c1/periodos/p1/desactivar`);
+    expect(req.request.method).toBe('POST');
+    req.flush(null);
+    await expect(promesa).resolves.toBeUndefined();
+  });
+
+  it('reactivarPeriodo hace POST /{cicloId}/periodos/{periodoId}/reactivar', async () => {
+    const promesa = service.reactivarPeriodo('c1', 'p1');
+    const req = http.expectOne(`${BASE}/c1/periodos/p1/reactivar`);
+    expect(req.request.method).toBe('POST');
+    req.flush(null);
+    await expect(promesa).resolves.toBeUndefined();
+  });
+
+  it('mapea un 400 con mensaje del cuerpo a CicloEscolarError', async () => {
+    const rechazo = service.crear({ nombre: 'Mal', fechaInicio: '2026-12-31', fechaFin: '2026-01-01' });
+    http.expectOne(BASE).flush({ error: 'Nombre y rango de fechas del ciclo no son validos.' }, {
+      status: 400, statusText: 'Bad Request'
+    });
+    await expect(rechazo).rejects.toBeInstanceOf(CicloEscolarError);
+    await expect(rechazo).rejects.toMatchObject({ message: expect.stringContaining('fechas') });
+  });
+
+  it('mapea un 403 a un mensaje de permiso', async () => {
+    const rechazo = service.listar();
+    http.expectOne(BASE).flush({}, { status: 403, statusText: 'Forbidden' });
+    await expect(rechazo).rejects.toBeInstanceOf(CicloEscolarError);
+    await expect(rechazo).rejects.toMatchObject({ message: expect.stringContaining('permiso') });
+  });
+});
