@@ -214,6 +214,9 @@ public sealed class MatriculasApiFactory : IAsyncLifetime
                     ["admin"],
                     [
                         "academico.alumnos.ver",
+                        "academico.alumnos.crear",
+                        "academico.alumnos.editar",
+                        "academico.alumnos.desactivar",
                         "academico.matriculas.ver",
                         "academico.matriculas.crear",
                         "academico.matriculas.cambiar_estado",
