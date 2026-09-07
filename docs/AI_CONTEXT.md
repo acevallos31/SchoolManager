@@ -54,7 +54,7 @@
 ## Módulo Portal Responsable (022) — en main
 - Migración **022**: superficie de **lectura** para responsables: `rpc_mis_alumnos_responsable`, `rpc_cargos_responsable`, `rpc_resumen_financiero_responsable`, `rpc_pagos_responsable`, `rpc_pago_aplicaciones_responsable`. Guard por identidad (usuario→responsable→`alumno_responsable` activo + `acceso_financiero=true`), no por permiso admin.
 - Backend: `PortalResponsableController` (`/api/portal-responsable`), DTOs `MisAlumnoDto`/`CargoDto`/`PagoDto` (nullables `string | null` alineados con `Guid?` .NET).
-- Frontend: página `/portal-padre` reescrita (150 líneas TS, 209 HTML, 196 CSS) contra la **API .NET** en solo lectura, **sin** botón de pago. `PortalResponsableService` centraliza el acceso (errores con causa, 3 estados en aplicaciones: error/cargando/vacío). Detalle en `docs/handoffs/022-portal-responsable.md`.
+- Frontend: página `/portal-padre` reescrita contra la **API .NET** en solo lectura, **sin** botón de pago. `PortalResponsableService` centraliza el acceso (errores con causa, estados error/cargando/vacío). Detalle funcional en `docs/handoffs/022-portal-responsable.md` y cierre visual en `docs/handoffs/027-ui-ux-portal-responsable.md`.
 
 ## Modelo académico
 Institución -> Ciclo -> Período matrícula -> Grado -> Jornada opcional -> Sección -> Matrícula -> Alumno.
@@ -84,17 +84,23 @@ Institución -> Ciclo -> Período matrícula -> Grado -> Jornada opcional -> Sec
   `/configuracion/conceptos-financieros`, `/configuracion/planes-pago` — todos
   consumen tokens/primitivas (botones, cards, tablas, badges, inputs, modal, tabs)
   sin estilos paralelos ni cambio de lógica de negocio.
-- **Adoptado en 026 (rama `feature/ui-ux-finanzas-026`)**: `/cargos` y `/pagos`
-  (bloque financiero) migrados a la misma foundation `sm-*`. Los KPIs de resumen
-  quedan como maquetación local por página (mismo criterio que `.sm-stats` del
-  Dashboard); se resolvió el warning de budget de `pagos.css` (duplicación de
-  foundation eliminada). Sin cambio de lógica funcional ni backend/DB.
-- **Adoptado en 027 (rama `feature/ui-ux-portal-responsable-027`)**: `/portal-padre`
-  (portal responsable, solo lectura) migrado a la misma foundation `sm-*`
-  (cabecera de marca propia fuera del AppShell, selector de alumno con botones,
-  KPIs con `sm-card`, pestañas `sm-tabs`, tablas `sm-table`, badges `sm-badge`
-  por estado, estados `sm-state`/`sm-spinner`/`sm-alert`). Sin cambio de lógica
-  funcional ni backend/DB; `PortalResponsableService` intacto.
+- **Adoptado en 026 (PR #49, mergeado en `main` como `5acab12`)**: `/cargos` y
+  `/pagos` migrados a la misma foundation `sm-*`. Los KPIs de resumen quedan como
+  maquetación local por página; warning de budget de `pagos.css` resuelto. Sin
+  cambios de lógica funcional ni backend/DB.
+- **Adoptado en 027 (PR #50, mergeado en `main` como `ba3c78fa19389d2d27ce31948bdb2a14bf6dcfe8`)**:
+  `/portal-padre` migrado a la misma foundation `sm-*` (cabecera de marca propia
+  fuera del AppShell, selector de alumno con botones, KPIs con `sm-card`, pestañas
+  `sm-tabs`, tablas `sm-table`, badges por estado y estados
+  `sm-state`/`sm-spinner`/`sm-alert`). `PortalResponsableService` intacto; sin
+  cambios backend/DB ni lógica funcional.
+- **Bloque 028 — cierre UX final (ACTIVO)**: rama
+  `feature/ui-ux-cierre-028`, creada desde `main` después del merge de PR #50.
+  Objetivo: auditoría transversal y correcciones UX pequeñas de consistencia,
+  responsive, accesibilidad básica, estados visuales y limpieza CSS; no agrega
+  funcionalidades ni cambia contratos, backend, DB o reglas de negocio. Debe cerrar
+  con suite FE/build/CI/Sonar/Vercel y revisión visual desktop/tablet/móvil, además
+  de documentación final del rediseño.
 - Módulos navegables (rutas lazy): `/configuracion`, `/configuracion/ciclos`,
   `/configuracion/estructura-academica`, `/configuracion/conceptos-financieros`,
   `/configuracion/planes-pago`, `/responsables`, `/matriculas`, `/alumnos`,
@@ -109,7 +115,7 @@ Institución -> Ciclo -> Período matrícula -> Grado -> Jornada opcional -> Sec
   `alumno.service.ts`, `ciclo-escolar.service.ts`, `estructura-academica.service.ts`
   y `configuracion.service.ts`. Migrarlas a la API .NET es deuda pendiente
   registrada en `docs/technical-debt.md` (ver #10), NO reescribir de forma
-  aislada: se aborda en un bloque dedicado.
+  aislada y NO incluirla en 028.
 
 ## Git y validación
 Las reglas operativas de Git, migraciones y validación están en `AGENTS.md`.
@@ -117,10 +123,9 @@ Estado real del repo: 001-022 en `main`; **023 (cierre funcional pre-UX) mergead
 en `main` (`702d2f1`, PR #46)**. Bloque **024 (UI/UX foundation + AppShell)
 mergeado en `main` (`e876ae1`, PR #47)**. Bloque **025 (adopción foundation en
 matrículas/responsables/configuración) mergeado en `main` (`38fe128`, PR #48)**.
-Bloque **026 (adopción foundation en cargos/pagos, bloque financiero) mergeado
-en `main` (`5acab12`, PR #49)**; su revisión visual quedó completada en modalidad
-estática de layout (sin E2E autenticado). Bloque **027 (adopción foundation en
-`/portal-padre`, portal responsable) completo en la rama
-`feature/ui-ux-portal-responsable-027`**, a la espera de revisión humana (PR
-contra main, sin mergear). **Sin cambios backend/DB en 025/026/027; deuda #10
-(Supabase directo) sigue pendiente.**
+Bloque **026 (adopción foundation en cargos/pagos) mergeado en `main`
+(`5acab12`, PR #49)**. Bloque **027 (portal responsable) mergeado en `main`
+(`ba3c78fa19389d2d27ce31948bdb2a14bf6dcfe8`, PR #50)**. Bloque **028 activo**
+en `feature/ui-ux-cierre-028` y debe terminar en PR contra `main`, **sin merge
+automático por Hermes**. Sin cambios backend/DB en 025-028; deuda #10 (Supabase
+directo) sigue pendiente fuera del alcance del cierre UX.

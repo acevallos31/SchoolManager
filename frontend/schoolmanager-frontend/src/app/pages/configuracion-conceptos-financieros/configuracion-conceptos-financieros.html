@@ -73,7 +73,7 @@
 
   @if (mostrarForm) {
     <div class="sm-modal-overlay" (click)="mostrarForm = false">
-      <form class="sm-modal" (ngSubmit)="guardar()" (click)="$event.stopPropagation()">
+      <form class="sm-modal" role="dialog" aria-modal="true" aria-label="{{ editando ? 'Editar concepto' : 'Nuevo concepto' }}" (ngSubmit)="guardar()" (click)="$event.stopPropagation()">
         <h2 class="sm-modal__title">{{ editando ? 'Editar' : 'Nuevo' }} concepto</h2>
         <div class="sm-field">
           <label class="sm-label" for="conceptoNombre">Nombre</label>

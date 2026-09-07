@@ -1,12 +1,13 @@
-<div class="sm-shell">
+<div class="sm-shell" (keydown.escape)="navAbierta && cerrarNav()">
 
   <!-- Cabecera superior: siempre visible. Hamburguesa solo en móvil/tablet. -->
   <header class="sm-topbar">
     <button
       type="button"
       class="sm-topbar__toggle"
-      aria-label="Abrir menú de navegación"
-      aria-expanded="false"
+      [attr.aria-label]="navAbierta ? 'Cerrar menú de navegación' : 'Abrir menú de navegación'"
+      [attr.aria-expanded]="navAbierta"
+      aria-controls="sidebar-nav"
       (click)="alternarNav()">☰</button>
 
     <div class="sm-topbar__brand">
@@ -40,7 +41,7 @@
       <span class="sm-sidebar__brand-name">Panel escolar</span>
     </div>
 
-    <nav class="sm-sidebar__nav">
+    <nav class="sm-sidebar__nav" id="sidebar-nav">
       @for (item of items; track item.ruta) {
         @if (mostrarItem(item)) {
           <a

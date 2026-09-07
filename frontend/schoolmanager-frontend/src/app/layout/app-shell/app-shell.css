@@ -73,7 +73,7 @@
   background: rgba(12, 31, 51, 0.45);
   border: 0;
   cursor: pointer;
-  z-index: calc(var(--sm-z-overlay) - 1);
+  z-index: calc(var(--sm-z-drawer) - 1);
   animation: sm-fade 0.2s ease;
 }
 
@@ -196,13 +196,18 @@
     width: var(--sm-sidebar-w);
     max-width: 85vw;
     transform: translateX(-100%);
-    transition: transform 0.22s ease;
+    /* visibility retardada: al cerrar se oculta del árbol/a11y y del tab-order
+       recién cuando termina el slide-out; al abrir se muestra de inmediato. */
+    visibility: hidden;
+    transition: transform 0.22s ease, visibility 0s linear 0.22s;
     z-index: var(--sm-z-drawer);
     box-shadow: var(--sm-shadow-lg);
   }
 
   .sm-sidebar--open {
     transform: translateX(0);
+    visibility: visible;
+    transition: transform 0.22s ease, visibility 0s;
   }
 
   .sm-topbar__brand-sub {
