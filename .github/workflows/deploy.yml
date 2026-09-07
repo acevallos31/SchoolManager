@@ -188,7 +188,7 @@ jobs:
           ARGS="${ARGS} /d:sonar.sourceEncoding=UTF-8"
           ARGS="${ARGS} /d:sonar.sources=backend,frontend/schoolmanager-frontend/src"
           ARGS="${ARGS} /d:sonar.tests=tests"
-          ARGS="${ARGS} /d:sonar.exclusions=**/node_modules/**,**/dist/**,**/bin/**,**/obj/**,**/coverage/**,**/*.min.js,coverage-backend/**,**/lcov.info,**/*.cobertura.xml,**/*.spec.ts,**/*.test.ts"
+          ARGS="${ARGS} /d:sonar.exclusions=**/node_modules/**,**/dist/**,**/bin/**,**/obj/**,**/coverage/**,**/*.min.js,coverage-backend/**,**/lcov.info,**/*.cobertura.xml,**/*.spec.ts,**/*.test.ts,e2e/**"
           ARGS="${ARGS} /d:sonar.cs.cobertura.reportsPaths=coverage-backend/**/coverage.cobertura.xml"
           ARGS="${ARGS} /d:sonar.typescript.lcov.reportPaths=frontend/schoolmanager-frontend/coverage/**/lcov.info"
           if [ -n "${PR}" ]; then
@@ -226,6 +226,17 @@ jobs:
           SONAR_HOST_URL: https://sonarcloud.io
         with:
           scanMetadataReportFile: .sonarqube/out/.sonar/report-task.txt
+
+      # Diagnóstico informativo del Quality Gate (Bloque 029B): imprime estado y
+      # condiciones (métrica/umbral/valor real) SIN exponer el token. No falla.
+      - name: Diagnóstico condiciones Quality Gate (info, no bloquea)
+        if: always()
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          PR="${{ github.event.pull_request.number }}"
+          if [ -z "$PR" ]; then PR_PARAM=""; else PR_PARAM="&pullRequest=${PR}"; fi
+          curl -s -H "Authorization: Bearer ${SONAR_TOKEN}" "https://sonarcloud.io/api/qualitygates/project_status?projectKey=SchoolManager${PR_PARAM}" | python3 -c "import sys,json; d=json.load(sys.stdin); p=d.get('projectStatus',{}); print('== QG status:', p.get('status')); [print('-', c.get('status'), '| metric:', c.get('metricKey'), '| actual:', c.get('actualValue'), '| threshold:', c.get('error'), '| op:', c.get('comparator')) for c in p.get('conditions',[])]"
 
   # ETAPA 2: DESPLIEGUE (Solo se ejecuta si la etapa anterior pasa Y estamos en la rama main)
   deploy:
