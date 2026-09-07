@@ -89,6 +89,12 @@ Institución -> Ciclo -> Período matrícula -> Grado -> Jornada opcional -> Sec
   quedan como maquetación local por página (mismo criterio que `.sm-stats` del
   Dashboard); se resolvió el warning de budget de `pagos.css` (duplicación de
   foundation eliminada). Sin cambio de lógica funcional ni backend/DB.
+- **Adoptado en 027 (rama `feature/ui-ux-portal-responsable-027`)**: `/portal-padre`
+  (portal responsable, solo lectura) migrado a la misma foundation `sm-*`
+  (cabecera de marca propia fuera del AppShell, selector de alumno con botones,
+  KPIs con `sm-card`, pestañas `sm-tabs`, tablas `sm-table`, badges `sm-badge`
+  por estado, estados `sm-state`/`sm-spinner`/`sm-alert`). Sin cambio de lógica
+  funcional ni backend/DB; `PortalResponsableService` intacto.
 - Módulos navegables (rutas lazy): `/configuracion`, `/configuracion/ciclos`,
   `/configuracion/estructura-academica`, `/configuracion/conceptos-financieros`,
   `/configuracion/planes-pago`, `/responsables`, `/matriculas`, `/alumnos`,
@@ -111,7 +117,10 @@ Estado real del repo: 001-022 en `main`; **023 (cierre funcional pre-UX) mergead
 en `main` (`702d2f1`, PR #46)**. Bloque **024 (UI/UX foundation + AppShell)
 mergeado en `main` (`e876ae1`, PR #47)**. Bloque **025 (adopción foundation en
 matrículas/responsables/configuración) mergeado en `main` (`38fe128`, PR #48)**.
-Bloque **026 (adopción foundation en cargos/pagos, bloque financiero) en la rama
-`feature/ui-ux-finanzas-026`**, PR contra main pendiente de revisión humana
-(no mergear). **Sin cambios backend/DB en 025/026; deuda #10 (Supabase directo)
-sigue pendiente.**
+Bloque **026 (adopción foundation en cargos/pagos, bloque financiero) mergeado
+en `main` (`5acab12`, PR #49)**; su revisión visual quedó completada en modalidad
+estática de layout (sin E2E autenticado). Bloque **027 (adopción foundation en
+`/portal-padre`, portal responsable) completo en la rama
+`feature/ui-ux-portal-responsable-027`**, a la espera de revisión humana (PR
+contra main, sin mergear). **Sin cambios backend/DB en 025/026/027; deuda #10
+(Supabase directo) sigue pendiente.**

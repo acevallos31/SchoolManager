@@ -159,6 +159,34 @@ export class PortalPadre implements OnInit {
     return `${hijo.nombres ?? ''} ${hijo.apellidos ?? ''}`.trim() || 'Sin nombre';
   }
 
+  // Etiquetas legibles de estado (solo presentación; no cambia la lógica).
+  get estadoLabel(): Record<string, string> {
+    return {
+      pendiente: 'Pendiente',
+      parcial: 'Parcial',
+      pagado: 'Pagado',
+      registrado: 'Registrado',
+      anulado: 'Anulado',
+      activa: 'Activa',
+    };
+  }
+
+  // Etiqueta legible de un estado, con respaldo al valor crudo si no existe mapa.
+  labelEstado(estado: string): string {
+    return this.estadoLabel[estado] ?? estado;
+  }
+
+  // Mapea estados crudos del contrato a variantes de la foundation sm-badge.
+  // Solo presentación; no altera la lógica de negocio ni los datos.
+  claseBadge(estado: string): string {
+    const variante =
+      estado === 'pendiente' || estado === 'parcial' ? 'warning'
+      : estado === 'pagado' || estado === 'registrado' ? 'success'
+      : estado === 'anulado' ? 'neutral'
+      : 'info';
+    return `sm-badge sm-badge--${variante}`;
+  }
+
   private mensajeDe(e: unknown): string {
     if (e instanceof Error) return e.message;
     return 'No se pudo cargar la información.';

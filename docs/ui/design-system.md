@@ -119,7 +119,16 @@ subvistas) como rutas hijas. Quedan fuera del shell: `/login` y `/portal-padre`
   `/configuracion/conceptos-financieros`, `/configuracion/planes-pago` — todos
   consumen tokens/primitivas de la foundation (botones, cards, tablas, badges,
   inputs, modal, tabs), sin estilos paralelos.
-- **Pendiente de migrar**: cargos, pagos (bloque financiero siguiente).
+- **Migrado en 026**: `/cargos` y `/pagos` (bloque financiero) consumen la
+  foundation; los KPIs de resumen quedan como maquetación local por página
+  (mismo criterio que `.sm-stats` del Dashboard).
+- **Migrado en 027**: `/portal-padre` (portal responsable, solo lectura) consume
+  la foundation — cabecera de marca propia fuera del AppShell, selector de alumno
+  con `sm-btn`, KPIs con `sm-card`, `sm-tabs`, tablas `sm-table`, badges `sm-badge`
+  por estado y estados `sm-state`/`sm-spinner`/`sm-alert`; sin estilos paralelos.
+- **Pendiente de migrar**: ninguna página pendiente por ahora; las que aún
+  consultan Supabase directo son deuda registrada en `technical-debt.md` (#10),
+  no bloqueo de adopción visual.
 - Regla de adopción: cada pantalla nueva consume tokens/primitivas; nada de
   valores hardcodeados ni sidebar duplicado.
 
