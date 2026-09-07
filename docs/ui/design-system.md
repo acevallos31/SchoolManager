@@ -78,6 +78,8 @@ Sin dependencia externa: stack del sistema (Segoe UI / Inter / system-ui).
 | Estado vacío | `.sm-state` + `.sm-state__title/__body` | Empty state |
 | Loading | `.sm-spinner` (+ `.sm-spinner--sm`) | Spinner |
 | Alerta | `.sm-alert--success/--error` | Mensajes de resultado |
+| Modal | `.sm-modal-overlay` + `.sm-modal` (+ `.sm-modal__title`/`__detail`/`__actions`) | Diálogo; overlay cierra al hacer clic fuera; `__actions` = fila derecha de botones (Cancelar/Confirmar) |
+| Tabs | `.sm-tabs` | Pestañas de sección (extraído de portal-padre 024); active state vía clase, hover `0.15s ease` |
 
 Regla: extraer primitivas **solo cuando hay uso real/inmediato** — no crear una
 biblioteca gigantesca por adelantado.
@@ -95,7 +97,8 @@ subvistas) como rutas hijas. Quedan fuera del shell: `/login` y `/portal-padre`
 - **Navegación activa**: `esRutaActiva()` — el Panel solo en ruta exacta; el
   resto por prefijo.
 - **Filtrado por permisos**: `mostrarItem()` oculta enlaces sin permiso;
-  Panel y Matrículas siempre visibles para autenticados (regla histórica).
+  el Panel (dashboard) es visible para autenticados y Matrículas requiere el
+  permiso `academico.matriculas.ver` (el resto de rutas filtra por su propio permiso).
 - **Identidad**: muestra **roles reales** del `UsuarioActual`; nunca inventa
   nombre/email/institución (el backend solo expone roles/permisos).
 - **Logout** → navega a `/login`.
@@ -111,8 +114,12 @@ subvistas) como rutas hijas. Quedan fuera del shell: `/login` y `/portal-padre`
 
 - **Aplicado**: AppShell global, Dashboard (sin sidebar duplicado), `/alumnos`
   como pantalla piloto (workspace master/detalle + acciones reales).
-- **Pendiente de migrar** (envueltos por el shell, contenido interno sin
-  rediseñar): matrículas, responsables, cargos, pagos, configuración y subvistas.
+- **Migrado en 025**: `/matriculas`, `/responsables`, `/configuracion` (raíz),
+  y los submódulos `/configuracion/ciclos`, `/configuracion/estructura-academica`,
+  `/configuracion/conceptos-financieros`, `/configuracion/planes-pago` — todos
+  consumen tokens/primitivas de la foundation (botones, cards, tablas, badges,
+  inputs, modal, tabs), sin estilos paralelos.
+- **Pendiente de migrar**: cargos, pagos (bloque financiero siguiente).
 - Regla de adopción: cada pantalla nueva consume tokens/primitivas; nada de
   valores hardcodeados ni sidebar duplicado.
 
