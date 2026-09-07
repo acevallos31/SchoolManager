@@ -93,10 +93,11 @@ jobs:
   # -----------------------------------------------------------------------------
   # Anti falso-verde (Bloque 029): el job se crea SIEMPRE (así GitHub Actions
   # genera runs) y la presencia del secret SONAR_TOKEN se lee via env (no
-  # evaluando secrets.* en un if del workflow). Si SONAR_TOKEN está vacío, el
-  # paso "Analizar con sonar-scanner" se salta y el paso GUARD siguiente hace
-  # FALLAR el job con un error explícito. De este modo un job interno NUNCA
-  # puede quedar verde silenciosamente sin haber subido análisis a SonarCloud.
+  # evaluando secrets.* en un if del workflow). El análisis usa la action
+  # oficial de SonarQube Cloud, que FALLA si SONAR_TOKEN está vacío; además,
+  # un paso GUARD redundante hace fallar el job con un error explícito si el
+  # secret no está configurado. De este modo un job interno NUNCA puede quedar
+  # verde silenciosamente sin haber subido análisis a SonarCloud.
   #
   # Configuración del secret (acción humana, ver docs/ci/sonarcloud-token-setup.md):
   #   gh secret set SONAR_TOKEN   (en el repositorio, o en la organización)
@@ -120,12 +121,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configurar Java 17 (requerido por sonar-scanner)
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
       - name: Descargar cobertura backend
         uses: actions/download-artifact@v4
         with:
@@ -138,23 +133,26 @@ jobs:
           name: coverage-frontend-lcov
           path: frontend/schoolmanager-frontend/coverage
 
-      - name: Analizar con sonar-scanner (lee sonar-project.properties)
-        id: sonar-scan
-        if: ${{ env.SONAR_TOKEN != '' }}
-        run: |
-          wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-7.1.0.12063-linux-x64.zip
-          unzip -q sonar-scanner-cli-*.zip
-          SONAR_SCANNER_HOME=$(ls -d sonar-scanner-* | head -1)
-          "$SONAR_SCANNER_HOME/bin/sonar-scanner" \
-            -Dsonar.token="$SONAR_TOKEN" \
-            -Dsonar.host.url="https://sonarcloud.io"
+      # Action oficial de SonarQube Cloud (SonarSource/sonarqube-scan-action).
+      # Sustituye al sonar-scanner-cli 7.1.0.12063 descargado manualmente
+      # (wget + unzip), cuyo wrapper moría con exit code 8 sin imprimir nada.
+      # Ventajas: descarga y gestiona su propio scanner, auto-aprovisiona su JRE
+      # (no requiere actions/setup-java) y valida internamente SONAR_TOKEN.
+      # Lee sonar-project.properties de la raíz (projectKey=SchoolManager,
+      # organization=acevallos31, sources/tests y rutas de cobertura) y usa
+      # SONAR_TOKEN del entorno. Versión fijada a v8.2.1 (estable, 2026-07-15).
+      - name: Analizar con la action oficial de SonarCloud (lee sonar-project.properties)
+        uses: SonarSource/sonarqube-scan-action@v8.2.1
+        env:
+          SONAR_HOST_URL: https://sonarcloud.io
 
-      # GUARD anti falso-verde: si el análisis se saltó por SONAR_TOKEN vacío,
-      # fallar con un mensaje accionable en vez de reportar verde en silencio.
-      - name: Fallar si el análisis de SonarCloud no se ejecutó (SONAR_TOKEN ausente)
-        if: ${{ steps.sonar-scan.outcome == 'skipped' }}
+      # GUARD anti falso-verde (Bloque 029): si el análisis no pudo arrancar
+      # porque SONAR_TOKEN está vacío, fallar con un mensaje accionable en vez
+      # de reportar verde en silencio.
+      - name: Fallar si SONAR_TOKEN está vacío (anti falso-verde)
+        if: ${{ env.SONAR_TOKEN == '' }}
         run: |
-          echo "::error::SONAR_TOKEN no está configurado: el análisis de SonarCloud fue omitido."
+          echo "::error::SONAR_TOKEN no está configurado: el análisis de SonarCloud no pudo ejecutarse."
           echo "Este check queda en rojo a propósito para que un job interno nunca"
           echo "aparezca verde sin haber analizado realmente."
           echo "Configura el secret 'SONAR_TOKEN' (ver docs/ci/sonarcloud-token-setup.md)."
