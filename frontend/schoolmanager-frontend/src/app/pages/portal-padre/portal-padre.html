@@ -1,214 +1,278 @@
-<div class="portal-container">
-  <div class="portal-header">
-    <div>
-      <h1>🏫 Portal del Responsable</h1>
-      <p class="bienvenida">Consulta de cargos y pagos de tus hijos (solo lectura)</p>
+<!-- Portal del Responsable (Bloque 022, UI/UX Bloque 027). Solo lectura.
+     Consume primitivas de la foundation sm-* (styles.css); la lógica vive en el .ts. -->
+<div class="portal">
+  <!-- Cabecera propia del portal (fuera del AppShell admin, por diseño). -->
+  <header class="portal-topbar">
+    <div class="portal-brand">
+      <span class="sm-eyebrow">SchoolManager</span>
+      <h1 class="portal-brand__title">Portal del Responsable</h1>
+      <p class="sm-helper portal-brand__sub">Consulta de cargos y pagos de tus hijos (solo lectura)</p>
     </div>
-    <button class="btn-logout" (click)="logout()">🚪 Cerrar sesión</button>
-  </div>
+    <button
+      type="button"
+      class="sm-btn sm-btn--secondary"
+      (click)="logout()">Cerrar sesión</button>
+  </header>
 
-  @if (cargandoInicial) {
-    <p class="cargando">Cargando tus hijos...</p>
-  } @else if (hayErrorInicial) {
-    <div class="mensaje mensaje-error">{{ errorInicial }}</div>
-  } @else if (hijos.length === 0) {
-    <div class="sin-datos-box">
-      <p>No hay alumnos vinculados con acceso financiero a tu cuenta.</p>
-      <p class="subtitulo">Si esto es un error, contacta a la administración.</p>
-    </div>
-  } @else {
+  <main class="portal-main">
 
-    @if (hijos.length > 1) {
-      <div class="selector-hijos">
-        @for (hijo of hijos; track hijo.id) {
-          <button
-            class="chip-hijo"
-            [class.activo]="hijo.id === hijoSeleccionadoId"
-            (click)="seleccionarHijo(hijo.id)">
-            👤 {{ nombreCompleto(hijo) }}
-          </button>
-        }
+    @if (cargandoInicial) {
+      <div class="sm-state" role="status">
+        <span class="sm-spinner" aria-hidden="true"></span>
+        <p>Cargando tus hijos…</p>
       </div>
-    }
+    } @else if (hayErrorInicial) {
+      <div class="sm-alert sm-alert--error" role="alert">{{ errorInicial }}</div>
+    } @else if (hijos.length === 0) {
+      <div class="sm-state">
+        <p class="sm-state__title">Sin alumnos vinculados</p>
+        <p class="sm-state__body">
+          No hay alumnos vinculados con acceso financiero a tu cuenta.
+          Si esto es un error, contacta a la administración.
+        </p>
+      </div>
+    } @else {
 
-    @if (hijoSeleccionado) {
-      <div class="hijo-info-bar">
-        <div>
-          <h2>{{ nombreCompleto(hijoSeleccionado) }}</h2>
-          <p>
-            {{ hijoSeleccionado.parentesco ?? 'Responsable' }}
-            @if (hijoSeleccionado.esPrincipal) {
-              · Principal
+      <!-- Selección de alumno cuando hay más de uno. -->
+      @if (hijos.length > 1) {
+        <section class="selector-hijos" aria-label="Seleccionar alumno">
+          <span class="sm-helper selector-hijos__label">Ver información de</span>
+          <div class="selector-hijos__opciones">
+            @for (hijo of hijos; track hijo.id) {
+              <button
+                type="button"
+                class="sm-btn sm-btn--sm"
+                [class.sm-btn--primary]="hijo.id === hijoSeleccionadoId"
+                [class.sm-btn--secondary]="hijo.id !== hijoSeleccionadoId"
+                [attr.aria-pressed]="hijo.id === hijoSeleccionadoId"
+                (click)="seleccionarHijo(hijo.id)">
+                {{ nombreCompleto(hijo) }}
+              </button>
             }
-          </p>
-        </div>
-      </div>
-
-      @if (cargandoTab) {
-        <p class="cargando">Cargando información financiera...</p>
-      } @else if (errorTab) {
-        <div class="mensaje mensaje-error">{{ errorTab }}</div>
-      } @else if (resumen) {
-
-        <div class="resumen-cards">
-          <div class="card card-pendiente">
-            <span class="card-label">Total Pendiente</span>
-            <span class="card-valor">{{ fmt(resumen.totalPendiente) }}</span>
           </div>
-          <div class="card card-pagado">
-            <span class="card-label">Total Aplicado / Pagado</span>
-            <span class="card-valor">{{ fmt(resumen.totalAplicado) }}</span>
-          </div>
-          <div class="card card-vencido">
-            <span class="card-label">Vencidos</span>
-            <span class="card-valor">{{ fmt(resumen.totalVencido) }}</span>
-          </div>
-        </div>
+        </section>
+      }
 
-        <div class="tabs">
-          <button [class.tab-activo]="tab === 'resumen'" (click)="cambiarTab('resumen')">Resumen</button>
-          <button [class.tab-activo]="tab === 'cargos'" (click)="cambiarTab('cargos')">Cargos ({{ cargos.length }})</button>
-          <button [class.tab-activo]="tab === 'pagos'" (click)="cambiarTab('pagos')">Pagos ({{ pagos.length }})</button>
-        </div>
+      @if (hijoSeleccionado) {
+        @if (cargandoTab) {
+          <div class="sm-state" role="status">
+            <span class="sm-spinner" aria-hidden="true"></span>
+            <p>Cargando información financiera…</p>
+          </div>
+        } @else if (errorTab) {
+          <div class="sm-alert sm-alert--error" role="alert">{{ errorTab }}</div>
+        } @else if (resumen) {
 
-        @if (tab === 'resumen') {
-          <div class="panel">
-            <div class="detalle-grid">
-              <div class="detalle-item">
-                <span class="detalle-label">Cargos vigentes</span>
-                <span class="detalle-valor">{{ resumen.totalObligaciones }}</span>
-              </div>
-              <div class="detalle-item">
-                <span class="detalle-label">Monto original</span>
-                <span class="detalle-valor">{{ fmt(resumen.totalMontoOriginal) }}</span>
-              </div>
-              <div class="detalle-item">
-                <span class="detalle-label">Anulado</span>
-                <span class="detalle-valor">{{ fmt(resumen.totalAnulado) }}</span>
-              </div>
-              <div class="detalle-item">
-                <span class="detalle-label">Pendiente</span>
-                <span class="detalle-valor">{{ fmt(resumen.totalPendiente) }}</span>
-              </div>
-              <div class="detalle-item">
-                <span class="detalle-label">Vencido</span>
-                <span class="detalle-valor">{{ fmt(resumen.totalVencido) }}</span>
-              </div>
-              <div class="detalle-item">
-                <span class="detalle-label">Aplicado</span>
-                <span class="detalle-valor">{{ fmt(resumen.totalAplicado) }}</span>
-              </div>
+          <!-- Identidad del alumno seleccionado. -->
+          <section class="hijo-info" aria-label="Alumno">
+            <div>
+              <h2 class="sm-section-title">{{ nombreCompleto(hijoSeleccionado) }}</h2>
+              <p class="sm-helper">
+                {{ hijoSeleccionado.parentesco ?? 'Responsable' }}
+                @if (hijoSeleccionado.esPrincipal) { · Principal }
+              </p>
             </div>
-          </div>
-        }
+          </section>
 
-        @if (tab === 'cargos') {
-          <div class="panel">
-            @if (cargos.length === 0) {
-              <div class="sin-datos-box"><p>No hay cargos registrados.</p></div>
-            } @else {
-              <table class="tabla-estado">
-                <thead>
-                  <tr>
-                    <th>Concepto</th>
-                    <th>Monto</th>
-                    <th>Vence</th>
-                    <th>Saldo</th>
-                    <th>Estado</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (cargo of cargos; track cargo.id) {
-                    <tr [class.fila-vencida]="cargo.esVencido && cargo.estado !== 'anulado'">
-                      <td>{{ cargo.conceptoNombre ?? cargo.descripcion ?? 'Cargo' }}</td>
-                      <td>{{ fmt(cargo.montoOriginal) }}</td>
-                      <td>
-                        {{ cargo.fechaVencimiento }}
-                        @if (cargo.esVencido && cargo.estado !== 'anulado') {
-                          <span class="badge badge-vencido">Vencido</span>
-                        }
-                      </td>
-                      <td>{{ fmt(cargo.saldo) }}</td>
-                      <td><span [class]="'badge badge-' + cargo.estado">{{ cargo.estado }}</span></td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            }
-          </div>
-        }
+          <!-- Resumen financiero: KPIs. -->
+          <section class="resumen-grid" aria-label="Resumen financiero">
+            <article class="resumen-card sm-card">
+              <span class="sm-eyebrow">Total pendiente</span>
+              <strong class="resumen-valor resumen-valor--pendiente">{{ fmt(resumen.totalPendiente) }}</strong>
+            </article>
+            <article class="resumen-card sm-card">
+              <span class="sm-eyebrow">Aplicado / pagado</span>
+              <strong class="resumen-valor resumen-valor--pagado">{{ fmt(resumen.totalAplicado) }}</strong>
+            </article>
+            <article class="resumen-card sm-card">
+              <span class="sm-eyebrow">Vencido</span>
+              <strong class="resumen-valor resumen-valor--vencido">{{ fmt(resumen.totalVencido) }}</strong>
+            </article>
+          </section>
 
-        @if (tab === 'pagos') {
-          <div class="panel">
-            @if (pagos.length === 0) {
-              <div class="sin-datos-box"><p>No hay pagos registrados.</p></div>
-            } @else {
-              <table class="tabla-estado">
-                <thead>
-                  <tr>
-                    <th>Recibo</th>
-                    <th>Fecha</th>
-                    <th>Monto</th>
-                    <th>Método</th>
-                    <th>Estado</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (pago of pagos; track pago.id) {
-                    <tr>
-                      <td>{{ pago.numeroRecibo }}</td>
-                      <td>{{ pago.fechaPago }}</td>
-                      <td>{{ fmt(pago.montoTotal) }}</td>
-                      <td>{{ pago.metodoPago ?? '—' }}</td>
-                      <td><span [class]="'badge badge-' + pago.estado">{{ pago.estado }}</span></td>
-                      <td>
-                        <button class="btn-mini" (click)="alternarAplicaciones(pago)">
-                          {{ pagoAbiertoId === pago.id ? 'Ocultar' : 'Aplicaciones' }}
-                        </button>
-                      </td>
-                    </tr>
-                    @if (pagoAbiertoId === pago.id) {
+          <!-- Pestañas: resumen / cargos / pagos. -->
+          <div class="sm-tabs portal-tabs" role="tablist" aria-label="Secciones financieras">
+            <button
+              type="button"
+              class="sm-tab--resumen"
+              [class.sm-tab--active]="tab === 'resumen'"
+              (click)="cambiarTab('resumen')">Resumen</button>
+            <button
+              type="button"
+              [class.sm-tab--active]="tab === 'cargos'"
+              (click)="cambiarTab('cargos')">Cargos ({{ cargos.length }})</button>
+            <button
+              type="button"
+              [class.sm-tab--active]="tab === 'pagos'"
+              (click)="cambiarTab('pagos')">Pagos ({{ pagos.length }})</button>
+          </div>
+
+          @if (tab === 'resumen') {
+            <section class="panel" aria-label="Detalle del resumen">
+              <div class="detalle-grid">
+                <div class="detalle-item">
+                  <span class="sm-label">Cargos vigentes</span>
+                  <span class="detalle-valor">{{ resumen.totalObligaciones }}</span>
+                </div>
+                <div class="detalle-item">
+                  <span class="sm-label">Monto original</span>
+                  <span class="detalle-valor">{{ fmt(resumen.totalMontoOriginal) }}</span>
+                </div>
+                <div class="detalle-item">
+                  <span class="sm-label">Anulado</span>
+                  <span class="detalle-valor">{{ fmt(resumen.totalAnulado) }}</span>
+                </div>
+                <div class="detalle-item">
+                  <span class="sm-label">Pendiente</span>
+                  <span class="detalle-valor">{{ fmt(resumen.totalPendiente) }}</span>
+                </div>
+                <div class="detalle-item">
+                  <span class="sm-label">Vencido</span>
+                  <span class="detalle-valor detalle-valor--vencido">{{ fmt(resumen.totalVencido) }}</span>
+                </div>
+                <div class="detalle-item">
+                  <span class="sm-label">Aplicado</span>
+                  <span class="detalle-valor detalle-valor--pagado">{{ fmt(resumen.totalAplicado) }}</span>
+                </div>
+              </div>
+            </section>
+          }
+
+          @if (tab === 'cargos') {
+            <section class="panel" aria-label="Cargos">
+              @if (cargos.length === 0) {
+                <div class="sm-state">
+                  <p class="sm-state__title">Sin cargos</p>
+                  <p class="sm-state__body">No hay cargos registrados para este alumno.</p>
+                </div>
+              } @else {
+                <div class="sm-table-wrap">
+                  <table class="sm-table">
+                    <thead>
                       <tr>
-                        <td colspan="6" class="aplicaciones-celda">
-                          @if (aplicacionesErrorPorPago[pago.id]) {
-                            <div class="mensaje mensaje-error">
-                              No se pudieron cargar las aplicaciones: {{ aplicacionesErrorPorPago[pago.id] }}
-                            </div>
-                          } @else if (aplicacionesCargando && !(aplicacionesPorPago[pago.id] ?? []).length) {
-                            <span class="sin-datos">Cargando aplicaciones...</span>
-                          } @else if ((aplicacionesPorPago[pago.id] ?? []).length === 0) {
-                            <span class="sin-datos">Sin aplicaciones detalladas.</span>
-                          } @else {
-                            <table class="tabla-aplicaciones">
-                              <thead>
-                                <tr>
-                                  <th>Concepto</th>
-                                  <th>Monto aplicado</th>
-                                  <th>Estado cargo</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                @for (app of aplicacionesPorPago[pago.id]; track app.aplicacionId) {
-                                  <tr>
-                                    <td>{{ app.conceptoNombre ?? 'Cargo' }}</td>
-                                    <td>{{ fmt(app.montoAplicado) }}</td>
-                                    <td><span [class]="'badge badge-' + app.cargoEstado">{{ app.cargoEstado }}</span></td>
-                                  </tr>
-                                }
-                              </tbody>
-                            </table>
-                          }
-                        </td>
+                        <th>Concepto</th>
+                        <th>Monto</th>
+                        <th>Vence</th>
+                        <th>Saldo</th>
+                        <th>Estado</th>
                       </tr>
-                    }
-                  }
-                </tbody>
-              </table>
-            }
-          </div>
+                    </thead>
+                    <tbody>
+                      @for (cargo of cargos; track cargo.id) {
+                        <tr [class.fila-vencida]="cargo.esVencido && cargo.estado !== 'anulado'">
+                          <td>
+                            <strong>{{ cargo.conceptoNombre ?? cargo.descripcion ?? 'Cargo' }}</strong>
+                          </td>
+                          <td>{{ fmt(cargo.montoOriginal) }}</td>
+                          <td>
+                            {{ cargo.fechaVencimiento }}
+                            @if (cargo.esVencido && cargo.estado !== 'anulado') {
+                              <span class="sm-badge sm-badge--error badge-inline">Vencido</span>
+                            }
+                          </td>
+                          <td>{{ fmt(cargo.saldo) }}</td>
+                          <td>
+                            <span [class]="claseBadge(cargo.estado)">{{ labelEstado(cargo.estado) }}</span>
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+            </section>
+          }
+
+          @if (tab === 'pagos') {
+            <section class="panel" aria-label="Pagos">
+              @if (pagos.length === 0) {
+                <div class="sm-state">
+                  <p class="sm-state__title">Sin pagos</p>
+                  <p class="sm-state__body">No hay pagos registrados para este alumno.</p>
+                </div>
+              } @else {
+                <div class="sm-table-wrap">
+                  <table class="sm-table">
+                    <thead>
+                      <tr>
+                        <th>Recibo</th>
+                        <th>Fecha</th>
+                        <th>Monto</th>
+                        <th>Método</th>
+                        <th>Estado</th>
+                        <th class="col-acciones"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (pago of pagos; track pago.id) {
+                        <tr>
+                          <td><span class="recibo">{{ pago.numeroRecibo }}</span></td>
+                          <td>{{ pago.fechaPago }}</td>
+                          <td>{{ fmt(pago.montoTotal) }}</td>
+                          <td>{{ pago.metodoPago ?? '—' }}</td>
+                          <td>
+                            <span [class]="claseBadge(pago.estado)">{{ labelEstado(pago.estado) }}</span>
+                          </td>
+                          <td class="col-acciones">
+                            <button
+                              type="button"
+                              class="sm-btn sm-btn--ghost sm-btn--sm"
+                              (click)="alternarAplicaciones(pago)">
+                              {{ pagoAbiertoId === pago.id ? 'Ocultar detalle' : 'Ver aplicaciones' }}
+                            </button>
+                          </td>
+                        </tr>
+                        @if (pagoAbiertoId === pago.id) {
+                          <tr>
+                            <td colspan="6" class="aplicaciones-celda">
+                              @if (aplicacionesErrorPorPago[pago.id]) {
+                                <div class="sm-alert sm-alert--error" role="alert">
+                                  No se pudieron cargar las aplicaciones: {{ aplicacionesErrorPorPago[pago.id] }}
+                                </div>
+                              } @else if (aplicacionesCargando && !(aplicacionesPorPago[pago.id] ?? []).length) {
+                                <div class="aplicaciones-cargando" role="status">
+                                  <span class="sm-spinner sm-spinner--sm" aria-hidden="true"></span>
+                                  <span>Cargando aplicaciones…</span>
+                                </div>
+                              } @else if ((aplicacionesPorPago[pago.id] ?? []).length === 0) {
+                                <p class="sm-helper aplicaciones-vacio">Sin aplicaciones detalladas.</p>
+                              } @else {
+                                <div class="sm-table-wrap aplicaciones-tabla">
+                                  <table class="sm-table">
+                                    <thead>
+                                      <tr>
+                                        <th>Concepto</th>
+                                        <th>Monto aplicado</th>
+                                        <th>Estado cargo</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      @for (app of aplicacionesPorPago[pago.id]; track app.aplicacionId) {
+                                        <tr>
+                                          <td>{{ app.conceptoNombre ?? 'Cargo' }}</td>
+                                          <td>{{ fmt(app.montoAplicado) }}</td>
+                                          <td>
+                                            <span [class]="claseBadge(app.cargoEstado)">{{ labelEstado(app.cargoEstado) }}</span>
+                                          </td>
+                                        </tr>
+                                      }
+                                    </tbody>
+                                  </table>
+                                </div>
+                              }
+                            </td>
+                          </tr>
+                        }
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+            </section>
+          }
+
         }
       }
     }
-  }
+  </main>
 </div>

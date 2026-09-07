@@ -1,195 +1,221 @@
-.portal-container {
-  padding: 24px;
-  background: #f5f7fa;
-  min-height: 100vh;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+/* Portal del Responsable — adopción visual (Bloque 027).
+   Los primitivos (botones, cards, badges, tablas, tabs, alertas, estados,
+   spinner) se consumen de styles.css. Aquí solo maquetación específica del
+   portal y su cabecera propia (el portal vive fuera del AppShell admin).
+   Ver docs/ui/design-system.md. */
+
+/* ---- Estructura general (página fuera del AppShell) ---- */
+.portal {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--sm-bg);
 }
 
-.portal-header {
+.portal-topbar {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  background: linear-gradient(135deg, #1a73e8, #0d47a1);
-  color: white;
-  padding: 20px 28px;
-  border-radius: 12px;
-  margin-bottom: 20px;
-}
-
-.portal-header h1 { margin: 0; font-size: 22px; }
-.bienvenida { margin: 4px 0 0; opacity: 0.9; font-size: 14px; }
-
-.btn-logout {
-  background: rgba(255,255,255,0.2);
-  color: white;
-  border: none;
-  padding: 10px 16px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-}
-.btn-logout:hover { background: rgba(255,255,255,0.35); }
-
-.cargando { text-align: center; color: #666; padding: 48px; }
-
-.mensaje {
-  padding: 16px 20px;
-  border-radius: 10px;
-  margin-bottom: 16px;
-  font-size: 14px;
-}
-.mensaje-error { background: #fdecea; color: #c62828; }
-
-.sin-datos-box {
-  background: white;
-  padding: 40px;
-  border-radius: 12px;
-  text-align: center;
-  color: #555;
-  font-size: 15px;
-}
-.sin-datos-box .subtitulo { color: #999; font-size: 13px; margin-top: 6px; }
-
-.selector-hijos {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 16px;
+  justify-content: space-between;
+  gap: var(--sm-space-4);
+  padding: var(--sm-space-4) var(--sm-space-5);
+  background: var(--sm-surface);
+  border-bottom: 1px solid var(--sm-border);
   flex-wrap: wrap;
 }
 
-.chip-hijo {
-  background: white;
-  border: 2px solid #ddd;
-  padding: 10px 18px;
-  border-radius: 24px;
-  cursor: pointer;
-  font-size: 14px;
-}
-.chip-hijo.activo {
-  border-color: #1a73e8;
-  background: #e8f0fe;
-  color: #1a73e8;
-  font-weight: 600;
+.portal-brand .sm-eyebrow {
+  margin-bottom: var(--sm-space-1);
 }
 
-.hijo-info-bar {
-  background: white;
-  padding: 18px 24px;
-  border-radius: 12px;
-  margin-bottom: 16px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
-.hijo-info-bar h2 { margin: 0; color: #333; font-size: 19px; }
-.hijo-info-bar p { margin: 4px 0 0; color: #777; font-size: 13px; }
-
-.resumen-cards {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  margin-bottom: 20px;
+.portal-brand__title {
+  font-size: var(--sm-fs-2xl);
+  font-weight: var(--sm-weight-bold);
+  letter-spacing: -0.02em;
+  color: var(--sm-text-strong);
 }
 
-.card {
-  padding: 20px 24px;
-  border-radius: 12px;
+.portal-brand__sub {
+  margin: var(--sm-space-1) 0 0;
+}
+
+.portal-main {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: var(--sm-space-5);
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  color: white;
+  gap: var(--sm-space-4);
 }
-.card-label { font-size: 13px; opacity: 0.9; }
-.card-valor { font-size: 24px; font-weight: bold; }
-.card-pendiente { background: #f57c00; }
-.card-pagado { background: #2e7d32; }
-.card-vencido { background: #c62828; }
 
-.tabs {
+/* ---- Selección de alumno ---- */
+.selector-hijos {
   display: flex;
-  gap: 4px;
-  margin-bottom: 16px;
-  background: white;
-  padding: 6px;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  flex-direction: column;
+  gap: var(--sm-space-2);
 }
-.tabs button {
-  flex: 1;
-  padding: 10px 14px;
-  border: none;
-  background: transparent;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-  color: #666;
+
+.selector-hijos__label {
+  margin: 0;
 }
-.tab-activo { background: #1a73e8 !important; color: white !important; font-weight: 600; }
+
+.selector-hijos__opciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sm-space-2);
+}
+
+/* ---- Identidad del alumno ---- */
+.hijo-info {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sm-space-4);
+  padding-bottom: var(--sm-space-2);
+  border-bottom: 1px solid var(--sm-border);
+}
+
+.hijo-info .sm-section-title {
+  margin: 0;
+}
+
+.hijo-info .sm-helper {
+  margin: var(--sm-space-1) 0 0;
+}
+
+/* ---- Resumen financiero (tarjetas KPI) ---- */
+.resumen-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--sm-space-4);
+}
+
+.resumen-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-1);
+  padding: var(--sm-space-4) var(--sm-space-5);
+}
+
+.resumen-card .sm-eyebrow {
+  color: var(--sm-text-soft);
+}
+
+.resumen-valor {
+  font-size: var(--sm-fs-xl);
+  font-weight: var(--sm-weight-bold);
+  color: var(--sm-text-strong);
+  letter-spacing: -0.01em;
+}
+
+.resumen-valor--pendiente { color: var(--sm-warning); }
+.resumen-valor--pagado { color: var(--sm-success); }
+.resumen-valor--vencido { color: var(--sm-danger); }
+
+/* ---- Pestañas y paneles ---- */
+.portal-tabs {
+  margin-top: var(--sm-space-2);
+}
+
+.portal-tabs button {
+  flex: 1 1 auto;
+}
 
 .panel {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
-
-.detalle-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-}
-.detalle-item {
-  background: #f5f7fa;
-  border-radius: 10px;
-  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--sm-space-4);
 }
-.detalle-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.4px; }
-.detalle-valor { font-size: 18px; font-weight: bold; color: #333; }
 
-.tabla-estado {
-  width: 100%;
-  border-collapse: collapse;
+/* ---- Detalle del resumen ---- */
+.detalle-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--sm-space-3);
+  background: var(--sm-surface);
+  border: 1px solid var(--sm-border);
+  border-radius: var(--sm-radius-lg);
+  padding: var(--sm-space-5);
 }
-.tabla-estado thead { background: #f5f7fa; }
-.tabla-estado th { padding: 10px 12px; text-align: left; font-size: 13px; color: #555; }
-.tabla-estado td { padding: 12px; border-bottom: 1px solid #f0f0f0; font-size: 14px; color: #333; }
-.fila-vencida { background: #fdecea; }
 
-.badge {
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
+.detalle-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-1);
+}
+
+.detalle-valor {
+  font-size: var(--sm-fs-lg);
+  font-weight: var(--sm-weight-semibold);
+  color: var(--sm-text-strong);
+}
+
+.detalle-valor--pagado { color: var(--sm-success); }
+.detalle-valor--vencido { color: var(--sm-danger); }
+
+/* ---- Cargos / Pagos ---- */
+.badge-inline {
+  margin-left: var(--sm-space-2);
+}
+
+.fila-vencida td {
+  background: var(--sm-error-soft);
+}
+
+.col-acciones {
   white-space: nowrap;
+  text-align: right;
 }
-.badge-pendiente { background: #fff8e1; color: #f57c00; }
-.badge-parcial { background: #fff3cd; color: #b26a00; }
-.badge-pagado, .badge-registrado { background: #e8f5e9; color: #2e7d32; }
-.badge-anulado { background: #ececec; color: #666; }
-.badge-vencido { background: #fdecea; color: #c62828; margin-left: 6px; }
 
-.btn-mini {
-  background: #eee;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 12px;
-  color: #333;
+.recibo {
+  font-family: var(--sm-font-mono);
+  font-size: var(--sm-fs-sm);
 }
-.btn-mini:hover { background: #e0e0e0; }
 
-.aplicaciones-celda { background: #fafbfc; padding: 12px 16px !important; }
+/* ---- Aplicaciones (detalle expandible de un pago) ---- */
+.aplicaciones-celda {
+  background: var(--sm-surface-muted);
+}
 
-.tabla-aplicaciones { width: 100%; border-collapse: collapse; }
-.tabla-aplicaciones th { text-align: left; font-size: 12px; color: #888; padding: 6px 10px; }
-.tabla-aplicaciones td { padding: 8px 10px; border-top: 1px solid #eee; font-size: 13px; }
+.aplicaciones-tabla {
+  width: 100%;
+}
 
-.sin-datos { text-align: center; color: #999; padding: 24px; display: block; }
+.aplicaciones-cargando {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sm-space-2);
+  color: var(--sm-text-soft);
+  font-size: var(--sm-fs-sm);
+}
 
+.aplicaciones-vacio {
+  margin: 0;
+  padding: var(--sm-space-3);
+}
+
+/* ---- Responsive ---- */
 @media (max-width: 640px) {
-  .resumen-cards { grid-template-columns: 1fr; }
-  .detalle-grid { grid-template-columns: 1fr 1fr; }
-  .tabs { flex-direction: column; }
+  .portal-topbar {
+    padding: var(--sm-space-4);
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .portal-main {
+    padding: var(--sm-space-4);
+  }
+
+  .resumen-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .detalle-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .portal-tabs button {
+    padding-left: var(--sm-space-3);
+    padding-right: var(--sm-space-3);
+  }
 }
