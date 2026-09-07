@@ -294,7 +294,15 @@ export class Matriculas implements OnInit {
   }
 
   claseEstado(estado: string): string {
-    return `badge-estado badge-${estado}`;
+    const variante: Record<string, string> = {
+      pendiente: 'sm-badge--warning',
+      activa: 'sm-badge--success',
+      finalizada: 'sm-badge--info',
+      retirada: 'sm-badge--neutral',
+      anulada: 'sm-badge--error',
+      trasladada: 'sm-badge--info',
+    };
+    return `sm-badge ${variante[estado] ?? 'sm-badge--neutral'}`;
   }
 
   volver(): void {

@@ -1,253 +1,83 @@
+/* Gestión de Matrículas — adopción visual (Bloque 025).
+   Los primitivos (botones, tabla, badges, inputs, alertas, modal, estados)
+   se consumen de styles.css. Aquí solo maquetación específica del módulo.
+   Ver docs/ui/design-system.md. */
+
 .page-container {
-  min-height: 100vh;
-  padding: 2rem;
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-4);
 }
 
 .page-header {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  margin-bottom: 1.25rem;
-}
-
-.page-header h1 {
-  flex: 1;
-  margin: 0;
-  font-size: clamp(1.8rem, 3vw, 2.7rem);
-  color: var(--sm-text);
-  letter-spacing: -0.04em;
-}
-
-.btn-volver,
-.btn-cancelar,
-.btn-nuevo,
-.btn-cambio,
-.btn-guardar {
-  border: none;
-  cursor: pointer;
-  font-weight: 700;
-  padding: 0.8rem 1rem;
-  border-radius: 999px;
-}
-
-.btn-volver {
-  border: 1px solid var(--sm-border);
-  background: rgba(255, 255, 255, 0.72);
-  color: var(--sm-text);
-}
-
-.btn-nuevo,
-.btn-guardar {
-  background: linear-gradient(135deg, var(--sm-accent), #8e521c);
-  color: #fffef9;
-}
-
-.btn-cambio {
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(19, 43, 71, 0.18);
-  color: var(--sm-primary);
-  font-size: 0.85rem;
-  padding: 0.45rem 0.85rem;
-}
-
-.btn-cancelar {
-  border: 1px solid var(--sm-border);
-  background: rgba(255, 255, 255, 0.72);
-  color: var(--sm-text);
-}
-
-.btn-guardar:disabled,
-.btn-cancelar:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.mensaje,
-.tabla,
-.modal {
-  border: 1px solid var(--sm-border);
-  box-shadow: var(--sm-shadow);
-}
-
-.mensaje {
-  margin-bottom: 1rem;
-  padding: 0.95rem 1rem;
-  border-radius: 1rem;
-  background: #edf8f1;
-  color: var(--sm-success);
-}
-
-.mensaje.mensaje-error {
-  background: #fff0ed;
-  color: var(--sm-danger);
+  justify-content: space-between;
+  gap: var(--sm-space-4);
 }
 
 .formulario {
-  margin-bottom: 1.5rem;
-  padding: 1.25rem;
-  border: 1px solid var(--sm-border);
-  border-radius: 1.25rem;
-  background: rgba(255, 255, 255, 0.9);
+  padding: var(--sm-space-5);
 }
 
 .formulario h3 {
-  margin: 0 0 0.9rem;
-  color: var(--sm-text);
+  margin-bottom: var(--sm-space-4);
 }
 
 .form-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sm-space-4);
 }
 
 .form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-}
-
-.form-group label {
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: var(--sm-text);
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea,
-.filtro-grupo select,
-.filtro-grupo input {
-  width: 100%;
-  min-width: 0;
-  padding: 0.9rem 1rem;
-  border: 1px solid rgba(19, 43, 71, 0.12);
-  border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.94);
-}
-
-.form-group select:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+  margin-bottom: var(--sm-space-4);
 }
 
 .form-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 0.8rem;
-  margin-top: 1rem;
+  gap: var(--sm-space-3);
+  margin-top: var(--sm-space-5);
 }
 
 .filtros {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.8rem;
-  margin-bottom: 1rem;
+  gap: var(--sm-space-4);
 }
 
 .filtro-grupo {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  min-width: 11rem;
-}
-
-.filtro-grupo label {
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--sm-text-soft);
+  flex: 1 1 14rem;
+  min-width: 12rem;
 }
 
 .tabla-contenedor {
-  overflow-x: auto;
-}
-
-.tabla {
+  /* scroll-x horizontal provisto por .sm-table-wrap (sin overflow de página) */
   width: 100%;
-  border-collapse: collapse;
-  overflow: hidden;
-  border-radius: 1.5rem;
-  background: rgba(255, 255, 255, 0.84);
 }
 
-.tabla thead {
-  background: #163455;
-  color: #fffef9;
-}
-
-.tabla th,
-.tabla td {
-  padding: 1rem;
-  text-align: left;
-}
-
-.tabla td {
-  border-bottom: 1px solid rgba(19, 43, 71, 0.08);
-}
-
-.tabla tbody tr:hover {
-  background: rgba(15, 95, 168, 0.05);
-}
-
-.badge-estado {
-  display: inline-flex;
-  padding: 0.3rem 0.7rem;
-  border-radius: 999px;
-  font-size: 0.78rem;
-  font-weight: 800;
-  text-transform: capitalize;
-}
-
-.badge-pendiente { background: #fff5e9; color: var(--sm-warning); }
-.badge-activa { background: #eaf3ff; color: var(--sm-primary); }
-.badge-finalizada { background: #edf8f1; color: var(--sm-success); }
-.badge-retirada { background: #f0f3fa; color: #6b7280; }
-.badge-anulada { background: #fff0ed; color: var(--sm-danger); }
-.badge-trasladada { background: #eef1fb; color: #5b4b9e; }
-
-.sin-datos,
-.cargando {
-  color: var(--sm-text-soft);
-  padding: 2rem;
+.sin-datos {
+  padding: var(--sm-space-6);
   text-align: center;
-}
-
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  background: rgba(11, 24, 39, 0.45);
-  backdrop-filter: blur(6px);
-}
-
-.modal {
-  width: min(100%, 30rem);
-  padding: 1.8rem;
-  border-radius: 1.6rem;
-  background: rgba(255, 255, 255, 0.92);
-}
-
-.modal h3 {
-  margin: 0 0 0.75rem;
-}
-
-.modal-detalle {
-  margin: 0 0 0.75rem;
   color: var(--sm-text-soft);
 }
 
-@media (max-width: 900px) {
-  .page-container {
-    padding: 1rem;
+.cargando {
+  margin: 0;
+  color: var(--sm-text-soft);
+}
+
+@media (max-width: 700px) {
+  .page-header {
+    flex-wrap: wrap;
   }
 
-  .page-header,
-  .filtros {
-    display: grid;
-    grid-template-columns: 1fr;
+  .page-header h1 {
+    flex-basis: 100%;
   }
 
   .form-grid {

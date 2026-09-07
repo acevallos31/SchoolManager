@@ -1,52 +1,53 @@
 <div class="page-container">
   <div class="page-header">
-    <button class="btn-volver" type="button" (click)="volver()">← Volver</button>
-    <h1>🎓 Gestión de Matrículas</h1>
+    <h1 class="sm-page-title">Gestión de Matrículas</h1>
     @if (puedeCrear) {
-      <button class="btn-nuevo" type="button" (click)="abrirFormulario()" [disabled]="guardando">
+      <button class="sm-btn sm-btn--primary" type="button" (click)="abrirFormulario()" [disabled]="guardando">
         + Nueva Matrícula
       </button>
     }
   </div>
 
   @if (mensaje) {
-    <div class="mensaje" [class.mensaje-error]="esError" role="status">{{ mensaje }}</div>
+    <div class="sm-alert" [class.sm-alert--error]="esError" [class.sm-alert--success]="!esError" role="status">
+      {{ mensaje }}
+    </div>
   }
 
   @if (mostrarFormulario && puedeCrear) {
-    <div class="formulario">
-      <h3>Registrar nueva matrícula</h3>
+    <form class="formulario sm-card" (ngSubmit)="crearMatricula()">
+      <h3 class="sm-section-title">Registrar nueva matrícula</h3>
       <div class="form-grid">
-        <div class="form-group">
-          <label for="nuevaAlumno">Alumno *</label>
-          <select id="nuevaAlumno" [(ngModel)]="nueva.alumnoId" name="nuevaAlumno">
+        <div class="sm-field form-group">
+          <label class="sm-label" for="nuevaAlumno">Alumno *</label>
+          <select id="nuevaAlumno" class="sm-select" [(ngModel)]="nueva.alumnoId" name="nuevaAlumno">
             <option value="">Seleccionar alumno</option>
             @for (a of alumnos; track a.id) {
               <option [value]="a.id">{{ a.nombreCompleto }}</option>
             }
           </select>
         </div>
-        <div class="form-group">
-          <label for="nuevaCiclo">Ciclo escolar *</label>
-          <select id="nuevaCiclo" [(ngModel)]="nueva.cicloId" name="nuevaCiclo" (ngModelChange)="alSeleccionarCiclo()">
+        <div class="sm-field form-group">
+          <label class="sm-label" for="nuevaCiclo">Ciclo escolar *</label>
+          <select id="nuevaCiclo" class="sm-select" [(ngModel)]="nueva.cicloId" name="nuevaCiclo" (ngModelChange)="alSeleccionarCiclo()">
             <option value="">Seleccionar ciclo</option>
             @for (c of ciclos; track c.id) {
               <option [value]="c.id">{{ c.nombre }}</option>
             }
           </select>
         </div>
-        <div class="form-group">
-          <label for="nuevaSeccion">Sección *</label>
-          <select id="nuevaSeccion" [(ngModel)]="nueva.seccionId" name="nuevaSeccion" [disabled]="!nueva.cicloId">
+        <div class="sm-field form-group">
+          <label class="sm-label" for="nuevaSeccion">Sección *</label>
+          <select id="nuevaSeccion" class="sm-select" [(ngModel)]="nueva.seccionId" name="nuevaSeccion" [disabled]="!nueva.cicloId">
             <option value="">Seleccionar sección</option>
             @for (s of secciones; track s.id) {
               <option [value]="s.id">{{ s.nombre }} ({{ s.gradoNombre }}{{ s.jornadaNombre ? ' · ' + s.jornadaNombre : '' }})</option>
             }
           </select>
         </div>
-        <div class="form-group">
-          <label for="nuevaPeriodo">Período de matrícula *</label>
-          <select id="nuevaPeriodo" [(ngModel)]="nueva.periodoMatriculaId" name="nuevaPeriodo" [disabled]="!nueva.cicloId">
+        <div class="sm-field form-group">
+          <label class="sm-label" for="nuevaPeriodo">Período de matrícula *</label>
+          <select id="nuevaPeriodo" class="sm-select" [(ngModel)]="nueva.periodoMatriculaId" name="nuevaPeriodo" [disabled]="!nueva.cicloId">
             <option value="">Seleccionar período</option>
             @for (p of periodos; track p.id) {
               <option [value]="p.id">{{ p.nombre }}</option>
@@ -55,37 +56,37 @@
         </div>
       </div>
       <div class="form-actions">
-        <button class="btn-cancelar" type="button" (click)="cerrarFormulario()" [disabled]="guardando">Cancelar</button>
-        <button class="btn-guardar" type="button" (click)="crearMatricula()" [disabled]="guardando">
+        <button class="sm-btn sm-btn--secondary" type="button" (click)="cerrarFormulario()" [disabled]="guardando">Cancelar</button>
+        <button class="sm-btn sm-btn--primary" type="submit" [disabled]="guardando">
           {{ guardando ? 'Registrando...' : 'Guardar matrícula' }}
         </button>
       </div>
-    </div>
+    </form>
   }
 
   @if (puedeVer) {
     <div class="filtros">
-      <div class="filtro-grupo">
-        <label for="filtroAlumno">Alumno</label>
-        <select id="filtroAlumno" [(ngModel)]="filtros.alumnoId" name="filtroAlumno">
+      <div class="sm-field filtro-grupo">
+        <label class="sm-label" for="filtroAlumno">Alumno</label>
+        <select id="filtroAlumno" class="sm-select" [(ngModel)]="filtros.alumnoId" name="filtroAlumno">
           <option value="">Todos</option>
           @for (a of alumnos; track a.id) {
             <option [value]="a.id">{{ a.nombreCompleto }}</option>
           }
         </select>
       </div>
-      <div class="filtro-grupo">
-        <label for="filtroCiclo">Ciclo escolar</label>
-        <select id="filtroCiclo" [(ngModel)]="filtros.cicloId" name="filtroCiclo">
+      <div class="sm-field filtro-grupo">
+        <label class="sm-label" for="filtroCiclo">Ciclo escolar</label>
+        <select id="filtroCiclo" class="sm-select" [(ngModel)]="filtros.cicloId" name="filtroCiclo">
           <option value="">Todos</option>
           @for (c of ciclosDisponibles; track c.id) {
             <option [value]="c.id">{{ c.nombre }}</option>
           }
         </select>
       </div>
-      <div class="filtro-grupo">
-        <label for="filtroEstado">Estado</label>
-        <select id="filtroEstado" [(ngModel)]="filtros.estado" name="filtroEstado">
+      <div class="sm-field filtro-grupo">
+        <label class="sm-label" for="filtroEstado">Estado</label>
+        <select id="filtroEstado" class="sm-select" [(ngModel)]="filtros.estado" name="filtroEstado">
           <option value="">Todos</option>
           @for (e of estados; track e) {
             <option [value]="e">{{ e }}</option>
@@ -95,10 +96,13 @@
     </div>
 
     @if (cargando) {
-      <p class="cargando">Cargando matrículas...</p>
+      <div class="sm-state">
+        <span class="sm-spinner" aria-hidden="true"></span>
+        <p class="cargando">Cargando matrículas...</p>
+      </div>
     } @else {
-      <div class="tabla-contenedor">
-        <table class="tabla">
+      <div class="tabla-contenedor sm-table-wrap">
+        <table class="tabla sm-table">
           <thead>
             <tr>
               <th>Alumno</th>
@@ -130,11 +134,11 @@
                 @if (puedeCambiarEstado) {
                   <td>
                     @if (puedeTransicionar(m)) {
-                      <button class="btn-cambio" type="button" (click)="abrirCambioEstado(m)">
+                      <button class="btn-cambio sm-btn sm-btn--secondary sm-btn--sm" type="button" (click)="abrirCambioEstado(m)">
                         Cambiar
                       </button>
                     } @else {
-                      <span aria-label="Estado terminal">—</span>
+                      <span class="sm-metadata" aria-label="Estado terminal">—</span>
                     }
                   </td>
                 }
@@ -151,27 +155,27 @@
   }
 
   @if (cambioDe.matricula) {
-    <div class="modal-overlay">
-      <div class="modal">
-        <h3>Cambiar estado — {{ cambioDe.matricula.nombreAlumno }}</h3>
-        <p class="modal-detalle">Estado actual: <strong>{{ cambioDe.matricula.estado }}</strong></p>
-        <div class="form-group">
-          <label for="cambioEstado">Nuevo estado *</label>
-          <select id="cambioEstado" [(ngModel)]="cambioDe.estado" name="cambioEstado">
+    <div class="sm-modal-overlay">
+      <div class="sm-modal" role="dialog" aria-modal="true" aria-label="Cambiar estado de matrícula">
+        <h3 class="sm-modal__title">Cambiar estado — {{ cambioDe.matricula.nombreAlumno }}</h3>
+        <p class="sm-modal__detail">Estado actual: <strong>{{ cambioDe.matricula.estado }}</strong></p>
+        <div class="sm-field form-group">
+          <label class="sm-label" for="cambioEstado">Nuevo estado *</label>
+          <select id="cambioEstado" class="sm-select" [(ngModel)]="cambioDe.estado" name="cambioEstado">
             @for (e of estadosDisponiblesCambio; track e) {
               <option [value]="e">{{ e }}</option>
             }
           </select>
         </div>
         @if (requiereMotivo) {
-          <div class="form-group">
-            <label for="cambioMotivo">Motivo * (obligatorio para este estado)</label>
-            <textarea id="cambioMotivo" [(ngModel)]="cambioDe.motivo" name="cambioMotivo" rows="3"></textarea>
+          <div class="sm-field form-group">
+            <label class="sm-label" for="cambioMotivo">Motivo * (obligatorio para este estado)</label>
+            <textarea id="cambioMotivo" class="sm-textarea" [(ngModel)]="cambioDe.motivo" name="cambioMotivo" rows="3"></textarea>
           </div>
         }
         <div class="form-actions">
-          <button class="btn-cancelar" type="button" (click)="cerrarCambioEstado()" [disabled]="guardando">Cancelar</button>
-          <button class="btn-guardar" type="button" (click)="aplicarCambioEstado()" [disabled]="guardando || !cambioDe.estado">
+          <button class="sm-btn sm-btn--secondary" type="button" (click)="cerrarCambioEstado()" [disabled]="guardando">Cancelar</button>
+          <button class="sm-btn sm-btn--primary" type="button" (click)="aplicarCambioEstado()" [disabled]="guardando || !cambioDe.estado">
             {{ guardando ? 'Guardando...' : 'Aplicar' }}
           </button>
         </div>
