@@ -6,6 +6,11 @@
 frontend + cobertura; **análisis estático C# del backend pendiente** (residual,
 ver abajo) · E2E autenticado pendiente de staging (acción humana #2)
 
+> **Nota de cierre (029B, 2026-09-07):** el residual de este bloque — análisis
+> estático C# del backend — quedó **RESUELTO** en el Bloque 029B con SonarScanner
+> for .NET (ver `docs/handoffs/029B-sonarcloud-csharp.md`). Este handoff queda
+> como registro histórico del estado PARCIAL intermedio.
+
 ## Resumen ejecutivo
 - **SonarCloud ya no es falso-verde: el job `sonarcloud` corre análisis real.**
   `SONAR_TOKEN` válido; action oficial `SonarSource/sonarqube-scan-action@v8.2.1`;

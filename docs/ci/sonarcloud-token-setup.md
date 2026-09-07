@@ -1,10 +1,9 @@
-# Configuración de SONAR_TOKEN para SonarCloud (Bloque 029)
+# Configuración de SONAR_TOKEN para SonarCloud (Bloque 029 / 029B)
 
 > **Estado: RESUELTO (2026-09-07).** `SONAR_TOKEN` está configurado como secret
 > del repositorio y el análisis real de SonarCloud pasa (ver sección «Estado
 > actual» al final). Este documento conserva el procedimiento por si hay que
-> regenerar/rotar el token, y documenta la regla de directorios de
-> `sonar-project.properties`.
+> regenerar/rotar el token, y documenta la regla de directorios.
 
 ## Por qué existe este documento
 
@@ -72,7 +71,7 @@ puede automatizar desde el repo.
 
 ## Regla importante: `sonar.sources` y `sonar.tests` aceptan DIRECTORIOS, no wildcards
 
-SonarScanner (desde 8.x) **rechaza comodines** (`**`, `*`) en las propiedades
+SonarScanner **rechaza comodines** (`**`, `*`) en las propiedades
 `sonar.sources` y `sonar.tests`. Si se usan, el análisis falla en la fase de
 configuración con (exit code 3):
 
@@ -81,45 +80,56 @@ ERROR Invalid value of sonar.tests for SchoolManager
 ERROR Wildcards ** and * are not supported in "sonar.sources" and "sonar.tests".
 ```
 
-Reglas de `sonar-project.properties`:
+> **Nota (029B):** con la migración a **SonarScanner for .NET**, `sonar-project.properties`
+> **ya no existe**: el scanner .NET no lo lee (da error si está presente). Las mismas
+> propiedades se pasan como argumentos `/d:` en el paso `begin` del job `sonarcloud`
+> de `deploy.yml`. La regla de directorios (sin wildcards en `sonar.sources`/`sonar.tests`)
+> sigue aplicando igual.
+
+Reglas (aplican igual en `sonar-project.properties` o vía `/d:` en el `begin`):
 
 - `sonar.sources` y `sonar.tests` aceptan **solo listas de directorios**
   separadas por coma (sin `**` ni `*`).
   - `sonar.sources=backend,frontend/schoolmanager-frontend/src`
   - `sonar.tests=tests`
-- Los archivos que deban **excluirse** (artefactos, build, coverage) y los
-  specs colocalizados se gestionan con `sonar.exclusions`, que **sí** admite
-  wildcards.
+- Los archivos que deban **excluirse** (artefactos, build, coverage, `e2e/`) y
+  los specs colocalizados se gestionan con `sonar.exclusions`, que **sí** admite
+  wildcards. Por eso el paso `begin` fija `set -f` para que los patrones `**` se
+  pasen literales al scanner (sin expansión del shell).
 - Los `.spec.ts` colocalizados bajo un directorio declarado en
   `sonar.sources` **no se pueden clasificar como tests** por patrón (un dir
   de `sonar.tests` no admite wildcards para recogerlos), así que se **excluyen**
   del análisis vía `sonar.exclusions`. La cobertura sigue siendo correcta
   porque el reporte LCOV de vitest solo mide código productivo.
 
-Esto se corrigió en el commit `e76cedc` (Bloque 029). Ver
-`sonar-project.properties` para la config completa.
+Esto se corrigió originalmente en el commit `e76cedc` (Bloque 029) y se mantuvo
+en el 029B al pasar la configuración a `/d:` en el `begin`.
 
 ## Estado actual (2026-09-07)
 
 - `SONAR_TOKEN` **configurado** como secret del repositorio y **válido**
   (validado contra `/api/authentication/validate` → `valid=true`); GitHub lo
   inyecta correctamente (`SONAR_TOKEN: ***` en los logs).
-- El job `sonarcloud` usa la **action oficial**
-  `SonarSource/sonarqube-scan-action@v8.2.1` (auto-aprovisiona su JRE y su
-  sonar-scanner), en lugar del CLI descargado manualmente (que moría con
-  `exit 8` sin salida útil).
-- El análisis **real** pasa: cobertura backend (Cobertura) y frontend (LCOV)
+- El job `sonarcloud` usa **SonarScanner for .NET** (`dotnet-sonarscanner`,
+  tool v11.3.0) con flujo `begin → dotnet build (tests) → end`, análisis
+  estático **C# + frontend TS** (scanAll) + coberturas (Bloque 029B). El QG se
+  verifica con `SonarSource/sonarqube-quality-gate-action` pineado por SHA.
+- El análisis **real** pasa: backend C# procesado (sin warning
+  `cannot be analyzed`), cobertura backend (Cobertura) y frontend (LCOV)
   importadas, `ANALYSIS SUCCESSFUL`, Quality Gate del PR **en verde**.
-  Run validado: **34154637093** (HEAD `e76cedc`).
+  Run validado 029B: **34160443496** (HEAD `6e3299a`).
 - El guard anti falso-verde permanece activo: si `SONAR_TOKEN` faltara, el job
   fallaría en rojo explícito en vez de saltarse.
 
 ## Referencias en el repositorio
 
-- `.github/workflows/deploy.yml` — job `sonarcloud` (action oficial v8.2.1) +
-  guard anti falso-verde.
-- `sonar-project.properties` — configuración del análisis (sources/tests solo
-  directorios, rutas de cobertura backend/frontend, exclusiones).
+- `.github/workflows/deploy.yml` — job `sonarcloud` (SonarScanner for .NET +
+  paso de Quality Gate + guard anti falso-verde).
+- La configuración del análisis (sources/tests solo directorios, rutas de
+  cobertura backend/frontend, exclusiones) se pasa como `/d:` en el `begin`
+  del job; **ya no existe `sonar-project.properties`** (el scanner .NET no lo
+  lee).
 - `.gitignore` — ignora `.env`, `.env.local`, `**/environment.secret.ts`,
   `*.env` (los secretos del frontend no se commitean).
-- `docs/handoffs/029-calidad-sonar-e2e.md` — handoff del bloque con el cierre.
+- `docs/handoffs/029B-sonarcloud-csharp.md` — handoff del bloque que cerró el
+  residual C#; `docs/handoffs/029-calidad-sonar-e2e.md` — handoff del 029.
