@@ -4,6 +4,7 @@
 -- / configuracion.periodos_matricula.* (previa a 023), ni las RPC 014/015, ni
 -- los datos de ciclos_escolares/periodos_matricula. roles_permisos se limpia
 -- por cascada (FK ON DELETE CASCADE) al eliminar los permisos.
+begin;
 
 delete from public.roles_permisos
 where permiso_id in (
@@ -23,3 +24,9 @@ where codigo in (
     'academico.ciclos.editar',
     'academico.ciclos.desactivar'
 );
+
+-- Elimina el registro de la migracion para permitir reversiones completas
+-- (patron 022: cada rollback desregistra su version en schema_migrations).
+delete from public.schema_migrations where version = '023';
+
+commit;
