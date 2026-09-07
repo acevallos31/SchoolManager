@@ -85,47 +85,68 @@ Institución -> Ciclo -> Período matrícula -> Grado -> Jornada opcional -> Sec
   consumen tokens/primitivas (botones, cards, tablas, badges, inputs, modal, tabs)
   sin estilos paralelos ni cambio de lógica de negocio.
 - **Adoptado en 026 (PR #49, mergeado en `main` como `5acab12`)**: `/cargos` y
-  `/pagos` migrados a la misma foundation `sm-*`. Los KPIs de resumen quedan como
-  maquetación local por página; warning de budget de `pagos.css` resuelto. Sin
-  cambios de lógica funcional ni backend/DB.
+  `/pagos` migrados a la misma foundation `sm-*`.
 - **Adoptado en 027 (PR #50, mergeado en `main` como `ba3c78fa19389d2d27ce31948bdb2a14bf6dcfe8`)**:
-  `/portal-padre` migrado a la misma foundation `sm-*` (cabecera de marca propia
-  fuera del AppShell, selector de alumno con botones, KPIs con `sm-card`, pestañas
-  `sm-tabs`, tablas `sm-table`, badges por estado y estados
-  `sm-state`/`sm-spinner`/`sm-alert`). `PortalResponsableService` intacto; sin
-  cambios backend/DB ni lógica funcional.
-- **Bloque 028 — cierre UX final (ACTIVO)**: rama
-  `feature/ui-ux-cierre-028`, creada desde `main` después del merge de PR #50.
-  Objetivo: auditoría transversal y correcciones UX pequeñas de consistencia,
-  responsive, accesibilidad básica, estados visuales y limpieza CSS; no agrega
-  funcionalidades ni cambia contratos, backend, DB o reglas de negocio. Debe cerrar
-  con suite FE/build/CI/Sonar/Vercel y revisión visual desktop/tablet/móvil, además
-  de documentación final del rediseño.
+  `/portal-padre` migrado a la misma foundation `sm-*`; sin cambios backend/DB ni lógica funcional.
+- **Bloque 028 — cierre UX final: COMPLETADO y mergeado** en PR #51 como
+  `a80c19cc10520f0d2cc6c820c288db9bb28631ab`. Cerró auditoría UX, responsive,
+  accesibilidad básica y limpieza CSS. Suite FE 184/184 y build OK. La revisión
+  visual final fue estática; E2E autenticado quedó pendiente por falta de staging.
 - Módulos navegables (rutas lazy): `/configuracion`, `/configuracion/ciclos`,
   `/configuracion/estructura-academica`, `/configuracion/conceptos-financieros`,
   `/configuracion/planes-pago`, `/responsables`, `/matriculas`, `/alumnos`,
-  `/cargos`, `/pagos` (contextuales desde Alumnos/Cargos), y `/portal-padre`
-  (responsable, solo lectura).
+  `/cargos`, `/pagos` (contextuales desde Alumnos/Cargos), y `/portal-padre`.
 - Guard de navegación: `PermissionGuard` (lee `route.data['permiso']`); solo las
-  rutas autenticadas. `AdminGuard`/`PadreGuard` fueron **eliminados** (código
-  muerto, 023) — no reintroducirlos.
-- **Páginas de negocio que aún consultan Supabase directo** (sin controller .NET
-  equivalente, flujo real que funciona contra Supabase): `alumnos`, `matriculas`
-  (listado), `configuracion/ciclos` y `configuracion/estructura-academica`, vía
-  `alumno.service.ts`, `ciclo-escolar.service.ts`, `estructura-academica.service.ts`
-  y `configuracion.service.ts`. Migrarlas a la API .NET es deuda pendiente
-  registrada en `docs/technical-debt.md` (ver #10), NO reescribir de forma
-  aislada y NO incluirla en 028.
+  rutas autenticadas. `AdminGuard`/`PadreGuard` fueron eliminados (023) — no reintroducirlos.
+- **Páginas de negocio que aún consultan Supabase directo**: `alumnos`, `matriculas`
+  (listado), `configuracion/ciclos` y `configuracion/estructura-academica`. Esta es
+  deuda #10 registrada en `docs/technical-debt.md`; queda fuera del Bloque 029.
+
+## Calidad / Bloque 029 + 029B — CERRADO (verde real, análisis completo)
+Rama: `feature/calidad-sonar-e2e-029`, creada desde `main` después del merge de PR #51.
+
+Estado final (2026-09-07): **análisis SonarCloud completo y verde** — frontend TS +
+**backend C# real** (SonarScanner for .NET v11.3.0, flujo begin/build/end, tras el
+029B) + coberturas Cobertura backend y LCOV frontend importadas en el mismo proyecto.
+`SONAR_TOKEN` válido; `sonar-project.properties` **eliminado** (el scanner .NET no lo
+lee) y propiedades pasadas como `/d:` en el `begin` (`sonar.scanner.scanAll=true`
+conserva el TS; `e2e/**` excluido). Paso `sonarqube-quality-gate-action` (pineado por
+SHA) tras el `end` **falla el job si el QG no es verde** — anti falso-verde extendido
+al QG. **Quality Gate del PR #52 en verde** (run **34160443496**, head `6e3299a`,
+`✔ Quality Gate has PASSED`); warning `C# files which cannot be analyzed...` **ausente**
+(0 ocurrencias) y `.cs` realmente procesados (SchoolManager.API + IntegrationTests).
+Deudas: **#7 RESUELTA**, **#9 ACTUALIZADA/RESUELTA** (QG representativo del backend).
+El QG afloró y se corrigieron 2 vulns de código nuevo en el propio `deploy.yml`
+(S8482/S7637) que el scanner genérico ocultaba — prueba de que el anti falso-verde
+funciona. E2E: smoke 3/3 local passed; **autenticado pendiente de staging** (acción
+humana #2, ver `docs/ci/e2e-auth-setup.md`). PR #52 abierto contra `main` sin merge.
+
+Objetivo del bloque (original):
+- restaurar análisis **real** de SonarCloud/quality gate en CI (el job actual puede quedar verde con `sonar-scanner` skipped cuando `SONAR_TOKEN` está vacío);
+- diseñar y habilitar un entorno seguro de staging o equivalente para pruebas autenticadas;
+- ejecutar E2E autenticado de los flujos críticos sin tocar producción ni usar datos reales no autorizados;
+- documentar resultados, bloqueos y riesgos residuales.
+
+Restricciones:
+- no cambiar reglas de negocio, modelo de datos, migraciones ni arquitectura por conveniencia de pruebas;
+- no incluir deuda #10 de Supabase directo;
+- no usar producción para E2E destructivo;
+- secretos/tokens se configuran fuera del repositorio; nunca se commitean.
+
+Flujos E2E prioritarios:
+1. login y `/auth/me`;
+2. navegación/guards por permisos;
+3. alumnos → matrícula;
+4. alumno → cargos;
+5. registro y consulta de pagos;
+6. portal responsable read-only;
+7. responsive básico con sesión real cuando el entorno lo permita.
 
 ## Git y validación
 Las reglas operativas de Git, migraciones y validación están en `AGENTS.md`.
-Estado real del repo: 001-022 en `main`; **023 (cierre funcional pre-UX) mergeado
-en `main` (`702d2f1`, PR #46)**. Bloque **024 (UI/UX foundation + AppShell)
-mergeado en `main` (`e876ae1`, PR #47)**. Bloque **025 (adopción foundation en
-matrículas/responsables/configuración) mergeado en `main` (`38fe128`, PR #48)**.
-Bloque **026 (adopción foundation en cargos/pagos) mergeado en `main`
-(`5acab12`, PR #49)**. Bloque **027 (portal responsable) mergeado en `main`
-(`ba3c78fa19389d2d27ce31948bdb2a14bf6dcfe8`, PR #50)**. Bloque **028 activo**
-en `feature/ui-ux-cierre-028` y debe terminar en PR contra `main`, **sin merge
-automático por Hermes**. Sin cambios backend/DB en 025-028; deuda #10 (Supabase
-directo) sigue pendiente fuera del alcance del cierre UX.
+Estado real: 001-022 en `main`; 023 PR #46; 024 PR #47; 025 PR #48; 026 PR #49;
+027 PR #50; **028 PR #51 mergeado como `a80c19cc10520f0d2cc6c820c288db9bb28631ab`**.
+**029 + 029B CERRADOS** en `feature/calidad-sonar-e2e-029` (PR #52, sin merge):
+SonarCloud real y completo — frontend TS + backend C# (SonarScanner for .NET) +
+coberturas, Quality Gate verde representativo (deuda #7 RESUELTA, #9 actualizada).
+Deuda #10 (Supabase directo) sigue pendiente y fuera de 029.

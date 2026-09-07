@@ -151,35 +151,71 @@ sistema frágil (principios ISW2 #4, #5 y #12).
 
 ## 7. SonarCloud — cobertura generada en CI; import a Sonar pendiente de SONAR_TOKEN y paso manual
 
-- **Estado: PARCIAL (infraestructura lista; import sigue pendiente de acción manual).**
-- **Problema**: la cobertura **sí se genera** localmente y en CI (Coverlet →
-  `coverage.cobertura.xml` para .NET; `@vitest/coverage-v8` → `lcov.info` para
-  el frontend) y se sube como artifact en `deploy.yml`. El análisis automático
-  de SonarCloud **no importa reportes de cobertura**: solo el modo **CI Analysis**
-  (scanner con `SONAR_TOKEN` como secreto del repo) los consume.
-- **Qué ya se ha hecho (cierre deuda post-020.5A, rama `chore/cierre-deuda-post-0205a`)**
-  — infraestructura completa, sin depender del token:
-  - `sonar-project.properties` en la raíz del monorepo: proyecto
-    `SchoolManager`, organización `acevallos31`, cobertura backend Cobertura
-    (`coverage-backend/**/coverage.cobertura.xml`) y frontend LCOV
-    (`frontend/schoolmanager-frontend/coverage/**/lcov.info`), con exclusiones
-    de `node_modules`/`dist`/`bin`/`obj`/`coverage`.
-  - Job `sonarcloud` en `deploy.yml` (etapa 1.5): usa `sonar-scanner` CLI (no
-    `dotnet-sonarscanner`, que no procesa LCOV de TypeScript). El job **siempre
-    se crea** y el secret se lee **vía env** (`SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}`),
-    no evaluando `secrets.*` en un `if` del workflow; el **paso** de análisis se
-    salta si `env.SONAR_TOKEN == ''` — sin el secret no se importa nada, sin
-    fallar ni bloquear el deploy (ver `deploy.yml`).
-- **Riesgo**: la métrica de cobertura en SonarCloud sigue vacía hasta que el
-  mantenedor complete el paso manual; no se puede exigir Quality Gate de
-  cobertura.
-- **Prioridad**: Media.
-- **Paso manual pendiente (SOLO el mantenedor, requiere el token)**:
-  (a) añadir `SONAR_TOKEN` como secreto del repositorio; (b) **desactivar el
-  análisis automático** en el panel de SonarCloud (Organization → Analysis
-  Method → CI Analysis) — paso manual, no automatizable vía repo; (c) el job
-  `sonarcloud` de `deploy.yml` se activará solo y usará `sonar-project.properties`.
-  **No se debe afirmar que la cobertura ya se importa** mientras no ocurra.
+- **Estado: RESUELTO (Bloque 029 + 029B, 2026-09-07, PR #52 `6e3299a`).** Análisis
+  estático **completo** en CI: frontend TS + **backend C# real** + coberturas
+  (C# Cobertura + LCOV frontend), con Quality Gate **verde y representativo**.
+  El residual del 029 (C# no analizado por el scanner genérico) quedó **cerrado**
+  en el 029B. Confirmado en logs (run `34160443496`): el warning
+  `C# files which cannot be analyzed with the scanner you are using` **ya no
+  aparece** (0 ocurrencias) y Sonar **procesa realmente los `.cs`** (módulos
+  `SchoolManager.API`, `SchoolManager.API.IntegrationTests`,
+  `SchoolManager.Database.IntegrationTests` indexados).
+- **Problema (histórico)**: la cobertura **sí se genera** localmente y en CI
+  (Coverlet → `coverage.cobertura.xml` para .NET; `@vitest/coverage-v8` →
+  `lcov.info` para el frontend) y se sube como artifact en `deploy.yml`. El
+  análisis automático de SonarCloud **no importa reportes de cobertura**: solo
+  el modo **CI Analysis** (scanner con `SONAR_TOKEN` como secreto del repo) los
+  consume.
+- **Qué se hizo en el Bloque 029 (avance previo)**:
+  - `SONAR_TOKEN` configurado como secret del repo y **válido**.
+  - Migración de la descarga manual del CLI (exit 8) a la action oficial
+    `SonarSource/sonarqube-scan-action@v8.2.1` (commits `f635a23`/`e76cedc`),
+    con `sonar.sources`/`sonar.tests` en **solo directorios** (sin wildcards).
+  - Guard anti falso-verde: si falta `SONAR_TOKEN`, el job **falla en rojo**.
+- **Qué se hizo en el Bloque 029B (residual C# cerrado, commits `11b5146` →
+  `6e3299a`)**: se sustituyó la action genérica por **SonarScanner for .NET**
+  (`dotnet-sonarscanner`, tool v11.3.0) con flujo `begin → dotnet build (tests)
+  → end` en el job `sonarcloud` de `deploy.yml`:
+  - Se **eliminó `sonar-project.properties`** (el scanner .NET NO lo lee y da
+    error si existe); todas las propiedades se pasan como `/d:` en el `begin`
+    (`sonar.organization=acevallos31`, `sonar.projectKey=SchoolManager`,
+    `sonar.host.url=https://sonarcloud.io`, `sonar.scanner.scanAll=true` para
+    conservar el análisis TS/frontend, `sonar.cs.cobertura.reportsPaths` para la
+    cobertura backend Cobertura, `sonar.typescript.lcov.reportPaths` para el
+    frontend, y `sonar.exclusions` que ahora **incluye `e2e/**`**). Se fijó
+    `set -f` en el paso para que los patrones `**` pasen literales al scanner.
+    `sonar.sources`/`sonar.tests` NO se pasan: el scanner .NET los ignora con un
+    WARNING (no los soporta) — C#/tests se obtienen de los `.csproj` que se
+    compilan y `scanAll=true` incorpora el TS; el alcance se afina solo con
+    exclusions/inclusions.
+  - Se añadió el paso **`SonarSource/sonarqube-quality-gate-action`** (pineado
+    por SHA `7a5fffe8e523c40e0c740b6bc2712ab503e52efa` = v1.2.1) tras el `end`:
+    lee `report-task.txt`, consulta el QG del PR y **falla el job si no es
+    verde** — anti falso-verde extendido al Quality Gate (la app de SonarCloud
+    no crea check QG con el scanner CLI).
+  - **El QG quedó genuinamente representativo**: al analizar C# por primera vez
+    afloraron 2 vulnerabilidades en código nuevo del propio `deploy.yml`
+    (`githubactions:S8482` BLOCKER por un paso diagnóstico `curl | python3`, y
+    `githubactions:S7637` MAJOR por la action QG en tag en vez de SHA), que
+    eran **invisibles con el scanner genérico**. Se corrigieron (paso
+    diagnóstico eliminado; action pineada por SHA) y el QG pasó verde. Esto es
+    la prueba de que el anti falso-verde funciona: el rojo previo era legítimo,
+    no un artefacto.
+- **Qué SÍ se analiza e importa hoy (verificado en el log del run `34160443496`):**
+  - Backend C#: análisis estático real (módulos .NET indexados, sin skip).
+  - Frontend TypeScript/Angular: análisis real (`Creating TypeScript(6.0.3)
+    program ...tsconfig.json`, `Analyzing 59 file(s)`).
+  - Coberturas: backend Cobertura (`Parsing the Cobertura report
+    ...coverage.cobertura.xml`; `Coverage Report Statistics: 39 files, 15 main
+    files, 15 main files with coverage`) y frontend LCOV (`Analysing ...lcov.info`).
+  - Quality Gate: **`✔ Quality Gate has PASSED`** (`ANALYSIS SUCCESSFUL`,
+    dashboard `pullRequest=52`).
+- **Riesgo residual (menor, no bloquea)**: otros `uses:` del workflow siguen en
+  tags (`@v4`) y no en SHA — no fueron señalados como vulnerabilidades de código
+  nuevo (no están en el diff del PR), pero conviene pinearlos por SHA en un
+  futuro hardening. El pin `@v8.2.1` de `sonarqube-scan-action` quedó obsoleto
+  al migrar a SonarScanner for .NET; revisar al publicarse versiones nuevas.
+- **Prioridad**: Resuelta (alta hasta el 029B).
 
 ## 8. Duplicación de código — estructural (no por permisos)
 
@@ -221,9 +257,12 @@ sistema frágil (principios ISW2 #4, #5 y #12).
 
 ## 9. Cobertura de tests — línea base real y umbral propuesto
 
-- **Estado: PARCIAL (PR de hardening pre-021)** — gate de regresión local/CI
-  implementado; el Quality Gate de "New Code" de SonarCloud sigue pendiente de
-  #7 (requiere SONAR_TOKEN, no simulado).
+- **Estado: ACTUALIZADA / RESUELTA (Bloque 029 + 029B, 2026-09-07).** Con el
+  Bloque 029B, el **Quality Gate de SonarCloud ya es representativo del backend**:
+  el análisis estático C# real corre (deuda #7 resuelta) y el QG del PR #52 pasa
+  **verde** sobre New Code que incluye backend + frontend + coberturas. La
+  métrica de New Code / diff coverage de SonarCloud ahora se calcula sobre todo
+  el proyecto (no solo frontend).
 - **Gate implementado (`scripts/check-coverage-gate.py` + step en
   `deploy.yml`/`validate-code`)**: compara la cobertura de líneas generada por
   CI contra un **baseline versionado** (`docs/coverage-baseline.json`) y falla
@@ -235,19 +274,19 @@ sistema frágil (principios ISW2 #4, #5 y #12).
   - **Backend** (`SchoolManager.API`, paquete productivo, excluye tests):
     **81.54%** líneas (1758/2156) — subió vs el 79.6% histórico.
   - **Frontend** (lcov.info, 40 archivos): **64.86%** líneas (1460/2251).
-- **Limitación documentada (por qué PARCIAL)**: el gate protege contra
-  **regresiones globales**, no contra caídas de cobertura en código **nuevo**
-  (New Code / diff coverage). La métrica real de New Code exige SonarCloud CI
-  Analysis (#7, `SONAR_TOKEN` + paso manual del mantenedor); no se simula esa
-  métrica. Una vez activo #7, aplicar el Quality Gate New Code ≥ 80% backend /
-  ≥ 70% frontend (recomendado en la propuesta original).
+- **Nuevo con 029B**: el QG del PR #52 pasa verde con análisis C# real (run
+  `34160443496`, `✔ Quality Gate has PASSED`). Queda **recomendado** configurar
+  el Quality Gate de New Code ≥ 80% backend / ≥ 70% frontend en el panel de
+  SonarCloud (paso manual del mantenedor), ahora que el backend C# está
+  analizado y la métrica es real.
+- **Limitación documentada**: el gate local protege contra **regresiones
+  globales**, no contra caídas de cobertura en código **nuevo** (eso lo cubre
+  el New Code de SonarCloud, hoy ya calculado sobre backend + frontend). El
+  gate local es un mínimo de contención, no un sustituto del New Code.
 - **Riesgo**: si se añade mucho código nuevo sin tests, la cobertura global
-  puede no caer bajo el gate pese a bajar la cobertura marginal de lo nuevo.
-  Es un gate mínimo de contención, no un sustituto del New Code de Sonar.
+  puede no caer bajo el gate pese a bajar la cobertura marginal de lo nuevo,
+  a menos que se aplique el umbral de New Code en SonarCloud.
 - **Prioridad**: Media.
-- **Cuándo abordarlo**: la parte restante (New Code real) depende de completar
-  #7. El gate de regresión local ya está activo y no requiere infraestructura
-  externa.
 
 ## 10. Páginas de negocio que consultan Supabase directo (sin pasar por la API .NET)
 
