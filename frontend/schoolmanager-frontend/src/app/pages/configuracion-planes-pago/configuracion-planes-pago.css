@@ -1,18 +1,122 @@
-.page { max-width: 1100px; margin: auto; padding: 2rem; }
-header, .heading { display: flex; justify-content: space-between; align-items: start; gap: 1rem; }
-section, form { margin-top: 1rem; padding: 1.3rem; border: 1px solid var(--sm-border); border-radius: 1rem; background: var(--sm-surface); }
-table { width: 100%; border-collapse: collapse; }
-th, td { padding: .7rem; border-bottom: 1px solid var(--sm-border); text-align: left; }
-button { margin: .2rem; padding: .55rem .8rem; border: 0; border-radius: 999px; cursor: pointer; }
-button.danger { background: #fde9e7; color: #912f2b; }
-form { display: flex; flex-wrap: wrap; gap: 1rem; align-items: start; }
-form label { display: grid; gap: .3rem; }
-input, select { padding: .6rem; border: 1px solid var(--sm-border); border-radius: .5rem; }
-.cuotas-block { flex: 1 1 100%; border-top: 1px solid var(--sm-border); padding-top: 1rem; }
-.cuotas-heading { display: flex; justify-content: space-between; align-items: center; }
-.cuota-row { display: flex; flex-wrap: wrap; gap: .8rem; align-items: end; padding: .6rem 0; border-bottom: 1px dashed var(--sm-border); }
-.total { font-weight: 700; margin-top: .6rem; }
-.actions { flex: 1 1 100%; display: flex; justify-content: flex-end; gap: .5rem; }
-.message, .empty { padding: 1rem; border-radius: .7rem; background: #e5f5eb; }
-.message.error { background: #fde9e7; color: #912f2b; }
-@media (max-width: 750px) { table { display: block; overflow: auto; } .page { padding: 1rem; } }
+/* Planes de pago — adopción visual (Bloque 025).
+   Primitivos (botones, cards, tablas, badges, inputs, alertas, estados)
+   consumidos de styles.css. Aquí solo maquetación específica del editor de
+   cuotas y layout de página. */
+
+.page-container {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-4);
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--sm-space-4);
+}
+
+.page-header .sm-helper {
+  margin-top: var(--sm-space-1);
+}
+
+.sm-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-4);
+}
+
+.panel-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sm-space-3);
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sm-space-2);
+}
+
+.plan-editor {
+  border: 1px solid var(--sm-border);
+  border-radius: var(--sm-radius-lg);
+  background: var(--sm-surface);
+  padding: var(--sm-space-5);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--sm-space-4);
+}
+
+.cuotas-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-4);
+  padding-top: var(--sm-space-2);
+  border-top: 1px solid var(--sm-border);
+}
+
+.cuota-row {
+  display: grid;
+  grid-template-columns: 5rem 1.4fr 1.2fr 1fr 6rem auto;
+  gap: var(--sm-space-3);
+  align-items: end;
+  padding: var(--sm-space-3);
+  border: 1px solid var(--sm-border);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-surface-muted);
+}
+
+.sm-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-1);
+}
+
+.sm-field--grow {
+  min-width: 0;
+}
+
+.cuota-remove {
+  display: flex;
+  align-items: center;
+}
+
+.plan-total {
+  margin: 0;
+  color: var(--sm-text);
+  font-size: var(--sm-fs-sm);
+}
+
+.plan-total strong {
+  font-weight: var(--sm-weight-semibold);
+}
+
+@media (max-width: 900px) {
+  .cuota-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .page-header,
+  .panel-heading {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sm-table-wrap {
+    overflow-x: auto;
+  }
+
+  .cuota-row {
+    grid-template-columns: 1fr;
+  }
+}

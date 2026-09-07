@@ -1,38 +1,97 @@
-<main class="page">
-  <header><div><p>Configuración</p><h1>Conceptos financieros</h1></div><button (click)="volver()">Volver</button></header>
+<main class="page-container">
+  <div class="page-header">
+    <div>
+      <p class="sm-eyebrow">Configuración</p>
+      <h1 class="sm-page-title">Conceptos financieros</h1>
+      <p class="sm-helper">Catálogo de conceptos de cobro para el ciclo escolar.</p>
+    </div>
+    <div class="page-header__actions">
+      <button type="button" class="sm-btn sm-btn--ghost" (click)="volver()">Volver</button>
+    </div>
+  </div>
 
-  @if (mensaje) { <p class="message" [class.error]="esError" role="status">{{ mensaje }}</p> }
+  @if (mensaje) {
+    <div class="sm-alert" [class.sm-alert--error]="esError" [class.sm-alert--success]="!esError" role="status">
+      {{ mensaje }}
+    </div>
+  }
 
-  <section>
-    <div class="heading"><h2>Catálogo de conceptos</h2>@if (puedeCrear) {<button (click)="abrirForm()">+ Nuevo concepto</button>}</div>
-    @if (cargando) { <p>Cargando...</p> }
-    @else if (!conceptos.length) { <div class="empty">No hay conceptos financieros configurados.@if (puedeCrear) {<button (click)="abrirForm()">Crear primer concepto</button>}</div> }
-    @else {
-      <table>
-        <thead><tr><th>Nombre</th><th>Monto</th><th>Descripción</th><th>Estado</th><th>Acciones</th></tr></thead>
-        <tbody>
-          @for (c of conceptos; track c.id) {
+  <section class="sm-card">
+    <div class="panel-heading">
+      <h2 class="sm-section-title">Catálogo de conceptos</h2>
+      @if (puedeCrear) {
+        <button type="button" class="sm-btn sm-btn--primary sm-btn--sm" (click)="abrirForm()">+ Nuevo concepto</button>
+      }
+    </div>
+
+    @if (cargando) {
+      <div class="sm-state" aria-live="polite">
+        <span class="sm-spinner" aria-hidden="true"></span>
+        <p class="sm-state__body">Cargando…</p>
+      </div>
+    } @else if (!conceptos.length) {
+      <div class="sm-state">
+        <p class="sm-state__title">No hay conceptos financieros configurados.</p>
+        @if (puedeCrear) {
+          <button type="button" class="sm-btn sm-btn--primary sm-btn--sm" (click)="abrirForm()">Crear primer concepto</button>
+        }
+      </div>
+    } @else {
+      <div class="sm-table-wrap">
+        <table class="sm-table">
+          <thead>
             <tr>
-              <td>{{ c.nombre }}</td><td>{{ c.monto | currency }}</td><td>{{ c.descripcion || '—' }}</td><td>{{ c.activo ? 'Activo' : 'Inactivo' }}</td>
-              <td>
-                @if (puedeEditar) {<button (click)="abrirForm(c)">Editar</button>}
-                @if (puedeDesactivar) {<button (click)="cambiarEstado(c)">{{ c.activo ? 'Desactivar' : 'Reactivar' }}</button>}
-              </td>
+              <th scope="col">Nombre</th>
+              <th scope="col">Monto</th>
+              <th scope="col">Descripción</th>
+              <th scope="col">Estado</th>
+              <th scope="col">Acciones</th>
             </tr>
-          }
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            @for (c of conceptos; track c.id) {
+              <tr>
+                <td>{{ c.nombre }}</td>
+                <td>{{ c.monto | currency }}</td>
+                <td>{{ c.descripcion || '—' }}</td>
+                <td><span class="sm-badge" [class.sm-badge--success]="c.activo" [class.sm-badge--neutral]="!c.activo">{{ c.activo ? 'Activo' : 'Inactivo' }}</span></td>
+                <td>
+                  @if (puedeEditar) {
+                    <button type="button" class="sm-btn sm-btn--ghost sm-btn--sm" (click)="abrirForm(c)">Editar</button>
+                  }
+                  @if (puedeDesactivar) {
+                    <button type="button" class="sm-btn sm-btn--ghost sm-btn--sm" (click)="cambiarEstado(c)">{{ c.activo ? 'Desactivar' : 'Reactivar' }}</button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
     }
   </section>
 
   @if (mostrarForm) {
-    <form (ngSubmit)="guardar()">
-      <h3>{{ editando ? 'Editar' : 'Nuevo' }} concepto</h3>
-      <label>Nombre<input name="cn" [(ngModel)]="conceptoForm.nombre"></label>
-      <label>Monto<input type="number" min="0" step="0.01" name="cm" [(ngModel)]="conceptoForm.monto"></label>
-      <label>Descripción<input name="cd" [(ngModel)]="conceptoForm.descripcion"></label>
-      <button type="button" (click)="mostrarForm = false">Cancelar</button>
-      <button [disabled]="guardando">{{ guardando ? 'Guardando...' : 'Guardar' }}</button>
-    </form>
+    <div class="sm-modal-overlay" (click)="mostrarForm = false">
+      <form class="sm-modal" (ngSubmit)="guardar()" (click)="$event.stopPropagation()">
+        <h2 class="sm-modal__title">{{ editando ? 'Editar' : 'Nuevo' }} concepto</h2>
+        <div class="sm-field">
+          <label class="sm-label" for="conceptoNombre">Nombre</label>
+          <input id="conceptoNombre" name="cn" class="sm-input" [(ngModel)]="conceptoForm.nombre" />
+        </div>
+        <div class="sm-field">
+          <label class="sm-label" for="conceptoMonto">Monto</label>
+          <input id="conceptoMonto" name="cm" type="number" min="0" step="0.01" class="sm-input" [(ngModel)]="conceptoForm.monto" />
+        </div>
+        <div class="sm-field">
+          <label class="sm-label" for="conceptoDescripcion">Descripción</label>
+          <input id="conceptoDescripcion" name="cd" class="sm-input" [(ngModel)]="conceptoForm.descripcion" />
+        </div>
+        <div class="sm-modal__actions">
+          <button type="button" class="sm-btn sm-btn--ghost" (click)="mostrarForm = false">Cancelar</button>
+          <button type="submit" class="sm-btn sm-btn--primary" [disabled]="guardando">{{ guardando ? 'Guardando…' : 'Guardar' }}</button>
+        </div>
+      </form>
+    </div>
   }
 </main>

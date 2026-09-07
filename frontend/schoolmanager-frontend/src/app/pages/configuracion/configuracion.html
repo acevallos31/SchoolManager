@@ -1,76 +1,92 @@
 <main class="configuration-shell">
-  <header>
-    <div><p class="eyebrow">Administración</p><h1>Configuración</h1><p>Datos y reglas funcionales de esta implementación.</p></div>
-    <button type="button" class="secondary" (click)="volver()">Volver</button>
-  </header>
+  <div class="page-header">
+    <div>
+      <p class="sm-eyebrow">Administración</p>
+      <h1 class="sm-page-title">Configuración</h1>
+      <p class="sm-helper">Datos y reglas funcionales de esta implementación.</p>
+    </div>
+    <button type="button" class="sm-btn sm-btn--secondary" (click)="volver()">Volver</button>
+  </div>
 
-  @if (mensaje) { <p class="message" [class.error]="esError" role="status">{{ mensaje }}</p> }
+  @if (mensaje) { <div class="sm-alert" [class.sm-alert--error]="esError" [class.sm-alert--success]="!esError" role="status">{{ mensaje }}</div> }
 
   @if (cargando) {
-    <p>Cargando configuración...</p>
+    <div class="sm-state"><span class="sm-spinner" aria-hidden="true"></span><p>Cargando configuración...</p></div>
   } @else if (configuracion) {
     @if (puedeVerCiclos) {
-      <section class="card navigation-card">
+      <section class="sm-card navigation-card">
         <div>
-          <h2>Ciclos escolares y períodos de matrícula</h2>
-          <p>Administra los ciclos escolares y sus períodos de matrícula.</p>
+          <h2 class="sm-section-title">Ciclos escolares y períodos de matrícula</h2>
+          <p class="sm-helper">Administra los ciclos escolares y sus períodos de matrícula.</p>
         </div>
-        <a class="configuration-link" routerLink="/configuracion/ciclos">Gestionar ciclos</a>
+        <a class="sm-btn sm-btn--primary sm-btn--sm configuration-link" routerLink="/configuracion/ciclos">Gestionar ciclos</a>
       </section>
     }
     @if (puedeVerEstructuraAcademica) {
-      <section class="card navigation-card">
-        <div><h2>Grados, jornadas y secciones</h2><p>Configura la estructura académica utilizada para organizar las secciones de cada ciclo.</p></div>
-        <a class="configuration-link" routerLink="/configuracion/estructura-academica">Gestionar estructura académica</a>
+      <section class="sm-card navigation-card">
+        <div>
+          <h2 class="sm-section-title">Grados, jornadas y secciones</h2>
+          <p class="sm-helper">Configura la estructura académica utilizada para organizar las secciones de cada ciclo.</p>
+        </div>
+        <a class="sm-btn sm-btn--primary sm-btn--sm configuration-link" routerLink="/configuracion/estructura-academica">Gestionar estructura académica</a>
       </section>
     }
     @if (puedeVerConceptosFinancieros) {
-      <section class="card navigation-card">
-        <div><h2>Conceptos financieros</h2><p>Define los montos y conceptos de cobro (matrícula, mensualidad, otros).</p></div>
-        <a class="configuration-link" routerLink="/configuracion/conceptos-financieros">Gestionar conceptos</a>
+      <section class="sm-card navigation-card">
+        <div>
+          <h2 class="sm-section-title">Conceptos financieros</h2>
+          <p class="sm-helper">Define los montos y conceptos de cobro (matrícula, mensualidad, otros).</p>
+        </div>
+        <a class="sm-btn sm-btn--primary sm-btn--sm configuration-link" routerLink="/configuracion/conceptos-financieros">Gestionar conceptos</a>
       </section>
     }
     @if (puedeVerPlanesPago) {
-      <section class="card navigation-card">
-        <div><h2>Planes de pago</h2><p>Configura planes con sus cuotas, montos y vencimientos.</p></div>
-        <a class="configuration-link" routerLink="/configuracion/planes-pago">Gestionar planes de pago</a>
+      <section class="sm-card navigation-card">
+        <div>
+          <h2 class="sm-section-title">Planes de pago</h2>
+          <p class="sm-helper">Configura planes con sus cuotas, montos y vencimientos.</p>
+        </div>
+        <a class="sm-btn sm-btn--primary sm-btn--sm configuration-link" routerLink="/configuracion/planes-pago">Gestionar planes de pago</a>
       </section>
     }
-    <section class="card">
+    <section class="sm-card">
       <div class="section-heading">
-        <div><h2>Centro educativo</h2><p>Información general de la institución.</p></div>
+        <div>
+          <h2 class="sm-section-title">Centro educativo</h2>
+          <p class="sm-helper">Información general de la institución.</p>
+        </div>
         @if (!editando && puedeEditarInstitucion) {
-          <button type="button" class="primary" (click)="iniciarEdicion()">{{ creando ? 'Configurar centro educativo' : 'Editar' }}</button>
+          <button type="button" class="sm-btn sm-btn--primary" (click)="iniciarEdicion()">{{ creando ? 'Configurar centro educativo' : 'Editar' }}</button>
         }
       </div>
 
       @if (editando) {
         <form (ngSubmit)="guardarInstitucion()">
           <div class="form-grid">
-            <label>Nombre *<input name="nombre" [(ngModel)]="formulario.nombre" required></label>
-            <label>Nombre corto<input name="nombreCorto" [(ngModel)]="formulario.nombreCorto"></label>
-            <label class="wide">Dirección<input name="direccion" [(ngModel)]="formulario.direccion"></label>
-            <label>Teléfono<input name="telefono" [(ngModel)]="formulario.telefono"></label>
-            <label>Correo<input name="correo" type="email" [(ngModel)]="formulario.correo"></label>
-            <label class="wide">URL del logo<input name="logoUrl" type="url" [(ngModel)]="formulario.logoUrl"></label>
+            <label class="sm-field"><span class="sm-label">Nombre *</span><input class="sm-input" name="nombre" [(ngModel)]="formulario.nombre" required></label>
+            <label class="sm-field"><span class="sm-label">Nombre corto</span><input class="sm-input" name="nombreCorto" [(ngModel)]="formulario.nombreCorto"></label>
+            <label class="sm-field wide"><span class="sm-label">Dirección</span><input class="sm-input" name="direccion" [(ngModel)]="formulario.direccion"></label>
+            <label class="sm-field"><span class="sm-label">Teléfono</span><input class="sm-input" name="telefono" [(ngModel)]="formulario.telefono"></label>
+            <label class="sm-field"><span class="sm-label">Correo</span><input class="sm-input" name="correo" type="email" [(ngModel)]="formulario.correo"></label>
+            <label class="sm-field wide"><span class="sm-label">URL del logo</span><input class="sm-input" name="logoUrl" type="url" [(ngModel)]="formulario.logoUrl"></label>
           </div>
 
-          <hr><h3>Identificación de alumnos</h3>
+          <hr><h3 class="sm-section-title">Identificación de alumnos</h3>
           <div class="checks">
-            <label><input type="checkbox" name="rneRequerido" [(ngModel)]="formulario.identificadores.rneRequerido"> RNE obligatorio</label>
-            <label><input type="checkbox" name="identificacionCivilRequerida" [(ngModel)]="formulario.identificadores.identificacionCivilRequerida"> Identificación civil obligatoria</label>
-            <label><input type="checkbox" name="codigoInternoRequerido" [(ngModel)]="formulario.identificadores.codigoInternoRequerido"> Código interno obligatorio</label>
+            <label class="sm-check"><input type="checkbox" name="rneRequerido" [(ngModel)]="formulario.identificadores.rneRequerido"> RNE obligatorio</label>
+            <label class="sm-check"><input type="checkbox" name="identificacionCivilRequerida" [(ngModel)]="formulario.identificadores.identificacionCivilRequerida"> Identificación civil obligatoria</label>
+            <label class="sm-check"><input type="checkbox" name="codigoInternoRequerido" [(ngModel)]="formulario.identificadores.codigoInternoRequerido"> Código interno obligatorio</label>
           </div>
           <fieldset>
-            <legend>Tipos de identificación permitidos</legend>
+            <legend class="sm-label">Tipos de identificación permitidos</legend>
             @for (tipo of tiposDisponibles; track tipo) {
-              <label><input type="checkbox" [checked]="tipoSeleccionado(tipo)" (change)="alternarTipo(tipo, $any($event.target).checked)"> {{ tipo }}</label>
+              <label class="sm-check"><input type="checkbox" [checked]="tipoSeleccionado(tipo)" (change)="alternarTipo(tipo, $any($event.target).checked)"> {{ tipo }}</label>
             }
           </fieldset>
 
           <div class="actions">
-            <button type="button" class="secondary" (click)="cancelarEdicion()" [disabled]="guardando">Cancelar</button>
-            <button type="submit" class="primary" [disabled]="guardando">{{ guardando ? 'Guardando...' : 'Guardar' }}</button>
+            <button type="button" class="sm-btn sm-btn--secondary" (click)="cancelarEdicion()" [disabled]="guardando">Cancelar</button>
+            <button type="submit" class="sm-btn sm-btn--primary" [disabled]="guardando">{{ guardando ? 'Guardando...' : 'Guardar' }}</button>
           </div>
         </form>
       } @else if (configuracion.institucion; as institucion) {
@@ -83,7 +99,7 @@
           <div><dt>Logo</dt><dd>{{ institucion.logoUrl || '—' }}</dd></div>
         </dl>
         @if (configuracion.identificadores; as ids) {
-          <hr><h3>Identificación de alumnos</h3>
+          <hr><h3 class="sm-section-title">Identificación de alumnos</h3>
           <ul class="identifier-summary">
             <li>RNE: {{ ids.rneRequerido ? 'obligatorio' : 'opcional' }}</li>
             <li>Identificación civil: {{ ids.identificacionCivilRequerida ? 'obligatoria' : 'opcional' }}</li>
@@ -92,14 +108,14 @@
           </ul>
         }
       } @else if (configuracion.multiplesInstituciones) {
-        <p class="empty">Seleccione una institución para continuar. El selector multi-institución se implementará posteriormente.</p>
+        <p class="sm-state">Seleccione una institución para continuar. El selector multi-institución se implementará posteriormente.</p>
       } @else {
-        <p class="empty">No hay un centro educativo configurado.</p>
+        <div class="sm-state"><p>No hay un centro educativo configurado.</p></div>
       }
     </section>
 
-    <section class="card mode-card">
-      <h2>Modo de instituciones</h2>
+    <section class="sm-card mode-card">
+      <h2 class="sm-section-title">Modo de instituciones</h2>
       <label class="toggle-row">
         <input type="checkbox" [ngModel]="configuracion.multiplesInstituciones"
           (ngModelChange)="cambiarModo($event)" [disabled]="!puedeEditarModo || guardando">

@@ -64,7 +64,7 @@ Institución -> Ciclo -> Período matrícula -> Grado -> Jornada opcional -> Sec
 - Una sección con matrículas no cambia ciclo, grado ni jornada.
 
 ## Estado frontend
-- **Foundation visual (Bloque 024, rama `feature/ui-ux-foundation-024`)**:
+- **Foundation visual (Bloque 024, mergeado a `main` como `e876ae1`, PR #47)**:
   design tokens `--sm-*` como fuente única de verdad en `src/styles.css` +
   primitivas globales (`.sm-btn`, `.sm-card`, `.sm-badge`, `.sm-table`,
   `.sm-input`, `.sm-state`, `.sm-spinner`, `.sm-alert`, tipografía jerárquica).
@@ -74,9 +74,17 @@ Institución -> Ciclo -> Período matrícula -> Grado -> Jornada opcional -> Sec
   topbar + sidebar persistente en escritorio y **drawer móvil con overlay**;
   navegación filtrada por permisos (`mostrarItem`); identidad con **roles reales**
   (no inventar nombre/institución). `/login` y `/portal-padre` quedan fuera del shell.
+  El Panel (dashboard) es visible para autenticados; **Matrículas exige
+  `academico.matriculas.ver`**.
 - **Foundation aplicada a**: AppShell, Dashboard (sin sidebar duplicado),
-  `/alumnos` (piloto master/detalle). El resto de pantallas conserva su contenido
-  interno y se migra en bloques posteriores sin rediseñarse desde cero.
+  `/alumnos` (piloto master/detalle).
+- **Adoptado en 025 (rama `feature/ui-ux-adopcion-025`, sin mergear)**:
+  `/matriculas`, `/responsables`, `/configuracion` (raíz) y los submódulos
+  `/configuracion/ciclos`, `/configuracion/estructura-academica`,
+  `/configuracion/conceptos-financieros`, `/configuracion/planes-pago` — todos
+  consumen tokens/primitivas (botones, cards, tablas, badges, inputs, modal, tabs)
+  sin estilos paralelos ni cambio de lógica de negocio.
+- **Pendiente de migrar**: `/cargos`, `/pagos` (bloque financiero siguiente).
 - Módulos navegables (rutas lazy): `/configuracion`, `/configuracion/ciclos`,
   `/configuracion/estructura-academica`, `/configuracion/conceptos-financieros`,
   `/configuracion/planes-pago`, `/responsables`, `/matriculas`, `/alumnos`,
@@ -96,6 +104,9 @@ Institución -> Ciclo -> Período matrícula -> Grado -> Jornada opcional -> Sec
 ## Git y validación
 Las reglas operativas de Git, migraciones y validación están en `AGENTS.md`.
 Estado real del repo: 001-022 en `main`; **023 (cierre funcional pre-UX) mergeado
-en `main` (`702d2f1`, PR #46)**. Bloque 024 (UI/UX foundation + AppShell) en la
-rama `feature/ui-ux-foundation-024`, PR contra main pendiente de revisión humana
-(no mergear).
+en `main` (`702d2f1`, PR #46)**. Bloque **024 (UI/UX foundation + AppShell)
+mergeado en `main` (`e876ae1`, PR #47)**. Bloque **025 (adopción foundation en
+matrículas/responsables/configuración) completo en la rama
+`feature/ui-ux-adopcion-025`**, PR contra main pendiente de revisión humana
+(no mergear). **Sin cambios backend/DB en 025; deuda #10 (Supabase directo)
+sigue pendiente.**

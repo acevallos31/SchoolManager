@@ -1,54 +1,135 @@
-<main class="page">
-  <header><div><p>Configuración</p><h1>Planes de pago</h1></div><button (click)="volver()">Volver</button></header>
+<main class="page-container">
+  <div class="page-header">
+    <div>
+      <p class="sm-eyebrow">Configuración</p>
+      <h1 class="sm-page-title">Planes de pago</h1>
+      <p class="sm-helper">Planes de cobro por cuotas asociadas a conceptos financieros.</p>
+    </div>
+    <div class="page-header__actions">
+      <button type="button" class="sm-btn sm-btn--ghost" (click)="volver()">Volver</button>
+    </div>
+  </div>
 
-  @if (mensaje) { <p class="message" [class.error]="esError" role="status">{{ mensaje }}</p> }
+  @if (mensaje) {
+    <div class="sm-alert" [class.sm-alert--error]="esError" [class.sm-alert--success]="!esError" role="status">{{ mensaje }}</div>
+  }
 
-  <section>
-    <div class="heading"><h2>Planes</h2>@if (puedeCrear) {<button (click)="abrirForm()">+ Nuevo plan</button>}</div>
-    @if (cargando) { <p>Cargando...</p> }
-    @else if (!planes.length) { <div class="empty">No hay planes de pago configurados.@if (puedeCrear) {<button (click)="abrirForm()">Crear primer plan</button>}</div> }
-    @else {
-      <table>
-        <thead><tr><th>Nombre</th><th>Cuotas</th><th>Monto total</th><th>Estado</th><th>Acciones</th></tr></thead>
-        <tbody>
-          @for (p of planes; track p.id) {
+  <section class="sm-card">
+    <div class="panel-heading">
+      <h2 class="sm-section-title">Planes</h2>
+      @if (puedeCrear) {
+        <button type="button" class="sm-btn sm-btn--primary sm-btn--sm" (click)="abrirForm()">+ Nuevo plan</button>
+      }
+    </div>
+
+    @if (cargando) {
+      <div class="sm-state" aria-live="polite">
+        <span class="sm-spinner" aria-hidden="true"></span>
+        <p class="sm-state__body">Cargando…</p>
+      </div>
+    } @else if (!planes.length) {
+      <div class="sm-state">
+        <p class="sm-state__title">No hay planes de pago configurados.</p>
+        @if (puedeCrear) {
+          <button type="button" class="sm-btn sm-btn--primary sm-btn--sm" (click)="abrirForm()">Crear primer plan</button>
+        }
+      </div>
+    } @else {
+      <div class="sm-table-wrap">
+        <table class="sm-table">
+          <thead>
             <tr>
-              <td>{{ p.nombre }}</td><td>{{ p.totalCuotas }}</td><td>{{ p.montoTotal | currency }}</td><td>{{ p.activo ? 'Activo' : 'Inactivo' }}</td>
-              <td>
-                @if (puedeEditar) {<button (click)="abrirForm(p)">Editar cuotas</button>}
-                @if (puedeDesactivar) {<button (click)="cambiarEstado(p)">{{ p.activo ? 'Desactivar' : 'Reactivar' }}</button>}
-              </td>
+              <th scope="col">Nombre</th>
+              <th scope="col">Cuotas</th>
+              <th scope="col">Monto total</th>
+              <th scope="col">Estado</th>
+              <th scope="col">Acciones</th>
             </tr>
-          }
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            @for (p of planes; track p.id) {
+              <tr>
+                <td>{{ p.nombre }}</td>
+                <td>{{ p.totalCuotas }}</td>
+                <td>{{ p.montoTotal | currency }}</td>
+                <td><span class="sm-badge" [class.sm-badge--success]="p.activo" [class.sm-badge--neutral]="!p.activo">{{ p.activo ? 'Activo' : 'Inactivo' }}</span></td>
+                <td>
+                  <div class="row-actions">
+                    @if (puedeEditar) {
+                      <button type="button" class="sm-btn sm-btn--ghost sm-btn--sm" (click)="abrirForm(p)">Editar cuotas</button>
+                    }
+                    @if (puedeDesactivar) {
+                      <button type="button" class="sm-btn sm-btn--ghost sm-btn--sm" (click)="cambiarEstado(p)">{{ p.activo ? 'Desactivar' : 'Reactivar' }}</button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
     }
   </section>
 
   @if (mostrarForm) {
-    <form (ngSubmit)="guardar()">
-      <h3>{{ editando ? 'Editar' : 'Nuevo' }} plan de pago</h3>
-      <label>Nombre<input name="pn" [(ngModel)]="planForm.nombre"></label>
-      <label>Descripción<input name="pd" [(ngModel)]="planForm.descripcion"></label>
+    <form class="sm-card plan-editor" (ngSubmit)="guardar()">
+      <h3 class="sm-section-title">{{ editando ? 'Editar' : 'Nuevo' }} plan de pago</h3>
 
-      <div class="cuotas-block">
-        <div class="cuotas-heading"><h4>Cuotas</h4><button type="button" (click)="agregarCuota()">+ Agregar cuota</button></div>
-        @for (cuota of planForm.cuotas; track $index) {
-          <div class="cuota-row">
-            <label>Orden<input type="number" min="1" name="co$index" [ngModel]="cuota.orden" (ngModelChange)="cuota.orden = $event"></label>
-            <label>Concepto<select name="cc$index" [ngModel]="cuota.conceptoId" (ngModelChange)="cuota.conceptoId = $event"><option [ngValue]="null">— Sin concepto —</option>@for (c of conceptos; track c.id) {<option [ngValue]="c.id">{{ c.nombre }}</option>}</select></label>
-            <label>Descripción<input name="cd$index" [(ngModel)]="cuota.descripcion"></label>
-            <label>Monto<input type="number" min="0" step="0.01" name="cm$index" [(ngModel)]="cuota.monto"></label>
-            <label>Vencimiento (días)<input type="number" min="0" name="cv$index" [(ngModel)]="cuota.vencimientoDias"></label>
-            <button type="button" class="danger" (click)="quitarCuota($index)" [disabled]="planForm.cuotas.length === 1">Quitar</button>
-          </div>
-        }
-        <p class="total">Total del plan: {{ totalForm | currency }}</p>
+      <div class="form-grid">
+        <div class="sm-field">
+          <label class="sm-label" for="planNombre">Nombre</label>
+          <input id="planNombre" name="pn" class="sm-input" [(ngModel)]="planForm.nombre" />
+        </div>
+        <div class="sm-field">
+          <label class="sm-label" for="planDescripcion">Descripción</label>
+          <input id="planDescripcion" name="pd" class="sm-input" [(ngModel)]="planForm.descripcion" />
+        </div>
       </div>
 
-      <div class="actions">
-        <button type="button" (click)="mostrarForm = false">Cancelar</button>
-        <button [disabled]="guardando">{{ guardando ? 'Guardando...' : 'Guardar' }}</button>
+      <div class="cuotas-block">
+        <div class="panel-heading">
+          <h4 class="sm-section-title">Cuotas</h4>
+          <button type="button" class="sm-btn sm-btn--ghost sm-btn--sm" (click)="agregarCuota()">+ Agregar cuota</button>
+        </div>
+
+        @for (cuota of planForm.cuotas; track $index) {
+          <div class="cuota-row">
+            <div class="sm-field">
+              <label class="sm-label">Orden</label>
+              <input type="number" min="1" class="sm-input" name="co{{ $index }}" [ngModel]="cuota.orden" (ngModelChange)="cuota.orden = $event" />
+            </div>
+            <div class="sm-field sm-field--grow">
+              <label class="sm-label">Concepto</label>
+              <select class="sm-input sm-select" name="cc{{ $index }}" [ngModel]="cuota.conceptoId" (ngModelChange)="cuota.conceptoId = $event">
+                <option [ngValue]="null">— Sin concepto —</option>
+                @for (c of conceptos; track c.id) {
+                  <option [ngValue]="c.id">{{ c.nombre }}</option>
+                }
+              </select>
+            </div>
+            <div class="sm-field sm-field--grow">
+              <label class="sm-label">Descripción</label>
+              <input class="sm-input" name="cd{{ $index }}" [(ngModel)]="cuota.descripcion" />
+            </div>
+            <div class="sm-field">
+              <label class="sm-label">Monto</label>
+              <input type="number" min="0" step="0.01" class="sm-input" name="cm{{ $index }}" [(ngModel)]="cuota.monto" />
+            </div>
+            <div class="sm-field">
+              <label class="sm-label">Vencimiento (días)</label>
+              <input type="number" min="0" class="sm-input" name="cv{{ $index }}" [(ngModel)]="cuota.vencimientoDias" />
+            </div>
+            <div class="cuota-remove">
+              <button type="button" class="sm-btn sm-btn--danger sm-btn--sm" (click)="quitarCuota($index)" [disabled]="planForm.cuotas.length === 1">Quitar</button>
+            </div>
+          </div>
+        }
+        <p class="plan-total">Total del plan: <strong>{{ totalForm | currency }}</strong></p>
+      </div>
+
+      <div class="sm-modal__actions">
+        <button type="button" class="sm-btn sm-btn--ghost" (click)="mostrarForm = false">Cancelar</button>
+        <button type="submit" class="sm-btn sm-btn--primary" [disabled]="guardando">{{ guardando ? 'Guardando…' : 'Guardar' }}</button>
       </div>
     </form>
   }
