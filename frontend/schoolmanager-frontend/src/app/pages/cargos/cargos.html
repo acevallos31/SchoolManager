@@ -1,46 +1,47 @@
 <div class="page-container">
   <div class="page-header">
-    <h1>Cargos y mensualidades</h1>
-    <button class="btn-volver" type="button" (click)="volver()">Volver a alumnos</button>
+    <h1 class="sm-page-title">Cargos y mensualidades</h1>
+    <button class="sm-btn sm-btn--secondary" type="button" (click)="volver()">Volver a alumnos</button>
   </div>
 
   @if (mensaje) {
-    <div class="mensaje" [class.mensaje-error]="esError" role="status">
+    <div class="sm-alert" [class.sm-alert--error]="esError" [class.sm-alert--success]="!esError" role="status">
       {{ mensaje }}
     </div>
   }
 
   @if (alumnoId) {
     <section class="resumen-grid" aria-label="Resumen financiero">
-      <article class="resumen-card">
-        <span class="resumen-label">Obligaciones</span>
+      <article class="resumen-card sm-card">
+        <span class="sm-eyebrow">Obligaciones</span>
         <strong class="resumen-valor">{{ resumen?.totalObligaciones ?? 0 }}</strong>
       </article>
-      <article class="resumen-card">
-        <span class="resumen-label">Pendiente</span>
+      <article class="resumen-card sm-card">
+        <span class="sm-eyebrow">Pendiente</span>
         <strong class="resumen-valor">${{ (resumen?.totalPendiente ?? 0).toFixed(2) }}</strong>
       </article>
-      <article class="resumen-card resumen-vencido">
-        <span class="resumen-label">Vencido</span>
+      <article class="resumen-card resumen-vencido sm-card">
+        <span class="sm-eyebrow">Vencido</span>
         <strong class="resumen-valor">${{ (resumen?.totalVencido ?? 0).toFixed(2) }}</strong>
       </article>
-      <article class="resumen-card">
-        <span class="resumen-label">Aplicado</span>
+      <article class="resumen-card sm-card">
+        <span class="sm-eyebrow">Aplicado</span>
         <strong class="resumen-valor">${{ (resumen?.totalAplicado ?? 0).toFixed(2) }}</strong>
       </article>
-      <article class="resumen-card">
-        <span class="resumen-label">Anulado</span>
+      <article class="resumen-card sm-card">
+        <span class="sm-eyebrow">Anulado</span>
         <strong class="resumen-valor">${{ (resumen?.totalAnulado ?? 0).toFixed(2) }}</strong>
       </article>
     </section>
 
     @if (cargando) {
-      <div class="cargando">Cargando cargos…</div>
-    } @else if (!cargos.length) {
-      <div class="sin-datos">Este alumno no tiene cargos generados.</div>
+      <div class="sm-state">
+        <span class="sm-spinner" aria-hidden="true"></span>
+        <p class="cargando">Cargando cargos…</p>
+      </div>
     } @else {
-      <div class="tabla-contenedor">
-        <table class="tabla">
+      <div class="tabla-contenedor sm-table-wrap">
+        <table class="tabla sm-table">
           <thead>
             <tr>
               <th>Concepto</th>
@@ -48,7 +49,7 @@
               <th>Saldo</th>
               <th>Vencimiento</th>
               <th>Estado</th>
-              <th></th>
+              <th class="col-acciones">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -56,31 +57,35 @@
               <tr>
                 <td>
                   <strong>{{ cargo.conceptoNombre || 'Cargo' }}</strong>
-                  @if (cargo.descripcion) { <br /><span class="correo">{{ cargo.descripcion }}</span> }
+                  @if (cargo.descripcion) { <br /><span class="sm-helper">{{ cargo.descripcion }}</span> }
                 </td>
                 <td>${{ cargo.montoOriginal.toFixed(2) }}</td>
                 <td>${{ cargo.saldo.toFixed(2) }}</td>
                 <td>
                   {{ cargo.fechaVencimiento }}
                   @if (cargo.esVencido && (cargo.estado === 'pendiente' || cargo.estado === 'parcial')) {
-                    <span class="badge-vencido">Vencido</span>
+                    <span class="sm-badge sm-badge--error badge-inline">Vencido</span>
                   }
                 </td>
                 <td>
-                  <span class="badge-estado"
-                    [class.badge-activo]="cargo.estado === 'pendiente' || cargo.estado === 'parcial'"
-                    [class.badge-pagado]="cargo.estado === 'pagado'"
-                    [class.badge-inactivo]="cargo.estado === 'anulado'">
+                  <span class="sm-badge"
+                    [class.sm-badge--warning]="cargo.estado === 'pendiente' || cargo.estado === 'parcial'"
+                    [class.sm-badge--success]="cargo.estado === 'pagado'"
+                    [class.sm-badge--neutral]="cargo.estado === 'anulado'">
                     {{ estadoLabel[cargo.estado] }}
                   </span>
                 </td>
-                <td class="acciones">
+                <td class="col-acciones">
                   @if (cargo.estado === 'pendiente' || cargo.estado === 'parcial') {
-                    <button class="btn-pagar" type="button" (click)="irAPagos()">Cobrar</button>
+                    <button class="sm-btn sm-btn--primary sm-btn--sm" type="button" (click)="irAPagos()">Cobrar</button>
                   } @else {
-                    <span class="correo">{{ cargo.motivoAnulacion || estadoLabel[cargo.estado] }}</span>
+                    <span class="sm-helper">{{ cargo.motivoAnulacion || estadoLabel[cargo.estado] }}</span>
                   }
                 </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="6" class="sin-datos">Este alumno no tiene cargos generados.</td>
               </tr>
             }
           </tbody>
@@ -88,6 +93,9 @@
       </div>
     }
   } @else {
-    <div class="sin-datos">Acceda a los cargos desde un alumno para ver su información financiera.</div>
+    <div class="sm-state">
+      <p class="sm-state__title">Acceso desde un alumno</p>
+      <p class="sm-state__body">Acceda a los cargos desde un alumno para ver su información financiera.</p>
+    </div>
   }
 </div>
