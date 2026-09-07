@@ -1,12 +1,12 @@
 # Configuración de SONAR_TOKEN para SonarCloud (Bloque 029)
 
-> **Acción humana requerida.** Este documento detalla, paso a paso, cómo
-> activar el análisis real de SonarCloud. Mientras `SONAR_TOKEN` no esté
-> configurado, el job `sonarcloud` del CI quedará **en rojo a propósito**
-> (guard anti falso-verde) para que un job interno nunca aparezca verde sin
-> haber analizado.
+> **Estado: RESUELTO (2026-09-07).** `SONAR_TOKEN` está configurado como secret
+> del repositorio y el análisis real de SonarCloud pasa (ver sección «Estado
+> actual» al final). Este documento conserva el procedimiento por si hay que
+> regenerar/rotar el token, y documenta la regla de directorios de
+> `sonar-project.properties`.
 
-## ¿Por qué está rojo el job `sonarcloud`?
+## Por qué existe este documento
 
 El análisis de SonarCloud corre dentro de `.github/workflows/deploy.yml`
 (job `sonarcloud`). Para subir el análisis hace falta un token de análisis.
@@ -17,16 +17,12 @@ env:
   SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 ```
 
-Si el secret **no existe**, `SONAR_TOKEN` es `''`, el paso `Analizar con
-sonar-scanner` se salta y, desde el Bloque 029, el paso guard que le sigue
-**falla el job con un error explícito**. Antes del Bloque 029 ese job quedaba
-verde silenciosamente (falso verde): parecía que SonarCloud analizaba, pero no
-se subía nada.
+Si el secret **no existe**, `SONAR_TOKEN` es `''` y el job **falla en rojo a
+propósito** (guard anti falso-verde): un job interno nunca debe quedar verde
+sin haber subido análisis real. Antes del Bloque 029, el job podía quedar verde
+silenciosamente con `sonar-scanner` skipped (falso verde).
 
-Verificación actual (2026-09-07): `gh secret list` no incluye `SONAR_TOKEN`
-en el repositorio ni en la organización `acevallos31`.
-
-## Qué necesitas configurar
+## Procedimiento (si se regenera/rota el token)
 
 ### 1. Generar un token de análisis en SonarCloud
 
@@ -54,7 +50,7 @@ O en la web: **Settings → Secrets and variables → Actions → New repository
 secret**, nombre `SONAR_TOKEN`, valor el token.
 
 Opcional (recomendado si hay varios repos): crear el secret a nivel de
-organización `acevallos31` para no repetirlo por repositorio:
+organización `acevallos31`:
 
 ```bash
 gh secret set SONAR_TOKEN --org acevallos31
@@ -74,18 +70,56 @@ evitar análisis duplicados. Se hace en el panel de SonarCloud (proyecto →
 Administration → Analysis Method → desactivar *Automatic Analysis*). No se
 puede automatizar desde el repo.
 
-### 5. Confirmar el análisis real
+## Regla importante: `sonar.sources` y `sonar.tests` aceptan DIRECTORIOS, no wildcards
 
-Tras configurar el secret, reabre o re-dispara el CI del PR. El job
-`sonarcloud` debe pasar ejecutando `sonar-scanner` (ya no saltarse) y el
-análisis aparece en https://sonarcloud.io/dashboard?id=SchoolManager con el
-quality gate correspondiente.
+SonarScanner (desde 8.x) **rechaza comodines** (`**`, `*`) en las propiedades
+`sonar.sources` y `sonar.tests`. Si se usan, el análisis falla en la fase de
+configuración con (exit code 3):
+
+```
+ERROR Invalid value of sonar.tests for SchoolManager
+ERROR Wildcards ** and * are not supported in "sonar.sources" and "sonar.tests".
+```
+
+Reglas de `sonar-project.properties`:
+
+- `sonar.sources` y `sonar.tests` aceptan **solo listas de directorios**
+  separadas por coma (sin `**` ni `*`).
+  - `sonar.sources=backend,frontend/schoolmanager-frontend/src`
+  - `sonar.tests=tests`
+- Los archivos que deban **excluirse** (artefactos, build, coverage) y los
+  specs colocalizados se gestionan con `sonar.exclusions`, que **sí** admite
+  wildcards.
+- Los `.spec.ts` colocalizados bajo un directorio declarado en
+  `sonar.sources` **no se pueden clasificar como tests** por patrón (un dir
+  de `sonar.tests` no admite wildcards para recogerlos), así que se **excluyen**
+  del análisis vía `sonar.exclusions`. La cobertura sigue siendo correcta
+  porque el reporte LCOV de vitest solo mide código productivo.
+
+Esto se corrigió en el commit `e76cedc` (Bloque 029). Ver
+`sonar-project.properties` para la config completa.
+
+## Estado actual (2026-09-07)
+
+- `SONAR_TOKEN` **configurado** como secret del repositorio y **válido**
+  (validado contra `/api/authentication/validate` → `valid=true`); GitHub lo
+  inyecta correctamente (`SONAR_TOKEN: ***` en los logs).
+- El job `sonarcloud` usa la **action oficial**
+  `SonarSource/sonarqube-scan-action@v8.2.1` (auto-aprovisiona su JRE y su
+  sonar-scanner), en lugar del CLI descargado manualmente (que moría con
+  `exit 8` sin salida útil).
+- El análisis **real** pasa: cobertura backend (Cobertura) y frontend (LCOV)
+  importadas, `ANALYSIS SUCCESSFUL`, Quality Gate del PR **en verde**.
+  Run validado: **34154637093** (HEAD `e76cedc`).
+- El guard anti falso-verde permanece activo: si `SONAR_TOKEN` faltara, el job
+  fallaría en rojo explícito en vez de saltarse.
 
 ## Referencias en el repositorio
 
-- `.github/workflows/deploy.yml` — job `sonarcloud` + guard anti falso-verde.
-- `sonar-project.properties` — configuración del análisis (sources, tests,
-  rutas de cobertura backend/frontend).
+- `.github/workflows/deploy.yml` — job `sonarcloud` (action oficial v8.2.1) +
+  guard anti falso-verde.
+- `sonar-project.properties` — configuración del análisis (sources/tests solo
+  directorios, rutas de cobertura backend/frontend, exclusiones).
 - `.gitignore` — ignora `.env`, `.env.local`, `**/environment.secret.ts`,
   `*.env` (los secretos del frontend no se commitean).
-- `docs/handoffs/020.5A-hardening-ci.md` — contexto previo de hardening del CI.
+- `docs/handoffs/029-calidad-sonar-e2e.md` — handoff del bloque con el cierre.

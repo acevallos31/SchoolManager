@@ -102,10 +102,20 @@ Institución -> Ciclo -> Período matrícula -> Grado -> Jornada opcional -> Sec
   (listado), `configuracion/ciclos` y `configuracion/estructura-academica`. Esta es
   deuda #10 registrada en `docs/technical-debt.md`; queda fuera del Bloque 029.
 
-## Calidad / Bloque 029 — ACTIVO
+## Calidad / Bloque 029 — CERRADO (verde)
 Rama: `feature/calidad-sonar-e2e-029`, creada desde `main` después del merge de PR #51.
 
-Objetivo del bloque:
+Estado final (2026-09-07): **SonarCloud real en verde** — `SONAR_TOKEN` configurado
+y válido; job `sonarcloud` migrado a la action oficial
+`SonarSource/sonarqube-scan-action@v8.2.1`; `sonar.sources`/`sonar.tests` corregidos
+a **solo directorios** (SonarScanner 8.x rechaza wildcards en esas dos propiedades).
+Cobertura backend (Cobertura) y frontend (LCOV) importadas; Quality Gate del PR #52
+en verde (run **34154637093**, head `e76cedc`). Guard anti falso-verde activo.
+Deudas: **#7 resuelta**, **#9 actualizada** (New Code real ya disponible).
+E2E: smoke 3/3 local passed; **autenticado pendiente de staging** (acción humana #2,
+ver `docs/ci/e2e-auth-setup.md`). PR #52 abierto contra `main` sin merge.
+
+Objetivo del bloque (original):
 - restaurar análisis **real** de SonarCloud/quality gate en CI (el job actual puede quedar verde con `sonar-scanner` skipped cuando `SONAR_TOKEN` está vacío);
 - diseñar y habilitar un entorno seguro de staging o equivalente para pruebas autenticadas;
 - ejecutar E2E autenticado de los flujos críticos sin tocar producción ni usar datos reales no autorizados;
@@ -130,6 +140,6 @@ Flujos E2E prioritarios:
 Las reglas operativas de Git, migraciones y validación están en `AGENTS.md`.
 Estado real: 001-022 en `main`; 023 PR #46; 024 PR #47; 025 PR #48; 026 PR #49;
 027 PR #50; **028 PR #51 mergeado como `a80c19cc10520f0d2cc6c820c288db9bb28631ab`**.
-**029 activo** en `feature/calidad-sonar-e2e-029`. SonarCloud requiere corregir el
-pipeline/secret para que un job verde implique análisis efectivo. La deuda #10
+**029 CERRADO en verde** en `feature/calidad-sonar-e2e-029` (PR #52, sin merge):
+SonarCloud real restaurado (deuda #7 resuelta, #9 actualizada). Deuda #10
 (Supabase directo) sigue pendiente y fuera de 029.
