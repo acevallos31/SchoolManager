@@ -39,15 +39,6 @@
   margin-top: var(--sm-space-1);
 }
 
-.card {
-  padding: var(--sm-space-5);
-}
-
-.card h2,
-.card h3 {
-  margin-top: 0;
-}
-
 .form-grid,
 .details {
   display: grid;
