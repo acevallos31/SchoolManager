@@ -76,7 +76,43 @@ de budget. No se modificó ningún budget en la configuración.
 - `git diff --check`: sin errores.
 - Responsive: CSS local con breakpoint `700px` para `.page-header` y
   `form-pie`/`form-botones` en pagos (coincide con breakpoints usados en 025).
-  Falta la revisión visual desktop/tablet/mobile en navegador (pendiente).
+- Revisión visual: **completada en modalidad estática de layout** (ver sección
+  «Revisión visual» abajo).
+
+## Revisión visual (completada — estática de layout)
+
+Realizada como **revisión estática de layout**, no E2E autenticado, por
+ausencia de entorno de staging/preview con credenciales y datos reales en esta
+máquina (regla de parada AGENTS.md §5: no inventar credenciales ni entornos;
+misma limitación que en 024/025).
+
+Método: se renderizaron las **plantillas reales** `cargos.html` / `pagos.html`
+junto con el **CSS real** de cada componente y la foundation `styles.css`
+completa, con datos financieros representativos (montos/saldos cortos y largos,
+badges de todos los estados), en **desktop 1280 / tablet 820 / móvil 390** vía
+Chromium headless. Se cubrieron para ambas rutas: con-datos, loading/empty y el
+formulario + modal de pagos.
+
+Resultado: **sin regresiones ni ajustes visuales menores que corregir** — no se
+modificó ninguna línea de HTML/CSS/TS en esta fase.
+
+Hallazgos clave verificados sobre el layout real:
+- **Tablas sin overflow de página**: `.sm-table-wrap` (usado en el template real)
+  aplica `overflow-x: auto` con borde/card propia; en móvil la tabla de 6
+  columnas hace scroll **contenido dentro de su tarjeta**, sin romper el
+  viewport ni forzar scroll lateral de página. No es overflow injustificado:
+  es el patrón intencional de la foundation.
+- **Badges/botones/tarjetas** alineados y legibles (`white-space: nowrap`,
+  colores semánticos success/error/warning/neutral); acciones condicionadas
+  por estado (solo `Cobrar` en pendiente/parcial, texto `sm-helper` en
+  pagado/anulado), fiel al `@if` del template real.
+- **Estados** loading/empty/error y acceso-sin-alumno vía `sm-state` +
+  `sm-spinner`, centrados.
+- **Fondos montos/saldos** legibles (resumen en `sm-fs-xl` bold; `#Recibo` en
+  mono), sin cortes por columna estrecha.
+
+Límite (riesgo residual): al ser estática, **no** valida flujo autenticado
+end-to-end, guardas `PermissionGuard`, ni datos vivos de Supabase/backend .NET.
 
 ## Restricciones respetadas
 - Conventional Commits en español; commits pequeños por módulo.
@@ -86,8 +122,10 @@ de budget. No se modificó ningún budget en la configuración.
 - No se mergeó: el PR contra main queda para revisión humana.
 
 ## Pendientes reales
-- Revisión visual en navegador (desktop/tablet/mobile) del bloque financiero
-  adoptado, antes de considerar el PR 026 definitivo.
+- Revisión **E2E autenticada** en entorno con staging/preview + credenciales y
+  datos reales (flujo login → guardas `PermissionGuard` → `/cargos` `/pagos`)
+  cuando exista tal entorno; la revisión estática de layout de esta fase no la
+  sustituye (riesgo residual documentado).
 - Deuda #10 (páginas de negocio que consultan Supabase directo) sigue pendiente
   para bloque dedicado post-UX.
 - Resto del ecosistema de UI/UX (si queda alguna página sin adoptar) para un
