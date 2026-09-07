@@ -91,13 +91,22 @@ jobs:
 
   # ETAPA 1.5: ANÁLISIS SONARCLOUD (requiere SONAR_TOKEN)
   # -----------------------------------------------------------------------------
-  # Anti falso-verde (Bloque 029): el job se crea SIEMPRE (así GitHub Actions
+  # Bloque 029B (análisis C# real): el job se crea SIEMPRE (así GitHub Actions
   # genera runs) y la presencia del secret SONAR_TOKEN se lee via env (no
-  # evaluando secrets.* en un if del workflow). El análisis usa la action
-  # oficial de SonarQube Cloud, que FALLA si SONAR_TOKEN está vacío; además,
-  # un paso GUARD redundante hace fallar el job con un error explícito si el
-  # secret no está configurado. De este modo un job interno NUNCA puede quedar
-  # verde silenciosamente sin haber subido análisis a SonarCloud.
+  # evaluando secrets.* en un if del workflow). El análisis usa el SonarScanner
+  # for .NET (flujo begin -> build -> end), el ÚNICO capaz de hacer análisis
+  # estático real del backend .NET (el scanner genérico no analiza .cs). Con
+  # /d:sonar.scanner.scanAll=true y sonar.sources explícito se conserva el
+  # análisis TypeScript del frontend en el MISMO análisis/proyecto, y ambas
+  # coberturas (Cobertura backend + LCOV frontend) se importan igual.
+  #
+  # IMPORTANTE: SonarScanner for .NET NO lee sonar-project.properties (da error
+  # si existe). Por eso todas las propiedades van como /d: en el begin y el
+  # archivo sonar-project.properties fue ELIMINADO del repo (Bloque 029B).
+  #
+  # Anti falso-verde (Bloque 029): un paso GUARD redundante falla el job con un
+  # error explícito si SONAR_TOKEN está vacío. De este modo un job interno NUNCA
+  # puede quedar verde silenciosamente sin haber subido análisis a SonarCloud.
   #
   # Configuración del secret (acción humana, ver docs/ci/sonarcloud-token-setup.md):
   #   gh secret set SONAR_TOKEN   (en el repositorio, o en la organización)
@@ -106,8 +115,6 @@ jobs:
   #
   # No bloquea el despliegue (deploy solo depende de validate-code). Cuando
   # SONAR_TOKEN falta, este check queda en rojo A PROPÓSITO hasta configurarlo.
-  # La desactivación de Automatic Analysis es un paso manual del usuario en el
-  # panel de SonarCloud (ver docs/handoffs/020.5A-hardening-ci.md).
   sonarcloud:
     name: Análisis SonarCloud (CI Analysis)
     needs: validate-code
@@ -133,22 +140,8 @@ jobs:
           name: coverage-frontend-lcov
           path: frontend/schoolmanager-frontend/coverage
 
-      # Action oficial de SonarQube Cloud (SonarSource/sonarqube-scan-action).
-      # Sustituye al sonar-scanner-cli 7.1.0.12063 descargado manualmente
-      # (wget + unzip), cuyo wrapper moría con exit code 8 sin imprimir nada.
-      # Ventajas: descarga y gestiona su propio scanner, auto-aprovisiona su JRE
-      # (no requiere actions/setup-java) y valida internamente SONAR_TOKEN.
-      # Lee sonar-project.properties de la raíz (projectKey=SchoolManager,
-      # organization=acevallos31, sources/tests y rutas de cobertura) y usa
-      # SONAR_TOKEN del entorno. Versión fijada a v8.2.1 (estable, 2026-07-15).
-      - name: Analizar con la action oficial de SonarCloud (lee sonar-project.properties)
-        uses: SonarSource/sonarqube-scan-action@v8.2.1
-        env:
-          SONAR_HOST_URL: https://sonarcloud.io
-
-      # GUARD anti falso-verde (Bloque 029): si el análisis no pudo arrancar
-      # porque SONAR_TOKEN está vacío, fallar con un mensaje accionable en vez
-      # de reportar verde en silencio.
+      # GUARD anti falso-verde (Bloque 029): si el secret falta, fallar explícito
+      # ANTES de intentar el análisis, con un mensaje accionable (no verde mudo).
       - name: Fallar si SONAR_TOKEN está vacío (anti falso-verde)
         if: ${{ env.SONAR_TOKEN == '' }}
         run: |
@@ -157,6 +150,69 @@ jobs:
           echo "aparezca verde sin haber analizado realmente."
           echo "Configura el secret 'SONAR_TOKEN' (ver docs/ci/sonarcloud-token-setup.md)."
           exit 1
+
+      - name: Configurar .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # SonarScanner for .NET: el ÚNICO que hace análisis estático real de C#
+      # (el scanner genérico no analiza .cs — ver log run 34154637093). El flujo
+      # es begin -> dotnet build (los analyzers de Roslyn corren en la compilación)
+      # -> end. Sustituye a la action genérica SonarSource/sonarqube-scan-action
+      # que solo cubría frontend/TS + importación de coberturas.
+      - name: Instalar SonarScanner for .NET
+        run: dotnet tool install --global dotnet-sonarscanner
+
+      - name: Agregar dotnet-tools al PATH
+        run: echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+
+      # BEGIN: SonarScanner for .NET. Todo va como /d: (NO usa sonar-project.properties,
+      # que fue eliminado: este scanner no lo lee y da error si existe). Con
+      # scanAll=true y sonar.sources explícito (backend + frontend/src) se analizan
+      # C# y TypeScript en el MISMO análisis/proyecto; exclusions y rutas de
+      # cobertura replican la config previa.
+      - name: SonarScanner .NET — begin (configura análisis C# + TS)
+        env:
+          PR: ${{ github.event.pull_request.number }}
+          HEAD: ${{ github.head_ref }}
+          BASE: ${{ github.base_ref }}
+          REF: ${{ github.ref_name }}
+        run: |
+          # set -f: desactiva el globbing del shell para que los patrones **
+          # de sonar.exclusions/coverage se pasen literales al scanner.
+          set -f
+          ARGS="/k:SchoolManager /o:acevallos31 /d:sonar.token=${SONAR_TOKEN}"
+          ARGS="${ARGS} /d:sonar.host.url=https://sonarcloud.io"
+          ARGS="${ARGS} /d:sonar.scanner.scanAll=true"
+          ARGS="${ARGS} /d:sonar.sourceEncoding=UTF-8"
+          ARGS="${ARGS} /d:sonar.sources=backend,frontend/schoolmanager-frontend/src"
+          ARGS="${ARGS} /d:sonar.tests=tests"
+          ARGS="${ARGS} /d:sonar.exclusions=**/node_modules/**,**/dist/**,**/bin/**,**/obj/**,**/coverage/**,**/*.min.js,coverage-backend/**,**/lcov.info,**/*.cobertura.xml,**/*.spec.ts,**/*.test.ts"
+          ARGS="${ARGS} /d:sonar.cs.cobertura.reportsPaths=coverage-backend/**/coverage.cobertura.xml"
+          ARGS="${ARGS} /d:sonar.typescript.lcov.reportPaths=frontend/schoolmanager-frontend/coverage/**/lcov.info"
+          if [ -n "${PR}" ]; then
+            ARGS="${ARGS} /d:sonar.pullrequest.key=${PR} /d:sonar.pullrequest.branch=${HEAD} /d:sonar.pullrequest.base=${BASE}"
+          else
+            ARGS="${ARGS} /d:sonar.branch.name=${REF}"
+          fi
+          echo "=== Iniciando SonarScanner for .NET (PR=${PR:-branch:$REF}) ==="
+          dotnet sonarscanner begin ${ARGS}
+
+      # Build bajo el analizador: durante esta compilación corren los analyzers
+      # Roslyn de Sonar sobre los .cs (análisis estático C# real). También se
+      # compilan los proyectos de tests para que sus fuentes entren en el alcance
+      # como "tests" (no como código productivo), igual que en la config previa.
+      - name: Compilar Backend bajo el analizador (análisis estático C#)
+        run: |
+          dotnet build backend/SchoolManager.API/SchoolManager.API.csproj --configuration Release
+          dotnet build tests/SchoolManager.API.IntegrationTests/SchoolManager.API.IntegrationTests.csproj --configuration Release
+          dotnet build tests/SchoolManager.Database.IntegrationTests/SchoolManager.Database.IntegrationTests.csproj --configuration Release
+
+      # END: sube el análisis a SonarCloud. La app de SonarCloud decora el PR con
+      # el check de Quality Gate ("SonarCloud Code Analysis").
+      - name: SonarScanner .NET — end (subir análisis)
+        run: dotnet sonarscanner end /d:sonar.token="${SONAR_TOKEN}"
 
   # ETAPA 2: DESPLIEGUE (Solo se ejecuta si la etapa anterior pasa Y estamos en la rama main)
   deploy:
