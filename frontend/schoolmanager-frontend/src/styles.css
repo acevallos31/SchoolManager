@@ -547,6 +547,48 @@ img, svg {
   margin-bottom: var(--sm-space-4);
 }
 
+.sm-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sm-space-3);
+  margin-top: var(--sm-space-5);
+}
+
+/* ---- Tabs (pestañas de sección) ---- */
+.sm-tabs {
+  display: flex;
+  gap: var(--sm-space-1);
+  border-bottom: 1px solid var(--sm-border);
+}
+
+.sm-tabs button {
+  flex: 0 0 auto;
+  padding: var(--sm-space-3) var(--sm-space-4);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  font-weight: var(--sm-weight-semibold);
+  color: var(--sm-text-soft);
+  font-size: var(--sm-fs-sm);
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.sm-tabs button:hover:not(.sm-tab--active) {
+  color: var(--sm-text);
+}
+
+.sm-tabs .sm-tab--active {
+  color: var(--sm-primary);
+  border-bottom-color: var(--sm-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sm-tabs button {
+    transition: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sm-modal-overlay {
     backdrop-filter: none;
