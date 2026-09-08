@@ -217,6 +217,34 @@ sistema frágil (principios ISW2 #4, #5 y #12).
   al migrar a SonarScanner for .NET; revisar al publicarse versiones nuevas.
 - **Prioridad**: Resuelta (alta hasta el 029B).
 
+## 7b. Inconsistencias RBAC entre capas (.NET / Angular / SQL / RPC)
+
+Auditoría de solo lectura (2026-09-08). Referencia completa y por-fila en
+`docs/handoffs/overnight-post-030.md` §3. Solo se registra lo confirmado leyendo
+código real. **No se rediseñó RBAC ni se crearon migraciones.**
+
+- **ALTA — Duplicación de módulos `academico.*` vs `configuracion.*` (F1/F2):** estructura
+  académica y ciclos/periodos se conceden en el catálogo .NET como `academico.estructura.*` /
+  `academico.ciclos.*`, pero las RPC internas que ejecutan las mismas acciones exigen
+  `configuracion.grados/jornadas/secciones.*` y `configuracion.ciclos.*`/`periodos_matricula.*`
+  (016:46-141, 020:171-288, 014:56-136, 015:17-64). Un rol concedido según el catálogo .NET
+  fallaría en el RPC.
+- **ALTA — Divergencia frontend-vs-backend (F3/F4):** el backend exige `academico.ciclos.ver` /
+  `academico.estructura.ver`, pero Angular evalúa `configuracion.ciclos.*`/`periodos_matricula.*`
+  y `configuracion.grados/jornadas/secciones.*` (configuracion.ts, configuracion-ciclos.ts,
+  configuracion-estructura-academica.ts); rutas `/configuracion/ciclos` y
+  `/configuracion/estructura-academica` sin guard de permiso (app.routes.ts:52-55).
+- **MEDIA — Nomenclatura residual de secciones (F8):** `academico.secciones.*` sigue exigida por
+  RLS/RPC antiguos (009:111,449-460; 020:172) mientras la capa actual usa `configuracion.secciones.*`.
+- **MEDIA — Roles sin grants (F9):** cajero, consulta, usuario, padre y docente no reciben filas
+  en `roles_permisos` (solo `admin` 007:133-138 y `operador` 007:140-154+009:37-49); cargos/pagos
+  solo operables por admin.
+- **MEDIA — Operador ve expediente pero no finanzas (F10):** `alumnos.ts` refiere
+  `academico.cargos.ver` (resumen del expediente) que operador no posee.
+- **MEDIA/BAJA — Permisos huérfanos o en una sola capa (F5-F7):** `configuracion.sistema.ver`
+  (SQL 012:26 + Angular) sin constante .NET; `responsables.responsables.*` (007) sin uso real
+  (se usa `academico.responsables.*`); `academico.matriculas.editar`/`.anular` sin uso.
+
 ## 8. Duplicación de código — estructural (no por permisos)
 
 - **Estado: RESUELTO (PR A #41 en main; sub-entrada de portal-padre resuelta por 022).**
