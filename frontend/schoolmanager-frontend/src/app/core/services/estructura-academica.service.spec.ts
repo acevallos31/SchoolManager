@@ -137,6 +137,81 @@ describe('EstructuraAcademicaService', () => {
     await expect(promesa).resolves.toBeUndefined();
   });
 
+  it.each([
+    ['actualizar jornada', 'PUT', '/jornadas/j1', (s: EstructuraAcademicaService) => s.actualizarJornada('j1', { nombre: ' Tarde ' })],
+    ['desactivar jornada', 'POST', '/jornadas/j1/desactivar', (s: EstructuraAcademicaService) => s.desactivarJornada('j1')],
+    ['reactivar jornada', 'POST', '/jornadas/j1/reactivar', (s: EstructuraAcademicaService) => s.reactivarJornada('j1')],
+    ['reactivar sección', 'POST', '/secciones/s1/reactivar', (s: EstructuraAcademicaService) => s.reactivarSeccion('s1')]
+  ] as const)('%s usa la ruta y método previstos', async (_name, method, path, call) => {
+    const result = call(service);
+    const request = http.expectOne(BASE + path);
+    expect(request.request.method).toBe(method);
+    request.flush(null);
+    await expect(result).resolves.toBeUndefined();
+  });
+
+  it.each([
+    ['grados', (s: EstructuraAcademicaService) => s.listarGrados()],
+    ['jornadas', (s: EstructuraAcademicaService) => s.listarJornadas()],
+    ['secciones?cicloId=c1', (s: EstructuraAcademicaService) => s.listarSecciones('c1')]
+  ] as const)('listado %s vacío devuelve colección vacía', async (path, call) => {
+    const result = call(service);
+    http.expectOne(`${BASE}/${path}`).flush(null);
+    await expect(result).resolves.toEqual([]);
+  });
+
+  it.each([
+    ['grados', (s: EstructuraAcademicaService) => s.crearGrado({ nombre: 'Centro', orden: 1 })],
+    ['jornadas', (s: EstructuraAcademicaService) => s.crearJornada({ nombre: 'Tarde' })],
+    ['secciones', (s: EstructuraAcademicaService) => s.crearSeccion({ cicloId: 'c1', gradoId: 'g1', jornadaId: null, nombre: 'B', cupo: null })]
+  ] as const)('alta %s sin id no comunica éxito', async (path, call) => {
+    const result = call(service);
+    const assertion = expect(result).rejects.toMatchObject({ code: 'UNKNOWN' });
+    const request = http.expectOne(`${BASE}/${path}`);
+    expect(request.request.body.institucionId).toBeUndefined();
+    request.flush({});
+    await assertion;
+  });
+
+  it.each([
+    ['crear grado', (s: EstructuraAcademicaService) => s.crearGrado({ nombre: 'G', orden: 1 })],
+    ['editar grado', (s: EstructuraAcademicaService) => s.actualizarGrado('g1', { nombre: 'G', orden: 1 })],
+    ['desactivar grado', (s: EstructuraAcademicaService) => s.desactivarGrado('g1')],
+    ['reactivar grado', (s: EstructuraAcademicaService) => s.reactivarGrado('g1')],
+    ['listar jornadas', (s: EstructuraAcademicaService) => s.listarJornadas()],
+    ['crear jornada', (s: EstructuraAcademicaService) => s.crearJornada({ nombre: 'J' })],
+    ['editar jornada', (s: EstructuraAcademicaService) => s.actualizarJornada('j1', { nombre: 'J' }, 'i1')],
+    ['desactivar jornada', (s: EstructuraAcademicaService) => s.desactivarJornada('j1')],
+    ['reactivar jornada', (s: EstructuraAcademicaService) => s.reactivarJornada('j1')],
+    ['listar secciones', (s: EstructuraAcademicaService) => s.listarSecciones('c1')],
+    ['crear sección', (s: EstructuraAcademicaService) => s.crearSeccion({ cicloId: 'c1', gradoId: 'g1', jornadaId: null, nombre: 'S', cupo: null })],
+    ['editar sección', (s: EstructuraAcademicaService) => s.actualizarSeccion('s1', { cicloId: 'c1', gradoId: 'g1', jornadaId: null, nombre: 'S', cupo: null })],
+    ['desactivar sección', (s: EstructuraAcademicaService) => s.desactivarSeccion('s1', 'Motivo')],
+    ['reactivar sección', (s: EstructuraAcademicaService) => s.reactivarSeccion('s1')]
+  ] as const)('%s propaga la denegación de autorización', async (_name, call) => {
+    const result = call(service);
+    const assertion = expect(result).rejects.toMatchObject({ name: 'EstructuraAcademicaError', code: '403' });
+    http.expectOne(request => request.url.startsWith(BASE)).flush(null, { status: 403, statusText: 'Forbidden' });
+    await assertion;
+  });
+
+  it.each([
+    [401, 'permiso'], [404, 'no existe'], [409, 'nombre ya existe'],
+    [400, 'datos ingresados'], [500, 'completar']
+  ] as const)('traduce HTTP %s con mensaje estable', async (status, message) => {
+    const result = service.listarGrados();
+    const assertion = expect(result).rejects.toMatchObject({ code: String(status), message: expect.stringContaining(message) });
+    http.expectOne(`${BASE}/grados`).flush(null, { status, statusText: 'Error' });
+    await assertion;
+  });
+
+  it.each([400, 500])('conserva el mensaje de API para HTTP %s', async status => {
+    const result = service.listarGrados();
+    const assertion = expect(result).rejects.toMatchObject({ message: 'Validación de prueba' });
+    http.expectOne(`${BASE}/grados`).flush({ error: 'Validación de prueba' }, { status, statusText: 'Error' });
+    await assertion;
+  });
+
   it('mapea un 403 del servidor a EstructuraAcademicaError con code 403', async () => {
     const rechazo = service.listarGrados('i1');
     http.expectOne(`${BASE}/grados?institucionId=i1`).flush({}, { status: 403, statusText: 'Forbidden' });

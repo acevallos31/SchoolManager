@@ -128,6 +128,65 @@ describe('CicloEscolarService', () => {
     await expect(rechazo).rejects.toMatchObject({ message: expect.stringContaining('fechas') });
   });
 
+  it('propaga institución explícita al alta y listado', async () => {
+    const alta = service.crear(CICLO, 'i1');
+    const request = http.expectOne(BASE);
+    expect(request.request.body.institucionId).toBe('i1');
+    request.flush({ id: 'c2' });
+    await expect(alta).resolves.toBe('c2');
+    const lista = service.listar('i1');
+    http.expectOne(`${BASE}?institucionId=i1`).flush(null);
+    await expect(lista).resolves.toEqual([]);
+  });
+
+  it('lista vacía de períodos se conserva como colección', async () => {
+    const result = service.listarPeriodos('c1');
+    http.expectOne(`${BASE}/c1/periodos`).flush(null);
+    await expect(result).resolves.toEqual([]);
+  });
+
+  it.each([
+    ['ciclo', (s: CicloEscolarService) => s.crear(CICLO)],
+    ['período', (s: CicloEscolarService) => s.crearPeriodo('c1', { ...PERIODO, tipo: null })]
+  ] as const)('alta de %s sin id no comunica éxito', async (_name, call) => {
+    const result = call(service);
+    const assertion = expect(result).rejects.toMatchObject({ code: 'UNKNOWN' });
+    http.expectOne(request => request.url.startsWith(BASE)).flush(null);
+    await assertion;
+  });
+
+  it.each([
+    ['editar ciclo', (s: CicloEscolarService) => s.actualizar(CICLO, CICLO)],
+    ['desactivar ciclo', (s: CicloEscolarService) => s.desactivar('c1', 'Motivo')],
+    ['reactivar ciclo', (s: CicloEscolarService) => s.reactivar('c1')],
+    ['listar períodos', (s: CicloEscolarService) => s.listarPeriodos('c1')],
+    ['crear período', (s: CicloEscolarService) => s.crearPeriodo('c1', PERIODO)],
+    ['editar período', (s: CicloEscolarService) => s.actualizarPeriodo(PERIODO, PERIODO)],
+    ['desactivar período', (s: CicloEscolarService) => s.desactivarPeriodo('c1', 'p1')],
+    ['reactivar período', (s: CicloEscolarService) => s.reactivarPeriodo('c1', 'p1')]
+  ] as const)('%s propaga la denegación de autorización', async (_name, call) => {
+    const result = call(service);
+    const assertion = expect(result).rejects.toMatchObject({ name: 'CicloEscolarError', code: '403' });
+    http.expectOne(request => request.url.startsWith(BASE)).flush(null, { status: 403, statusText: 'Forbidden' });
+    await assertion;
+  });
+
+  it.each([
+    [401, 'permiso'], [404, 'no existe'], [409, 'Ya existe'], [400, 'fechas'], [500, 'completar']
+  ] as const)('traduce HTTP %s sin cuerpo', async (status, message) => {
+    const result = service.listar();
+    const assertion = expect(result).rejects.toMatchObject({ code: String(status), message: expect.stringContaining(message) });
+    http.expectOne(BASE).flush(null, { status, statusText: 'Error' });
+    await assertion;
+  });
+
+  it.each([409, 500])('conserva mensaje API para HTTP %s', async status => {
+    const result = service.listar();
+    const assertion = expect(result).rejects.toMatchObject({ message: 'Validación de prueba' });
+    http.expectOne(BASE).flush({ error: 'Validación de prueba' }, { status, statusText: 'Error' });
+    await assertion;
+  });
+
   it('mapea un 403 a un mensaje de permiso', async () => {
     const rechazo = service.listar();
     http.expectOne(BASE).flush({}, { status: 403, statusText: 'Forbidden' });
