@@ -36,16 +36,38 @@ where to_regclass('public.ux_grados_institucion_nombre') is null;
 select 'ux_jornadas_institucion_nombre_faltante' as error
 where to_regclass('public.ux_jornadas_institucion_nombre') is null;
 
--- 4. Definicion correcta (columna institucion_id + expresion normalizada).
+-- 4. Los indices por institucion deben ser realmente UNIQUE.
+select 'ux_grados_institucion_nombre_no_unico' as error
+where to_regclass('public.ux_grados_institucion_nombre') is not null
+  and not exists (
+    select 1
+    from pg_index i
+    join pg_class c on c.oid = i.indexrelid
+    where c.relname = 'ux_grados_institucion_nombre'
+      and i.indisunique
+  );
+select 'ux_jornadas_institucion_nombre_no_unico' as error
+where to_regclass('public.ux_jornadas_institucion_nombre') is not null
+  and not exists (
+    select 1
+    from pg_index i
+    join pg_class c on c.oid = i.indexrelid
+    where c.relname = 'ux_jornadas_institucion_nombre'
+      and i.indisunique
+  );
+
+-- 5. Definicion real EXACTA: clave (institucion_id, lower(btrim(nombre))).
+--    Se valida contra pg_get_indexdef para exigir la expresion concreta, no
+--    solo la presencia de la columna institucion_id.
 select 'ux_grados_institucion_nombre_definicion_incorrecta' as error
 where to_regclass('public.ux_grados_institucion_nombre') is not null
   and not exists (
     select 1
     from pg_index i
     join pg_class c on c.oid = i.indexrelid
-    join pg_attribute a on a.attrelid = i.indrelid and a.attnum = any(i.indkey)
     where c.relname = 'ux_grados_institucion_nombre'
-      and a.attname = 'institucion_id'
+      and pg_get_indexdef(i.indexrelid)
+          like '%(institucion_id, lower(btrim(nombre)))%'
   );
 select 'ux_jornadas_institucion_nombre_definicion_incorrecta' as error
 where to_regclass('public.ux_jornadas_institucion_nombre') is not null
@@ -53,12 +75,12 @@ where to_regclass('public.ux_jornadas_institucion_nombre') is not null
     select 1
     from pg_index i
     join pg_class c on c.oid = i.indexrelid
-    join pg_attribute a on a.attrelid = i.indrelid and a.attnum = any(i.indkey)
     where c.relname = 'ux_jornadas_institucion_nombre'
-      and a.attname = 'institucion_id'
+      and pg_get_indexdef(i.indexrelid)
+          like '%(institucion_id, lower(btrim(nombre)))%'
   );
 
--- 5. No quedaron indices legacy normalizados (deberian seguir retirados).
+-- 6. No quedaron indices legacy normalizados (deberian seguir retirados).
 select 'ux_grados_nombre_normalizado_indebido' as error
 where to_regclass('public.ux_grados_nombre_normalizado') is not null;
 select 'ux_jornadas_nombre_normalizado_indebido' as error
