@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
@@ -26,17 +25,14 @@ public class CiclosEscolaresController(NpgsqlDataSource dataSource) : ApiControl
         [FromQuery] Guid? institucionId,
         CancellationToken ct)
     {
-        try
+        return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-            await using var c = await AbrirComoUsuarioAsync(ct);
-            await using var tx = await c.BeginTransactionAsync(ct);
-            await FijarClaimAsync(c, tx, User.FindFirstValue("sub")!, ct);
 
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
             // Delega en la RPC de listado 014; la RPC resuelve el ambito
             // institucional y aplica su propia autorizacion (configuracion.ciclos.ver).
-            cmd.CommandText = "select * from public.rpc_listar_ciclos_escolares(@institucionId)"; // NOSONAR:csharpsquid:S2077 (firma RPC fija, valor por NpgsqlParameter)
+            cmd.CommandText = "select * from public.rpc_listar_ciclos_escolares(@institucionId)";
             cmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
 
             await using var r = await cmd.ExecuteReaderAsync(ct);
@@ -55,10 +51,8 @@ public class CiclosEscolaresController(NpgsqlDataSource dataSource) : ApiControl
                 });
             }
             await r.DisposeAsync();
-            await tx.CommitAsync(ct);
             return Ok(lista);
-        }
-        catch (PostgresException ex) { return ToError(ex); }
+        }, ct);
     }
 
     [HttpPost]
@@ -70,25 +64,20 @@ public class CiclosEscolaresController(NpgsqlDataSource dataSource) : ApiControl
         if (string.IsNullOrWhiteSpace(dto.Nombre)
             || dto.FechaInicio == default || dto.FechaFin == default)
             return BadRequest(new { error = "Nombre y rango de fechas son obligatorios." });
-        try
+        return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-            await using var c = await AbrirComoUsuarioAsync(ct);
-            await using var tx = await c.BeginTransactionAsync(ct);
-            await FijarClaimAsync(c, tx, User.FindFirstValue("sub")!, ct);
 
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
             // Delega en la RPC 014 (valida rangos, duplicados y permiso interno).
-            cmd.CommandText = "select public.rpc_crear_ciclo_escolar(@nombre, @inicio, @fin, @institucionId)"; // NOSONAR:csharpsquid:S2077
+            cmd.CommandText = "select public.rpc_crear_ciclo_escolar(@nombre, @inicio, @fin, @institucionId)";
             cmd.Parameters.AddWithValue("nombre", dto.Nombre.Trim());
             cmd.Parameters.AddWithValue("inicio", dto.FechaInicio);
             cmd.Parameters.AddWithValue("fin", dto.FechaFin);
             cmd.Parameters.AddWithValue("institucionId", (object?)dto.InstitucionId ?? DBNull.Value);
             var id = (Guid)(await cmd.ExecuteScalarAsync(ct))!;
-            await tx.CommitAsync(ct);
             return CreatedAtAction(nameof(ListarCiclos), new { id }, new { id });
-        }
-        catch (PostgresException ex) { return ToError(ex); }
+        }, ct);
     }
 
     [HttpPut("{id:guid}")]
@@ -101,11 +90,8 @@ public class CiclosEscolaresController(NpgsqlDataSource dataSource) : ApiControl
         if (string.IsNullOrWhiteSpace(dto.Nombre)
             || dto.FechaInicio == default || dto.FechaFin == default)
             return BadRequest(new { error = "Nombre y rango de fechas son obligatorios." });
-        try
+        return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-            await using var c = await AbrirComoUsuarioAsync(ct);
-            await using var tx = await c.BeginTransactionAsync(ct);
-            await FijarClaimAsync(c, tx, User.FindFirstValue("sub")!, ct);
 
             // Conserva el estado de activacion actual del ciclo. La actualizacion
             // de metadatos no cambia el estado; reactivar/desactivar tienen su
@@ -117,17 +103,15 @@ public class CiclosEscolaresController(NpgsqlDataSource dataSource) : ApiControl
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
             // Delega en la RPC 014 (revalida rangos, periodo cubiertos y permiso).
-            cmd.CommandText = "select public.rpc_actualizar_ciclo_escolar(@id, @nombre, @inicio, @fin, @activo, null)"; // NOSONAR:csharpsquid:S2077
+            cmd.CommandText = "select public.rpc_actualizar_ciclo_escolar(@id, @nombre, @inicio, @fin, @activo, null)";
             cmd.Parameters.AddWithValue("id", id);
             cmd.Parameters.AddWithValue("nombre", dto.Nombre.Trim());
             cmd.Parameters.AddWithValue("inicio", dto.FechaInicio);
             cmd.Parameters.AddWithValue("fin", dto.FechaFin);
             cmd.Parameters.AddWithValue("activo", activo.Value);
             await cmd.ExecuteNonQueryAsync(ct);
-            await tx.CommitAsync(ct);
             return NoContent();
-        }
-        catch (PostgresException ex) { return ToError(ex); }
+        }, ct);
     }
 
     [HttpPost("{id:guid}/desactivar")]
@@ -139,41 +123,31 @@ public class CiclosEscolaresController(NpgsqlDataSource dataSource) : ApiControl
     {
         var motivo = (dto.Motivo ?? string.Empty).Trim();
         if (motivo.Length == 0) return BadRequest(new { error = "El motivo es obligatorio." });
-        try
+        return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-            await using var c = await AbrirComoUsuarioAsync(ct);
-            await using var tx = await c.BeginTransactionAsync(ct);
-            await FijarClaimAsync(c, tx, User.FindFirstValue("sub")!, ct);
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
-            cmd.CommandText = "select public.rpc_desactivar_ciclo_escolar(@id, @motivo)"; // NOSONAR:csharpsquid:S2077
+            cmd.CommandText = "select public.rpc_desactivar_ciclo_escolar(@id, @motivo)";
             cmd.Parameters.AddWithValue("id", id);
             cmd.Parameters.AddWithValue("motivo", motivo);
             await cmd.ExecuteNonQueryAsync(ct);
-            await tx.CommitAsync(ct);
             return NoContent();
-        }
-        catch (PostgresException ex) { return ToError(ex); }
+        }, ct);
     }
 
     [HttpPost("{id:guid}/reactivar")]
     [Authorize(Policy = Permisos.CiclosEscolares.Editar)]
     public async Task<IActionResult> ReactivarCiclo(Guid id, CancellationToken ct)
     {
-        try
+        return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-            await using var c = await AbrirComoUsuarioAsync(ct);
-            await using var tx = await c.BeginTransactionAsync(ct);
-            await FijarClaimAsync(c, tx, User.FindFirstValue("sub")!, ct);
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
-            cmd.CommandText = "select public.rpc_reactivar_ciclo_escolar(@id)"; // NOSONAR:csharpsquid:S2077
+            cmd.CommandText = "select public.rpc_reactivar_ciclo_escolar(@id)";
             cmd.Parameters.AddWithValue("id", id);
             await cmd.ExecuteNonQueryAsync(ct);
-            await tx.CommitAsync(ct);
             return NoContent();
-        }
-        catch (PostgresException ex) { return ToError(ex); }
+        }, ct);
     }
 
     // ----- Periodos de matricula -----
@@ -182,15 +156,12 @@ public class CiclosEscolaresController(NpgsqlDataSource dataSource) : ApiControl
     [Authorize(Policy = Permisos.CiclosEscolares.Ver)]
     public async Task<IActionResult> ListarPeriodos(Guid id, CancellationToken ct)
     {
-        try
+        return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-            await using var c = await AbrirComoUsuarioAsync(ct);
-            await using var tx = await c.BeginTransactionAsync(ct);
-            await FijarClaimAsync(c, tx, User.FindFirstValue("sub")!, ct);
 
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
-            cmd.CommandText = "select * from public.rpc_listar_periodos_matricula(@cicloId)"; // NOSONAR:csharpsquid:S2077
+            cmd.CommandText = "select * from public.rpc_listar_periodos_matricula(@cicloId)";
             cmd.Parameters.AddWithValue("cicloId", id);
 
             await using var r = await cmd.ExecuteReaderAsync(ct);
@@ -209,10 +180,8 @@ public class CiclosEscolaresController(NpgsqlDataSource dataSource) : ApiControl
                 });
             }
             await r.DisposeAsync();
-            await tx.CommitAsync(ct);
             return Ok(lista);
-        }
-        catch (PostgresException ex) { return ToError(ex); }
+        }, ct);
     }
 
     [HttpPost("{id:guid}/periodos")]
@@ -225,24 +194,19 @@ public class CiclosEscolaresController(NpgsqlDataSource dataSource) : ApiControl
         if (string.IsNullOrWhiteSpace(dto.Nombre)
             || dto.FechaInicio == default || dto.FechaFin == default)
             return BadRequest(new { error = "Nombre y rango de fechas son obligatorios." });
-        try
+        return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-            await using var c = await AbrirComoUsuarioAsync(ct);
-            await using var tx = await c.BeginTransactionAsync(ct);
-            await FijarClaimAsync(c, tx, User.FindFirstValue("sub")!, ct);
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
-            cmd.CommandText = "select public.rpc_crear_periodo_matricula(@cicloId, @nombre, @tipo, @inicio, @fin)"; // NOSONAR:csharpsquid:S2077
+            cmd.CommandText = "select public.rpc_crear_periodo_matricula(@cicloId, @nombre, @tipo, @inicio, @fin)";
             cmd.Parameters.AddWithValue("cicloId", id);
             cmd.Parameters.AddWithValue("nombre", dto.Nombre.Trim());
             cmd.Parameters.AddWithValue("tipo", (object?)(string.IsNullOrWhiteSpace(dto.Tipo) ? null : dto.Tipo.Trim()) ?? DBNull.Value);
             cmd.Parameters.AddWithValue("inicio", dto.FechaInicio);
             cmd.Parameters.AddWithValue("fin", dto.FechaFin);
             var nuevoId = (Guid)(await cmd.ExecuteScalarAsync(ct))!;
-            await tx.CommitAsync(ct);
             return CreatedAtAction(nameof(ListarPeriodos), new { id }, new { id = nuevoId });
-        }
-        catch (PostgresException ex) { return ToError(ex); }
+        }, ct);
     }
 
     [HttpPut("{id:guid}/periodos/{periodoId:guid}")]
@@ -256,11 +220,8 @@ public class CiclosEscolaresController(NpgsqlDataSource dataSource) : ApiControl
         if (string.IsNullOrWhiteSpace(dto.Nombre)
             || dto.FechaInicio == default || dto.FechaFin == default)
             return BadRequest(new { error = "Nombre y rango de fechas son obligatorios." });
-        try
+        return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-            await using var c = await AbrirComoUsuarioAsync(ct);
-            await using var tx = await c.BeginTransactionAsync(ct);
-            await FijarClaimAsync(c, tx, User.FindFirstValue("sub")!, ct);
 
             // Conserva el estado de activacion del periodo (misma logica que el ciclo).
             var activo = await LeerActivoPeriodoAsync(c, tx, periodoId, id, ct);
@@ -269,7 +230,7 @@ public class CiclosEscolaresController(NpgsqlDataSource dataSource) : ApiControl
 
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
-            cmd.CommandText = "select public.rpc_actualizar_periodo_matricula(@id, @nombre, @tipo, @inicio, @fin, @activo)"; // NOSONAR:csharpsquid:S2077
+            cmd.CommandText = "select public.rpc_actualizar_periodo_matricula(@id, @nombre, @tipo, @inicio, @fin, @activo)";
             cmd.Parameters.AddWithValue("id", periodoId);
             cmd.Parameters.AddWithValue("nombre", dto.Nombre.Trim());
             cmd.Parameters.AddWithValue("tipo", (object?)(string.IsNullOrWhiteSpace(dto.Tipo) ? null : dto.Tipo.Trim()) ?? DBNull.Value);
@@ -277,50 +238,38 @@ public class CiclosEscolaresController(NpgsqlDataSource dataSource) : ApiControl
             cmd.Parameters.AddWithValue("fin", dto.FechaFin);
             cmd.Parameters.AddWithValue("activo", activo.Value);
             await cmd.ExecuteNonQueryAsync(ct);
-            await tx.CommitAsync(ct);
             return NoContent();
-        }
-        catch (PostgresException ex) { return ToError(ex); }
+        }, ct);
     }
 
     [HttpPost("{id:guid}/periodos/{periodoId:guid}/desactivar")]
     [Authorize(Policy = Permisos.CiclosEscolares.Desactivar)]
     public async Task<IActionResult> DesactivarPeriodo(Guid id, Guid periodoId, CancellationToken ct)
     {
-        try
+        return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-            await using var c = await AbrirComoUsuarioAsync(ct);
-            await using var tx = await c.BeginTransactionAsync(ct);
-            await FijarClaimAsync(c, tx, User.FindFirstValue("sub")!, ct);
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
-            cmd.CommandText = "select public.rpc_desactivar_periodo_matricula(@id)"; // NOSONAR:csharpsquid:S2077
+            cmd.CommandText = "select public.rpc_desactivar_periodo_matricula(@id)";
             cmd.Parameters.AddWithValue("id", periodoId);
             await cmd.ExecuteNonQueryAsync(ct);
-            await tx.CommitAsync(ct);
             return NoContent();
-        }
-        catch (PostgresException ex) { return ToError(ex); }
+        }, ct);
     }
 
     [HttpPost("{id:guid}/periodos/{periodoId:guid}/reactivar")]
     [Authorize(Policy = Permisos.CiclosEscolares.Editar)]
     public async Task<IActionResult> ReactivarPeriodo(Guid id, Guid periodoId, CancellationToken ct)
     {
-        try
+        return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-            await using var c = await AbrirComoUsuarioAsync(ct);
-            await using var tx = await c.BeginTransactionAsync(ct);
-            await FijarClaimAsync(c, tx, User.FindFirstValue("sub")!, ct);
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
-            cmd.CommandText = "select public.rpc_reactivar_periodo_matricula(@id)"; // NOSONAR:csharpsquid:S2077
+            cmd.CommandText = "select public.rpc_reactivar_periodo_matricula(@id)";
             cmd.Parameters.AddWithValue("id", periodoId);
             await cmd.ExecuteNonQueryAsync(ct);
-            await tx.CommitAsync(ct);
             return NoContent();
-        }
-        catch (PostgresException ex) { return ToError(ex); }
+        }, ct);
     }
 
     // ----- Helpers (solo lectura de estado; no reimplementa reglas de negocio) -----

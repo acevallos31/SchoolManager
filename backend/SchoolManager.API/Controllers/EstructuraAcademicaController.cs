@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
@@ -26,17 +25,14 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
         [FromQuery] Guid? institucionId,
         CancellationToken ct)
     {
-        try
+        return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-            await using var c = await AbrirComoUsuarioAsync(ct);
-            await using var tx = await c.BeginTransactionAsync(ct);
-            await FijarClaimAsync(c, tx, User.FindFirstValue("sub")!, ct);
 
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
             // Delega en la RPC de listado 016; la RPC resuelve el ambito
             // institucional y aplica su propia autorizacion (configuracion.grados.ver).
-            cmd.CommandText = "select * from public.rpc_listar_grados(@institucionId)"; // NOSONAR:csharpsquid:S2077 (firma RPC fija, valor por NpgsqlParameter)
+            cmd.CommandText = "select * from public.rpc_listar_grados(@institucionId)";
             cmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
 
             await using var r = await cmd.ExecuteReaderAsync(ct);
@@ -52,10 +48,8 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
                 });
             }
             await r.DisposeAsync();
-            await tx.CommitAsync(ct);
             return Ok(lista);
-        }
-        catch (PostgresException ex) { return ToError(ex); }
+        }, ct);
     }
 
     [HttpPost("grados")]
@@ -66,24 +60,19 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
     {
         if (string.IsNullOrWhiteSpace(dto.Nombre))
             return BadRequest(new { error = "El nombre es obligatorio." });
-        try
+        return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-            await using var c = await AbrirComoUsuarioAsync(ct);
-            await using var tx = await c.BeginTransactionAsync(ct);
-            await FijarClaimAsync(c, tx, User.FindFirstValue("sub")!, ct);
 
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
             // Delega en la RPC 016 (valida duplicados, rango y permiso interno).
-            cmd.CommandText = "select public.rpc_crear_grado(@nombre, @orden, @institucionId)"; // NOSONAR:csharpsquid:S2077
+            cmd.CommandText = "select public.rpc_crear_grado(@nombre, @orden, @institucionId)";
             cmd.Parameters.AddWithValue("nombre", dto.Nombre.Trim());
             cmd.Parameters.AddWithValue("orden", dto.Orden);
             cmd.Parameters.AddWithValue("institucionId", (object?)dto.InstitucionId ?? DBNull.Value);
             var id = (Guid)(await cmd.ExecuteScalarAsync(ct))!;
-            await tx.CommitAsync(ct);
             return CreatedAtAction(nameof(ListarGrados), new { id }, new { id });
-        }
-        catch (PostgresException ex) { return ToError(ex); }
+        }, ct);
     }
 
     [HttpPut("grados/{id:guid}")]
@@ -96,25 +85,20 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
     {
         if (string.IsNullOrWhiteSpace(dto.Nombre))
             return BadRequest(new { error = "El nombre es obligatorio." });
-        try
+        return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-            await using var c = await AbrirComoUsuarioAsync(ct);
-            await using var tx = await c.BeginTransactionAsync(ct);
-            await FijarClaimAsync(c, tx, User.FindFirstValue("sub")!, ct);
 
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
             // Delega en la RPC 016 (revalida duplicados, rango y pertenencia).
-            cmd.CommandText = "select public.rpc_actualizar_grado(@id, @nombre, @orden, @institucionId)"; // NOSONAR:csharpsquid:S2077
+            cmd.CommandText = "select public.rpc_actualizar_grado(@id, @nombre, @orden, @institucionId)";
             cmd.Parameters.AddWithValue("id", id);
             cmd.Parameters.AddWithValue("nombre", dto.Nombre.Trim());
             cmd.Parameters.AddWithValue("orden", dto.Orden);
             cmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
             await cmd.ExecuteNonQueryAsync(ct);
-            await tx.CommitAsync(ct);
             return NoContent();
-        }
-        catch (PostgresException ex) { return ToError(ex); }
+        }, ct);
     }
 
     [HttpPost("grados/{id:guid}/desactivar")]
@@ -125,21 +109,16 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
         CancellationToken ct)
     {
         // El grado no exige motivo; la desactivacion soft se delega en la RPC.
-        try
+        return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-            await using var c = await AbrirComoUsuarioAsync(ct);
-            await using var tx = await c.BeginTransactionAsync(ct);
-            await FijarClaimAsync(c, tx, User.FindFirstValue("sub")!, ct);
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
-            cmd.CommandText = "select public.rpc_desactivar_grado(@id, @institucionId)"; // NOSONAR:csharpsquid:S2077
+            cmd.CommandText = "select public.rpc_desactivar_grado(@id, @institucionId)";
             cmd.Parameters.AddWithValue("id", id);
             cmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
             await cmd.ExecuteNonQueryAsync(ct);
-            await tx.CommitAsync(ct);
             return NoContent();
-        }
-        catch (PostgresException ex) { return ToError(ex); }
+        }, ct);
     }
 
     [HttpPost("grados/{id:guid}/reactivar")]
@@ -149,21 +128,16 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
         [FromQuery] Guid? institucionId,
         CancellationToken ct)
     {
-        try
+        return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-            await using var c = await AbrirComoUsuarioAsync(ct);
-            await using var tx = await c.BeginTransactionAsync(ct);
-            await FijarClaimAsync(c, tx, User.FindFirstValue("sub")!, ct);
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
-            cmd.CommandText = "select public.rpc_reactivar_grado(@id, @institucionId)"; // NOSONAR:csharpsquid:S2077
+            cmd.CommandText = "select public.rpc_reactivar_grado(@id, @institucionId)";
             cmd.Parameters.AddWithValue("id", id);
             cmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
             await cmd.ExecuteNonQueryAsync(ct);
-            await tx.CommitAsync(ct);
             return NoContent();
-        }
-        catch (PostgresException ex) { return ToError(ex); }
+        }, ct);
     }
 
     // ----- Jornadas academicas -----
@@ -174,16 +148,13 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
         [FromQuery] Guid? institucionId,
         CancellationToken ct)
     {
-        try
+        return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-            await using var c = await AbrirComoUsuarioAsync(ct);
-            await using var tx = await c.BeginTransactionAsync(ct);
-            await FijarClaimAsync(c, tx, User.FindFirstValue("sub")!, ct);
 
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
             // Delega en la RPC de listado 016 (configuracion.jornadas.ver interna).
-            cmd.CommandText = "select * from public.rpc_listar_jornadas(@institucionId)"; // NOSONAR:csharpsquid:S2077 (firma RPC fija, valor por NpgsqlParameter)
+            cmd.CommandText = "select * from public.rpc_listar_jornadas(@institucionId)";
             cmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
 
             await using var r = await cmd.ExecuteReaderAsync(ct);
@@ -198,10 +169,8 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
                 });
             }
             await r.DisposeAsync();
-            await tx.CommitAsync(ct);
             return Ok(lista);
-        }
-        catch (PostgresException ex) { return ToError(ex); }
+        }, ct);
     }
 
     [HttpPost("jornadas")]
@@ -212,23 +181,18 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
     {
         if (string.IsNullOrWhiteSpace(dto.Nombre))
             return BadRequest(new { error = "El nombre es obligatorio." });
-        try
+        return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-            await using var c = await AbrirComoUsuarioAsync(ct);
-            await using var tx = await c.BeginTransactionAsync(ct);
-            await FijarClaimAsync(c, tx, User.FindFirstValue("sub")!, ct);
 
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
             // Delega en la RPC 016 (valida duplicados y permiso interno).
-            cmd.CommandText = "select public.rpc_crear_jornada(@nombre, @institucionId)"; // NOSONAR:csharpsquid:S2077
+            cmd.CommandText = "select public.rpc_crear_jornada(@nombre, @institucionId)";
             cmd.Parameters.AddWithValue("nombre", dto.Nombre.Trim());
             cmd.Parameters.AddWithValue("institucionId", (object?)dto.InstitucionId ?? DBNull.Value);
             var id = (Guid)(await cmd.ExecuteScalarAsync(ct))!;
-            await tx.CommitAsync(ct);
             return CreatedAtAction(nameof(ListarJornadas), new { id }, new { id });
-        }
-        catch (PostgresException ex) { return ToError(ex); }
+        }, ct);
     }
 
     [HttpPut("jornadas/{id:guid}")]
@@ -241,24 +205,19 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
     {
         if (string.IsNullOrWhiteSpace(dto.Nombre))
             return BadRequest(new { error = "El nombre es obligatorio." });
-        try
+        return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-            await using var c = await AbrirComoUsuarioAsync(ct);
-            await using var tx = await c.BeginTransactionAsync(ct);
-            await FijarClaimAsync(c, tx, User.FindFirstValue("sub")!, ct);
 
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
             // Delega en la RPC 016 (revalida duplicados y pertenencia).
-            cmd.CommandText = "select public.rpc_actualizar_jornada(@id, @nombre, @institucionId)"; // NOSONAR:csharpsquid:S2077
+            cmd.CommandText = "select public.rpc_actualizar_jornada(@id, @nombre, @institucionId)";
             cmd.Parameters.AddWithValue("id", id);
             cmd.Parameters.AddWithValue("nombre", dto.Nombre.Trim());
             cmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
             await cmd.ExecuteNonQueryAsync(ct);
-            await tx.CommitAsync(ct);
             return NoContent();
-        }
-        catch (PostgresException ex) { return ToError(ex); }
+        }, ct);
     }
 
     [HttpPost("jornadas/{id:guid}/desactivar")]
@@ -269,21 +228,16 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
         CancellationToken ct)
     {
         // La jornada no exige motivo; la desactivacion soft se delega en la RPC.
-        try
+        return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-            await using var c = await AbrirComoUsuarioAsync(ct);
-            await using var tx = await c.BeginTransactionAsync(ct);
-            await FijarClaimAsync(c, tx, User.FindFirstValue("sub")!, ct);
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
-            cmd.CommandText = "select public.rpc_desactivar_jornada(@id, @institucionId)"; // NOSONAR:csharpsquid:S2077
+            cmd.CommandText = "select public.rpc_desactivar_jornada(@id, @institucionId)";
             cmd.Parameters.AddWithValue("id", id);
             cmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
             await cmd.ExecuteNonQueryAsync(ct);
-            await tx.CommitAsync(ct);
             return NoContent();
-        }
-        catch (PostgresException ex) { return ToError(ex); }
+        }, ct);
     }
 
     [HttpPost("jornadas/{id:guid}/reactivar")]
@@ -293,21 +247,16 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
         [FromQuery] Guid? institucionId,
         CancellationToken ct)
     {
-        try
+        return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-            await using var c = await AbrirComoUsuarioAsync(ct);
-            await using var tx = await c.BeginTransactionAsync(ct);
-            await FijarClaimAsync(c, tx, User.FindFirstValue("sub")!, ct);
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
-            cmd.CommandText = "select public.rpc_reactivar_jornada(@id, @institucionId)"; // NOSONAR:csharpsquid:S2077
+            cmd.CommandText = "select public.rpc_reactivar_jornada(@id, @institucionId)";
             cmd.Parameters.AddWithValue("id", id);
             cmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
             await cmd.ExecuteNonQueryAsync(ct);
-            await tx.CommitAsync(ct);
             return NoContent();
-        }
-        catch (PostgresException ex) { return ToError(ex); }
+        }, ct);
     }
 
     // ----- Secciones -----
@@ -322,16 +271,13 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
         // cicloId es obligatorio para acotar el listado a un ciclo escolar.
         if (cicloId == Guid.Empty)
             return BadRequest(new { error = "cicloId es obligatorio." });
-        try
+        return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-            await using var c = await AbrirComoUsuarioAsync(ct);
-            await using var tx = await c.BeginTransactionAsync(ct);
-            await FijarClaimAsync(c, tx, User.FindFirstValue("sub")!, ct);
 
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
             // Delega en la RPC de listado 016 (configuracion.secciones.ver interna).
-            cmd.CommandText = "select * from public.rpc_listar_secciones(@cicloId, @institucionId)"; // NOSONAR:csharpsquid:S2077 (firma RPC fija, valor por NpgsqlParameter)
+            cmd.CommandText = "select * from public.rpc_listar_secciones(@cicloId, @institucionId)";
             cmd.Parameters.AddWithValue("cicloId", cicloId);
             cmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
 
@@ -356,10 +302,8 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
                 });
             }
             await r.DisposeAsync();
-            await tx.CommitAsync(ct);
             return Ok(lista);
-        }
-        catch (PostgresException ex) { return ToError(ex); }
+        }, ct);
     }
 
     [HttpPost("secciones")]
@@ -372,16 +316,13 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
             return BadRequest(new { error = "El nombre es obligatorio." });
         if (dto.CicloId == Guid.Empty || dto.GradoId == Guid.Empty)
             return BadRequest(new { error = "cicloId y gradoId son obligatorios." });
-        try
+        return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-            await using var c = await AbrirComoUsuarioAsync(ct);
-            await using var tx = await c.BeginTransactionAsync(ct);
-            await FijarClaimAsync(c, tx, User.FindFirstValue("sub")!, ct);
 
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
             // Delega en la RPC 016 (valida duplicados, cupo y permiso interno).
-            cmd.CommandText = "select public.rpc_crear_seccion(@institucionId, @cicloId, @gradoId, @jornadaId, @nombre, @cupo)"; // NOSONAR:csharpsquid:S2077
+            cmd.CommandText = "select public.rpc_crear_seccion(@institucionId, @cicloId, @gradoId, @jornadaId, @nombre, @cupo)";
             cmd.Parameters.AddWithValue("institucionId", (object?)dto.InstitucionId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("cicloId", dto.CicloId);
             cmd.Parameters.AddWithValue("gradoId", dto.GradoId);
@@ -389,10 +330,8 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
             cmd.Parameters.AddWithValue("nombre", dto.Nombre.Trim());
             cmd.Parameters.AddWithValue("cupo", (object?)dto.Cupo ?? DBNull.Value);
             var id = (Guid)(await cmd.ExecuteScalarAsync(ct))!;
-            await tx.CommitAsync(ct);
             return CreatedAtAction(nameof(ListarSecciones), new { id }, new { id });
-        }
-        catch (PostgresException ex) { return ToError(ex); }
+        }, ct);
     }
 
     [HttpPut("secciones/{id:guid}")]
@@ -407,16 +346,13 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
             return BadRequest(new { error = "El nombre es obligatorio." });
         if (dto.CicloId == Guid.Empty || dto.GradoId == Guid.Empty)
             return BadRequest(new { error = "cicloId y gradoId son obligatorios." });
-        try
+        return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-            await using var c = await AbrirComoUsuarioAsync(ct);
-            await using var tx = await c.BeginTransactionAsync(ct);
-            await FijarClaimAsync(c, tx, User.FindFirstValue("sub")!, ct);
 
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
             // Delega en la RPC 016 (revalida duplicados, cupo y pertenencia).
-            cmd.CommandText = "select public.rpc_actualizar_seccion(@id, @cicloId, @gradoId, @jornadaId, @nombre, @cupo, @institucionId)"; // NOSONAR:csharpsquid:S2077
+            cmd.CommandText = "select public.rpc_actualizar_seccion(@id, @cicloId, @gradoId, @jornadaId, @nombre, @cupo, @institucionId)";
             cmd.Parameters.AddWithValue("id", id);
             cmd.Parameters.AddWithValue("cicloId", dto.CicloId);
             cmd.Parameters.AddWithValue("gradoId", dto.GradoId);
@@ -425,10 +361,8 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
             cmd.Parameters.AddWithValue("cupo", (object?)dto.Cupo ?? DBNull.Value);
             cmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
             await cmd.ExecuteNonQueryAsync(ct);
-            await tx.CommitAsync(ct);
             return NoContent();
-        }
-        catch (PostgresException ex) { return ToError(ex); }
+        }, ct);
     }
 
     [HttpPost("secciones/{id:guid}/desactivar")]
@@ -441,22 +375,17 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
     {
         var motivo = (dto.Motivo ?? string.Empty).Trim();
         if (motivo.Length == 0) return BadRequest(new { error = "El motivo es obligatorio." });
-        try
+        return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-            await using var c = await AbrirComoUsuarioAsync(ct);
-            await using var tx = await c.BeginTransactionAsync(ct);
-            await FijarClaimAsync(c, tx, User.FindFirstValue("sub")!, ct);
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
-            cmd.CommandText = "select public.rpc_desactivar_seccion(@id, @motivo, @institucionId)"; // NOSONAR:csharpsquid:S2077
+            cmd.CommandText = "select public.rpc_desactivar_seccion(@id, @motivo, @institucionId)";
             cmd.Parameters.AddWithValue("id", id);
             cmd.Parameters.AddWithValue("motivo", motivo);
             cmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
             await cmd.ExecuteNonQueryAsync(ct);
-            await tx.CommitAsync(ct);
             return NoContent();
-        }
-        catch (PostgresException ex) { return ToError(ex); }
+        }, ct);
     }
 
     [HttpPost("secciones/{id:guid}/reactivar")]
@@ -466,20 +395,15 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
         [FromQuery] Guid? institucionId,
         CancellationToken ct)
     {
-        try
+        return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-            await using var c = await AbrirComoUsuarioAsync(ct);
-            await using var tx = await c.BeginTransactionAsync(ct);
-            await FijarClaimAsync(c, tx, User.FindFirstValue("sub")!, ct);
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
-            cmd.CommandText = "select public.rpc_reactivar_seccion(@id, @institucionId)"; // NOSONAR:csharpsquid:S2077
+            cmd.CommandText = "select public.rpc_reactivar_seccion(@id, @institucionId)";
             cmd.Parameters.AddWithValue("id", id);
             cmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
             await cmd.ExecuteNonQueryAsync(ct);
-            await tx.CommitAsync(ct);
             return NoContent();
-        }
-        catch (PostgresException ex) { return ToError(ex); }
+        }, ct);
     }
 }

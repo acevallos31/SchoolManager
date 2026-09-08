@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Npgsql;
 
 namespace SchoolManager.API.Controllers;
@@ -15,6 +16,26 @@ namespace SchoolManager.API.Controllers;
 [ApiController]
 public abstract class ApiControllerBase(NpgsqlDataSource dataSource) : ControllerBase
 {
+    // Centraliza el ciclo de vida repetido en las operaciones académicas.
+    // Cada callback conserva su SQL/RPC; errores y respuestas de rechazo
+    // disponen la transacción sin commit y el claim nunca sale de su ámbito.
+    protected async Task<IActionResult> EnTransaccionComoUsuarioAsync(
+        Func<NpgsqlConnection, NpgsqlTransaction, Task<IActionResult>> operacion,
+        CancellationToken ct)
+    {
+        try
+        {
+            await using var conexion = await AbrirComoUsuarioAsync(ct);
+            await using var tx = await conexion.BeginTransactionAsync(ct);
+            await FijarClaimAsync(conexion, tx, User.FindFirstValue("sub")!, ct);
+            var resultado = await operacion(conexion, tx);
+            if (resultado is not IStatusCodeActionResult { StatusCode: >= 400 })
+                await tx.CommitAsync(ct);
+            return resultado;
+        }
+        catch (PostgresException ex) { return ToError(ex); }
+    }
+
     protected async Task<NpgsqlConnection> AbrirComoUsuarioAsync(CancellationToken ct)
     {
         var sub = User.FindFirstValue("sub");
