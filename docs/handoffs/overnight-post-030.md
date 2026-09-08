@@ -14,18 +14,23 @@ siguiente bloque recomendado.
 
 - **PR #55 MERGEADO a `main` hoy 07:51Z** (merge `a52945a`) por el usuario. No está abierto.
 - Fix que quedó en producción: **`provideZoneChangeDetection()` central en `app.config.ts`** +
-  `alumnos.css` + specs. Es decir, se restauró el CD **basado en zona**.
-- El trabajo zoneless (revertir `provideZoneChangeDetection()`, `markForCheck()` en
-  Alumnos/Matrículas) **NO está en main**; quedó stashado en `wip-cd-zoneless-20260908`.
-- **Regresión/limitación del repro honesto**: el test de Alumnos pasaba sin el fix
-  (cargando=false + dato visible tras resolver) porque `zone.js` está en los polyfills de
-  `angular.json` (L22–23, `"polyfills": ["zone.js"]`), lo que enmascara el modelo zoneless.
+  `alumnos.css` + specs. Es decir, restauró el CD **basado en zona**.
+- **PERO el problema de producción PERSISTE**: `GET /api/alumnos` devuelve 200 con datos y la UI
+  sigue en **"Cargando alumnos…"**. Por tanto, **`provideZoneChangeDetection()` NO se considera
+  una solución confirmada** — el merge fue el del PR, no la confirmación de que resuelve el bug.
+- **El trabajo zoneless/`markForCheck()` sigue siendo investigación activa** (no está cerrado).
+  El WIP (revertir `provideZoneChangeDetection()`, `markForCheck()` en Alumnos/Matrículas) quedó
+  stashado en `wip-cd-zoneless-20260908` y sigue siendo la línea abierta.
 - **CI/Sonar/Vercel del merge**: verde — validate/deploy/sonar success (run `34201411418`);
   deploy de producción de Vercel para `a52945a` OK. SonarCloud QG pasado (cobertura New Code 86,5%).
-- **Decisión pendiente (requiere aprobación del usuario):** producción corre hoy con CD por
-  zona. ¿Se acepta ese PR como válido (fin del tema), o se reabre la migración a zoneless real?
-  Si se reabre, hay que resolver antes el `zone.js` en polyfills del entorno de test para que
-  el repro sea honesto.
+  El verde de CI no contradice lo anterior: el test de Alumnos pasa sin el fix
+  (cargando=false + dato visible tras resolver) porque `zone.js` está en los polyfills de
+  `angular.json` (L22–23, `"polyfills": ["zone.js"]`), lo que enmascara el modelo zoneless y
+  enmascara también el repro del bug en runtime.
+- **Decisión pendiente (requiere aprobación del usuario):** producción sigue rota (UI
+  "Cargando alumnos…"). La migración a zoneless real / `markForCheck()` sigue abierta como
+  investigación activa. Si se retoma, hay que resolver antes el `zone.js` en polyfills del
+  entorno de test para que el repro sea honesto.
 
 ---
 
