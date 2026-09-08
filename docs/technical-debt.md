@@ -290,6 +290,18 @@ sistema frágil (principios ISW2 #4, #5 y #12).
 
 ## 10. Páginas de negocio que consultan Supabase directo (sin pasar por la API .NET)
 
+> **Actualización 030F — Codex, 2026-09-08: RESUELTA en PR #53 (sin merge).**
+> Esta nota sustituye el estado abierto descrito abajo, que se conserva como
+> diagnóstico histórico. 030B–030F migraron los servicios de negocio a .NET.
+> Búsqueda global: 0 accesos directos de negocio; única excepción productiva
+> `auth.ts` (Supabase Auth). Sus mocks y `Array.from` nativo no son accesos de negocio.
+> API 156/156, DB 156/156, frontend 289/289 y builds locales correctos.
+> CI y Vercel verdes en `3feb517`, run `34192575139`. SonarScanner for .NET:
+> C# real + TypeScript, Cobertura/LCOV importados, Quality Gate **OK**;
+> New Code 86,5% cobertura y 2,7% duplicación, sin debilitar reglas ni umbrales.
+> Contratos, clasificación de las cinco RPC de Configuración y riesgos:
+> `docs/handoffs/030F-cierre-global.md`. PR #53 abierto, sin merge.
+
 - **Estado: ABIERTO (deliberado) — no es un flujo roto; funciona contra Supabase.**
 - **Problema**: varias páginas de negocio leen/escriben **directo contra
   Supabase** (vía `SUPABASE_CLIENT`) en lugar de la API .NET, rompiendo el

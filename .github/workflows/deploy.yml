@@ -30,6 +30,9 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Verificar frontera API del frontend (deuda 10)
+        run: python3 scripts/check-frontend-api-boundary.py
+
       - name: Validar Backend (.NET)
         run: |
           dotnet restore backend/SchoolManager.API/SchoolManager.API.csproj
@@ -226,6 +229,12 @@ jobs:
           SONAR_HOST_URL: https://sonarcloud.io
         with:
           scanMetadataReportFile: .sonarqube/out/.sonar/report-task.txt
+
+      - name: Reportar condiciones del Quality Gate y hallazgos del PR
+        if: ${{ always() && github.event_name == 'pull_request' && env.SONAR_TOKEN != '' }}
+        env:
+          SONAR_PR: ${{ github.event.pull_request.number }}
+        run: python3 scripts/report-sonar-quality.py
 
   # ETAPA 2: DESPLIEGUE (Solo se ejecuta si la etapa anterior pasa Y estamos en la rama main)
   deploy:

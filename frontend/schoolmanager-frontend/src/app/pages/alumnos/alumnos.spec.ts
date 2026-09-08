@@ -117,7 +117,7 @@ describe('Alumnos', () => {
       numeroIdentificacion: '0801', fechaNacimiento: '', rne: '', codigoInterno: ''
     };
     alumnoService['crear'].mockRejectedValue(
-      new AlumnoServiceError('Ya existe una persona con ese documento.', '23505')
+      new AlumnoServiceError('Ya existe una persona con ese documento.', 409)
     );
 
     await component.guardarAlumno();

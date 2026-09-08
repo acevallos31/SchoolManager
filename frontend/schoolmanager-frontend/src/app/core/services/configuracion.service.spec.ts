@@ -1,103 +1,131 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { SupabaseClient } from '@supabase/supabase-js';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { SUPABASE_CLIENT } from './auth';
-import { ConfiguracionError, ConfiguracionService } from './configuracion.service';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { environment } from '../../environments/environment';
+import { ConfiguracionService, GuardarInstitucionInput } from './configuracion.service';
+
+const contexto = { multiplesInstituciones: false, institucion: { id: 'institucion-1', nombre: 'Centro' } };
+const identificadores = {
+  rneRequerido: true, identificacionCivilRequerida: false,
+  codigoInternoRequerido: false, tiposIdentificacionPermitidos: ['identidad']
+};
+const configuracion = {
+  ...contexto,
+  institucion: { ...contexto.institucion, nombreCorto: null, direccion: null, telefono: null, correo: null, logoUrl: null },
+  identificadores
+};
 
 describe('ConfiguracionService', () => {
   let service: ConfiguracionService;
-  let rpc: ReturnType<typeof vi.fn>;
+  let http: HttpTestingController;
+  const url = `${environment.apiUrl}/configuracion`;
 
   beforeEach(() => {
-    rpc = vi.fn();
-    TestBed.configureTestingModule({ providers: [
-      ConfiguracionService,
-      { provide: SUPABASE_CLIENT, useValue: { rpc } as unknown as SupabaseClient }
-    ] });
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
     service = TestBed.inject(ConfiguracionService);
+    http = TestBed.inject(HttpTestingController);
   });
+  afterEach(() => http.verify());
 
-  it('carga contexto single con su institución', async () => {
-    rpc.mockResolvedValue({ data: {
-      multiplesInstituciones: false,
-      institucion: { id: 'institucion-1', nombre: 'Centro educativo' }
-    }, error: null });
-
-    await expect(service.obtenerInstitucionActual()).resolves.toEqual({
-      id: 'institucion-1', nombre: 'Centro educativo'
-    });
-    expect(rpc).toHaveBeenCalledWith('rpc_obtener_contexto_implementacion');
+  it('carga contexto single por API', async () => {
+    const result = service.obtenerInstitucionActual();
+    const request = http.expectOne(`${url}/contexto`);
+    expect(request.request.method).toBe('GET');
+    request.flush(contexto);
+    await expect(result).resolves.toEqual(contexto.institucion);
   });
 
   it('en modo multi exige contexto explícito', async () => {
-    rpc.mockResolvedValue({ data: {
-      multiplesInstituciones: true, institucion: null
-    }, error: null });
-    await expect(service.obtenerInstitucionActual()).rejects.toMatchObject({
-      code: 'INSTITUTION_CONTEXT_REQUIRED'
-    });
+    const result = service.obtenerInstitucionActual();
+    const assertion = expect(result).rejects.toMatchObject({ code: 'INSTITUTION_CONTEXT_REQUIRED' });
+    http.expectOne(`${url}/contexto`).flush({ multiplesInstituciones: true, institucion: null });
+    await assertion;
   });
 
-  it('actualiza el modo mediante RPC segura', async () => {
-    rpc.mockResolvedValue({ data: {
-      multiplesInstituciones: true, institucion: null
-    }, error: null });
-    const contexto = await service.actualizarModo(true);
-    expect(contexto.multiplesInstituciones).toBe(true);
-    expect(rpc).toHaveBeenCalledWith('rpc_actualizar_multiples_instituciones', {
-      p_multiples_instituciones: true
-    });
+  it('consulta el modo', async () => {
+    const result = service.esMultiInstitucion();
+    http.expectOne(`${url}/contexto`).flush(contexto);
+    await expect(result).resolves.toBe(false);
   });
 
-  it('traduce errores estables de configuración', async () => {
-    rpc.mockResolvedValue({ data: null, error: { code: 'SM001' } });
-    await expect(service.obtenerContexto()).rejects.toEqual(expect.objectContaining({
-      code: 'SM001', message: 'No hay un centro educativo configurado.'
-    } satisfies Partial<ConfiguracionError>));
+  it('actualiza modo por PUT', async () => {
+    const result = service.actualizarModo(true);
+    const request = http.expectOne(`${url}/modo`);
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual({ multiplesInstituciones: true });
+    request.flush({ multiplesInstituciones: true, institucion: null });
+    await expect(result).resolves.toMatchObject({ multiplesInstituciones: true });
   });
 
-  it('obtiene configuración institucional tipada en una RPC', async () => {
-    rpc.mockResolvedValue({ data: {
-      multiplesInstituciones: false,
-      institucion: {
-        id: 'institucion-1', nombre: 'Centro', nombreCorto: null,
-        direccion: null, telefono: null, correo: null, logoUrl: null
-      },
-      identificadores: {
-        rneRequerido: true, identificacionCivilRequerida: false,
-        codigoInternoRequerido: false, tiposIdentificacionPermitidos: ['identidad']
-      }
-    }, error: null });
-
-    const resultado = await service.obtenerConfiguracionInstitucion();
-    expect(resultado.identificadores?.rneRequerido).toBe(true);
-    expect(rpc).toHaveBeenCalledWith('rpc_obtener_configuracion_institucion', undefined);
+  it.each([undefined, 'institucion-1'])('obtiene configuración con contexto %s', async id => {
+    const result = service.obtenerConfiguracionInstitucion(id);
+    const request = http.expectOne(`${url}/institucion${id ? `?institucionId=${id}` : ''}`);
+    expect(request.request.method).toBe('GET');
+    request.flush(configuracion);
+    await expect(result).resolves.toEqual(configuracion);
   });
 
-  it('crear y actualizar institución usan RPC seguras', async () => {
-    const respuesta = {
-      multiplesInstituciones: false,
-      institucion: {
-        id: 'institucion-1', nombre: 'Centro', nombreCorto: null,
-        direccion: null, telefono: null, correo: null, logoUrl: null
-      },
-      identificadores: {
-        rneRequerido: false, identificacionCivilRequerida: false,
-        codigoInternoRequerido: false, tiposIdentificacionPermitidos: ['identidad']
-      }
+  it('permite configuración todavía vacía', async () => {
+    const result = service.obtenerConfiguracionInstitucion();
+    const vacia = { multiplesInstituciones: false, institucion: null, identificadores: null };
+    http.expectOne(`${url}/institucion`).flush(vacia);
+    await expect(result).resolves.toEqual(vacia);
+  });
+
+  it.each(['POST', 'PUT'])('guarda por %s preservando normalización y contrato', async method => {
+    const input: GuardarInstitucionInput = {
+      nombre: ' Centro ', nombreCorto: ' ', direccion: ' Calle ', telefono: null,
+      correo: null, logoUrl: null, identificadores
     };
-    rpc.mockResolvedValue({ data: respuesta, error: null });
-    const input = {
-      nombre: ' Centro ', nombreCorto: null, direccion: null, telefono: null,
-      correo: null, logoUrl: null, identificadores: respuesta.identificadores
-    };
+    const result = method === 'POST' ? service.crearInstitucion(input) : service.actualizarInstitucion('institucion-1', input);
+    const request = http.expectOne(`${url}/instituciones${method === 'PUT' ? '/institucion-1' : ''}`);
+    expect(request.request.method).toBe(method);
+    expect(request.request.body).toEqual({ ...input, nombre: 'Centro', nombreCorto: null, direccion: 'Calle' });
+    request.flush(configuracion);
+    await expect(result).resolves.toEqual(configuracion);
+    expect(input.nombre).toBe(' Centro ');
+  });
 
-    await service.crearInstitucion(input);
-    await service.actualizarInstitucion('institucion-1', input);
+  it.each(['SM001', 'SM002', 'SM003', 'SM004', '42501', '23505', 'P0002', '22023'])('conserva código estable %s', async code => {
+    const result = service.obtenerContexto();
+    const assertion = expect(result).rejects.toMatchObject({ name: 'ConfiguracionError', code });
+    http.expectOne(`${url}/contexto`).flush({ code, error: 'Error de prueba' }, { status: 400, statusText: 'Bad Request' });
+    await assertion;
+  });
 
-    expect(rpc).toHaveBeenNthCalledWith(1, 'rpc_crear_institucion',
-      expect.objectContaining({ p_nombre: 'Centro', p_rne_requerido: false }));
-    expect(rpc).toHaveBeenNthCalledWith(2, 'rpc_actualizar_institucion',
-      expect.objectContaining({ p_institucion_id: 'institucion-1', p_nombre: 'Centro' }));
+  it('traduce 403 de policy sin payload SQL', async () => {
+    const result = service.actualizarModo(true);
+    const assertion = expect(result).rejects.toMatchObject({ code: '42501' });
+    http.expectOne(`${url}/modo`).flush(null, { status: 403, statusText: 'Forbidden' });
+    await assertion;
+  });
+
+  it('traduce errores de red', async () => {
+    const result = service.obtenerContexto();
+    const assertion = expect(result).rejects.toMatchObject({ code: 'UNKNOWN' });
+    http.expectOne(`${url}/contexto`).error(new ProgressEvent('error'));
+    await assertion;
+  });
+
+  it.each([
+    {},
+    { multiplesInstituciones: false, institucion: {} }
+  ])('rechaza contexto inválido %j', async payload => {
+    const result = service.obtenerContexto();
+    const assertion = expect(result).rejects.toMatchObject({ code: 'INVALID_RESPONSE' });
+    http.expectOne(`${url}/contexto`).flush(payload);
+    await assertion;
+  });
+
+  it.each([
+    {},
+    { ...configuracion, identificadores: null },
+    { ...configuracion, identificadores: { ...identificadores, tiposIdentificacionPermitidos: [3] } }
+  ])('rechaza configuración inválida %j', async payload => {
+    const result = service.obtenerConfiguracionInstitucion();
+    const assertion = expect(result).rejects.toMatchObject({ code: 'INVALID_RESPONSE' });
+    http.expectOne(`${url}/institucion`).flush(payload);
+    await assertion;
   });
 });

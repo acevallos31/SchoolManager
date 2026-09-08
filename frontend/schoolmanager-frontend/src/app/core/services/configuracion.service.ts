@@ -1,5 +1,7 @@
 import { inject, Injectable } from '@angular/core';
-import { SUPABASE_CLIENT } from './auth';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export interface InstitucionContexto {
   id: string;
@@ -42,7 +44,7 @@ export interface ContextoImplementacion {
   institucion: InstitucionContexto | null;
 }
 
-interface SupabaseErrorLike {
+interface ConfiguracionApiError {
   code?: string;
   message?: string;
 }
@@ -56,52 +58,35 @@ export class ConfiguracionError extends Error {
 
 @Injectable({ providedIn: 'root' })
 export class ConfiguracionService {
-  private readonly supabase = inject(SUPABASE_CLIENT);
+  private readonly http = inject(HttpClient);
+  private readonly baseUrl = `${environment.apiUrl}/configuracion`;
 
   async obtenerContexto(): Promise<ContextoImplementacion> {
-    const { data, error } = await this.supabase.rpc('rpc_obtener_contexto_implementacion');
-    if (error) throw this.mapError(error);
-    return this.validarContexto(data);
+    return this.validarContexto(await this.solicitar('GET', '/contexto'));
   }
 
   async actualizarModo(multiplesInstituciones: boolean): Promise<ContextoImplementacion> {
-    const { data, error } = await this.supabase.rpc(
-      'rpc_actualizar_multiples_instituciones',
-      { p_multiples_instituciones: multiplesInstituciones }
-    );
-    if (error) throw this.mapError(error);
-    return this.validarContexto(data);
+    return this.validarContexto(await this.solicitar('PUT', '/modo', { multiplesInstituciones }));
   }
 
   async obtenerConfiguracionInstitucion(institucionId?: string): Promise<ConfiguracionInstitucion> {
-    const parametros = institucionId ? { p_institucion_id: institucionId } : undefined;
-    const { data, error } = await this.supabase.rpc(
-      'rpc_obtener_configuracion_institucion',
-      parametros
-    );
-    if (error) throw this.mapError(error);
-    return this.validarConfiguracionInstitucion(data);
+    const query = institucionId ? `?institucionId=${encodeURIComponent(institucionId)}` : '';
+    return this.validarConfiguracionInstitucion(await this.solicitar('GET', `/institucion${query}`));
   }
 
   async crearInstitucion(input: GuardarInstitucionInput): Promise<ConfiguracionInstitucion> {
-    const { data, error } = await this.supabase.rpc(
-      'rpc_crear_institucion',
-      this.parametrosInstitucion(input)
+    return this.validarConfiguracionInstitucion(
+      await this.solicitar('POST', '/instituciones', this.normalizarInstitucion(input))
     );
-    if (error) throw this.mapError(error);
-    return this.validarConfiguracionInstitucion(data);
   }
 
   async actualizarInstitucion(
     institucionId: string,
     input: GuardarInstitucionInput
   ): Promise<ConfiguracionInstitucion> {
-    const { data, error } = await this.supabase.rpc('rpc_actualizar_institucion', {
-      p_institucion_id: institucionId,
-      ...this.parametrosInstitucion(input)
-    });
-    if (error) throw this.mapError(error);
-    return this.validarConfiguracionInstitucion(data);
+    return this.validarConfiguracionInstitucion(await this.solicitar(
+      'PUT', `/instituciones/${encodeURIComponent(institucionId)}`, this.normalizarInstitucion(input)
+    ));
   }
 
   async esMultiInstitucion(): Promise<boolean> {
@@ -157,18 +142,15 @@ export class ConfiguracionService {
     return data as unknown as ConfiguracionInstitucion;
   }
 
-  private parametrosInstitucion(input: GuardarInstitucionInput): Record<string, unknown> {
+  private normalizarInstitucion(input: GuardarInstitucionInput): GuardarInstitucionInput {
     return {
-      p_nombre: input.nombre.trim(),
-      p_nombre_corto: this.nullIfBlank(input.nombreCorto),
-      p_direccion: this.nullIfBlank(input.direccion),
-      p_telefono: this.nullIfBlank(input.telefono),
-      p_correo: this.nullIfBlank(input.correo),
-      p_logo_url: this.nullIfBlank(input.logoUrl),
-      p_rne_requerido: input.identificadores.rneRequerido,
-      p_identificacion_civil_requerida: input.identificadores.identificacionCivilRequerida,
-      p_codigo_interno_requerido: input.identificadores.codigoInternoRequerido,
-      p_tipos_identificacion_permitidos: input.identificadores.tiposIdentificacionPermitidos
+      nombre: input.nombre.trim(),
+      nombreCorto: this.nullIfBlank(input.nombreCorto),
+      direccion: this.nullIfBlank(input.direccion),
+      telefono: this.nullIfBlank(input.telefono),
+      correo: this.nullIfBlank(input.correo),
+      logoUrl: this.nullIfBlank(input.logoUrl),
+      identificadores: input.identificadores
     };
   }
 
@@ -177,7 +159,23 @@ export class ConfiguracionService {
     return normalized ? normalized : null;
   }
 
-  private mapError(error: SupabaseErrorLike): ConfiguracionError {
+  private async solicitar(method: string, path: string, body?: unknown): Promise<unknown> {
+    try {
+      return await firstValueFrom(this.http.request<unknown>(method, `${this.baseUrl}${path}`, { body }));
+    } catch (error: unknown) {
+      if (error instanceof HttpErrorResponse) {
+        const payload: unknown = error.error;
+        const code = this.esRegistro(payload) && typeof payload['code'] === 'string'
+          ? payload['code'] : (error.status === 403 ? '42501' : 'UNKNOWN');
+        const message = this.esRegistro(payload) && typeof payload['error'] === 'string'
+          ? payload['error'] : undefined;
+        throw this.mapError({ code, message });
+      }
+      throw this.mapError({});
+    }
+  }
+
+  private mapError(error: ConfiguracionApiError): ConfiguracionError {
     switch (error.code) {
       case 'SM001':
         return new ConfiguracionError('No hay un centro educativo configurado.', error.code);

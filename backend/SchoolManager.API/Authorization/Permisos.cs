@@ -2,12 +2,34 @@ namespace SchoolManager.API.Authorization;
 
 public static class Permisos
 {
+    public static class Configuracion
+    {
+        public const string EditarSistema = "configuracion.sistema.editar";
+        public const string VerInstituciones = "configuracion.instituciones.ver";
+        public const string EditarInstituciones = "configuracion.instituciones.editar";
+    }
+
     public static class Alumnos
     {
         public const string Ver = "academico.alumnos.ver";
         public const string Crear = "academico.alumnos.crear";
         public const string Editar = "academico.alumnos.editar";
         public const string Desactivar = "academico.alumnos.desactivar";
+    }
+
+    public static class CiclosEscolares
+    {
+        public const string Ver = "academico.ciclos.ver";
+        public const string Crear = "academico.ciclos.crear";
+        public const string Editar = "academico.ciclos.editar";
+        public const string Desactivar = "academico.ciclos.desactivar";
+    }
+
+    public static class EstructuraAcademica
+    {
+        public const string Ver = "academico.estructura.ver";
+        public const string Editar = "academico.estructura.editar";
+        public const string Desactivar = "academico.estructura.desactivar";
     }
 
     public static class Matriculas
@@ -56,10 +78,20 @@ public static class Permisos
 
     public static IReadOnlyList<string> Todos { get; } =
     [
+        Configuracion.EditarSistema,
+        Configuracion.VerInstituciones,
+        Configuracion.EditarInstituciones,
         Alumnos.Ver,
         Alumnos.Crear,
         Alumnos.Editar,
         Alumnos.Desactivar,
+        CiclosEscolares.Ver,
+        CiclosEscolares.Crear,
+        CiclosEscolares.Editar,
+        CiclosEscolares.Desactivar,
+        EstructuraAcademica.Ver,
+        EstructuraAcademica.Editar,
+        EstructuraAcademica.Desactivar,
         Matriculas.Ver,
         Matriculas.Crear,
         Matriculas.CambiarEstado,
