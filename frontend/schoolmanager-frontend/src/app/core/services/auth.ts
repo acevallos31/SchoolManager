@@ -5,6 +5,21 @@ import { environment } from '../../environments/environment';
 
 const REQUEST_TIMEOUT_MS = 30000;
 
+// === INSTRUMENTACION TEMPORAL DE LATENCIA DE AUTH (2026-09-08) ===
+// Mide por separado signInWithPassword y /auth/me (login vs restauracion).
+// Sin tokens, headers ni datos sensibles; solo etiqueta y ms. Revertible:
+// quitar esta constante, el helper y las llamadas marcadas [INSTR-TEMP].
+const LOG_AUTH_TIMINGS = true;
+
+function logAuthTiming(etiqueta: string, inicioMs: number): void {
+  if (!LOG_AUTH_TIMINGS) {
+    return;
+  }
+  const ms = performance.now() - inicioMs;
+  console.log(`[auth-timing] ${etiqueta}: ${ms.toFixed(1)} ms`);
+}
+// === FIN INSTRUMENTACION TEMPORAL ===
+
 function getBrowserStorage(): Storage | undefined {
   try {
     const storage = window.localStorage;
@@ -104,6 +119,8 @@ export class AuthService {
     const email = correo.trim().toLowerCase();
 
     try {
+      // [INSTR-TEMP] medicion de signInWithPassword
+      const tSupabase = performance.now();
       const { data, error } = await this.withTimeout(
         this.supabase.auth.signInWithPassword({
           email,
@@ -111,6 +128,7 @@ export class AuthService {
         }),
         'La autenticacion esta tardando demasiado. Revisa tu conexion e intenta otra vez.'
       );
+      logAuthTiming('supabase.signInWithPassword (login)', tSupabase);
 
       if (error) {
         throw this.mapSupabaseAuthError(error);
@@ -121,7 +139,10 @@ export class AuthService {
       }
 
       this.sessionSubject.next(data.session);
+      // [INSTR-TEMP] medicion de GET /auth/me durante el login
+      const tAuthMeLogin = performance.now();
       const usuario = await this.getUsuarioActual(data.session);
+      logAuthTiming('auth/me.login', tAuthMeLogin);
       this.usuarioSubject.next(usuario);
       return usuario;
     } catch (error) {
@@ -205,7 +226,10 @@ export class AuthService {
       return;
     }
 
+    // [INSTR-TEMP] medicion de GET /auth/me durante restauracion/bootstrap
+    const tAuthMeRestore = performance.now();
     this.usuarioSubject.next(await this.getUsuarioActual(session));
+    logAuthTiming('auth/me.restauracion', tAuthMeRestore);
   }
 
   private async limpiarSesionInvalida(): Promise<void> {
