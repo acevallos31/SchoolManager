@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import {
@@ -35,7 +35,10 @@ export class Alumnos implements OnInit {
   alumnos: AlumnoListado[] = [];
   mostrarFormulario = false;
   busqueda = '';
-  cargando = false;
+  // Signal (no boolean plano): en Angular zoneless, mutar un campo ordinario tras
+  // un await NO notifica al scheduler. Una signal notifica de forma nativa y
+  // dispara el refresco del DOM sin depender de detectChanges/markForCheck.
+  cargando = signal(false);
   guardando = false;
   mensaje = '';
   esError = false;
@@ -113,13 +116,13 @@ export class Alumnos implements OnInit {
   }
 
   async cargarAlumnos(): Promise<void> {
-    this.cargando = true;
+    this.cargando.set(true);
     try {
       this.alumnos = await this.alumnoService.listar();
     } catch (error) {
       this.mostrarError(error, 'No se pudo cargar la lista de alumnos.');
     } finally {
-      this.cargando = false;
+      this.cargando.set(false);
     }
   }
 

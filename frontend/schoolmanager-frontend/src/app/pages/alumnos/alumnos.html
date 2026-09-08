@@ -51,7 +51,7 @@
     <div class="workspace">
       <section class="workspace-master" aria-label="Listado de alumnos">
         <div class="buscador"><input class="sm-input" type="search" [(ngModel)]="busqueda" placeholder="Buscar por nombre, identidad, RNE, código interno, ciclo, grado o sección" aria-label="Buscar alumno" /></div>
-        @if (cargando) {
+        @if (cargando()) {
           <div class="sm-state"><span class="sm-spinner" aria-hidden="true"></span><p class="cargando">Cargando alumnos...</p></div>
         } @else {
           <div class="tabla-contenedor sm-table-wrap">
