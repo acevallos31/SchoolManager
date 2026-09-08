@@ -25,7 +25,7 @@ public sealed class CiclosEscolaresControllerTests : IClassFixture<CiclosEscolar
         _factory = factory;
     }
 
-    private string SubA => CiclosEscolaresApiFactory.AdminA.ToString();
+    private static string SubA => CiclosEscolaresApiFactory.AdminA.ToString();
 
     // ----- Ciclos -----
 
@@ -251,7 +251,60 @@ public sealed class CiclosEscolaresControllerTests : IClassFixture<CiclosEscolar
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
-    private async Task<JsonElement> GetOkAsync(HttpClient client, string url)
+    [Theory]
+    [InlineData(false, "fechaInicio")]
+    [InlineData(false, "fechaFin")]
+    [InlineData(true, "fechaInicio")]
+    [InlineData(true, "fechaFin")]
+    public async Task Fechas_omitidas_no_se_convierten_en_valores_por_defecto(bool periodo, string omitida)
+    {
+        var ciclo = await _factory.CrearCicloAsync();
+        var campos = new Dictionary<string, object>
+        {
+            ["nombre"] = "Prueba fechas", ["fechaInicio"] = "2026-01-01", ["fechaFin"] = "2026-12-31"
+        };
+        campos.Remove(omitida);
+        using var client = _factory.CrearCliente(SubA);
+        var ruta = periodo ? $"/api/ciclos-escolares/{ciclo}/periodos" : "/api/ciclos-escolares";
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync(ruta, Body(campos))).StatusCode);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Actualizar_periodo_preserva_estado_y_persiste_datos(bool desactivado)
+    {
+        var ciclo = await _factory.CrearCicloAsync();
+        var periodo = await _factory.CrearPeriodoAsync(ciclo);
+        using var client = _factory.CrearCliente(SubA);
+        var ruta = $"/api/ciclos-escolares/{ciclo}/periodos/{periodo}";
+        if (desactivado)
+            Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync(ruta + "/desactivar", null)).StatusCode);
+        var response = await client.PutAsync(ruta, Body(new
+        {
+            nombre = "Periodo editado", tipo = "anticipado", fechaInicio = "2026-01-01", fechaFin = "2026-02-28"
+        }));
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        var filas = await GetOkAsync(client, $"/api/ciclos-escolares/{ciclo}/periodos");
+        var fila = filas.EnumerateArray().Single(x => x.GetProperty("id").GetGuid() == periodo);
+        Assert.Equal(!desactivado, fila.GetProperty("activo").GetBoolean());
+        Assert.Equal("Periodo editado", fila.GetProperty("nombre").GetString());
+        Assert.Equal("anticipado", fila.GetProperty("tipo").GetString());
+    }
+
+    [Fact]
+    public async Task Actualizar_periodo_inexistente_devuelve_404()
+    {
+        var ciclo = await _factory.CrearCicloAsync();
+        using var client = _factory.CrearCliente(SubA);
+        var response = await client.PutAsync($"/api/ciclos-escolares/{ciclo}/periodos/{Guid.NewGuid()}", Body(new
+        {
+            nombre = "No existe", fechaInicio = "2026-01-01", fechaFin = "2026-02-28"
+        }));
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    private static async Task<JsonElement> GetOkAsync(HttpClient client, string url)
     {
         var response = await client.GetAsync(url);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);

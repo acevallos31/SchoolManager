@@ -29,7 +29,7 @@ public sealed class EstructuraAcademicaControllerTests : IClassFixture<Estructur
         _factory = factory;
     }
 
-    private string SubA => EstructuraAcademicaApiFactory.AdminA.ToString();
+    private static string SubA => EstructuraAcademicaApiFactory.AdminA.ToString();
 
     // ----- Grados -----
 
@@ -346,7 +346,7 @@ public sealed class EstructuraAcademicaControllerTests : IClassFixture<Estructur
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
-    private async Task<JsonElement> GetOkAsync(HttpClient client, string url)
+    private static async Task<JsonElement> GetOkAsync(HttpClient client, string url)
     {
         var response = await client.GetAsync(url);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);

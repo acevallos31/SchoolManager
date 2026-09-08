@@ -19,6 +19,15 @@ def main() -> None:
     pr = os.environ["SONAR_PR"]
     gate = consultar("qualitygates/project_status", {"projectKey": "SchoolManager", "pullRequest": pr})
     print(json.dumps(gate["projectStatus"], ensure_ascii=False))
+    files = consultar("measures/component_tree", {
+        "component": "SchoolManager", "pullRequest": pr, "qualifiers": "FIL", "ps": 500,
+        "metricKeys": "new_lines,new_coverage,new_uncovered_lines,new_conditions_to_cover,new_uncovered_conditions,new_duplicated_lines,new_duplicated_lines_density",
+    })
+    for file in files["components"]:
+        if file.get("measures"):
+            print(json.dumps({"file": file.get("path"), "measures": file["measures"]}))
+        if any(m["metric"] == "new_duplicated_lines" and any(float(p["value"]) > 0 for p in m.get("periods", [])) for m in file.get("measures", [])):
+            print(json.dumps(consultar("duplications/show", {"key": file["key"], "pullRequest": pr})))
     page = 1
     while True:
         issues = consultar("issues/search", {

@@ -24,8 +24,8 @@ public sealed class AlumnosControllerTests : IClassFixture<MatriculasApiFactory>
         _factory = factory;
     }
 
-    private string SubA => MatriculasApiFactory.AdminA.ToString();
-    private string SubB => MatriculasApiFactory.AdminB.ToString();
+    private static string SubA => MatriculasApiFactory.AdminA.ToString();
+    private static string SubB => MatriculasApiFactory.AdminB.ToString();
 
     [Fact]
     public async Task Listado_autorizado_incluye_alumnos_de_la_institucion()
@@ -270,7 +270,7 @@ public sealed class AlumnosControllerTests : IClassFixture<MatriculasApiFactory>
         }
     }
 
-    private async Task<JsonElement> GetJsonAsync(HttpClient client, string url)
+    private static async Task<JsonElement> GetJsonAsync(HttpClient client, string url)
     {
         var response = await client.GetAsync(url);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);

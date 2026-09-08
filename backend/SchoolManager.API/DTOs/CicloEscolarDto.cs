@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace SchoolManager.API.DTOs;
 
 // Ciclo escolar tal como lo consume el frontend. La lectura delega en la RPC
@@ -32,7 +34,9 @@ public class PeriodoMatriculaDto
 public class CicloEscolarInputDto
 {
     public string Nombre { get; set; } = string.Empty;
+    [JsonRequired]
     public DateOnly FechaInicio { get; set; }
+    [JsonRequired]
     public DateOnly FechaFin { get; set; }
     public Guid? InstitucionId { get; set; }
 }
@@ -42,6 +46,8 @@ public class PeriodoMatriculaInputDto
 {
     public string Nombre { get; set; } = string.Empty;
     public string? Tipo { get; set; }
+    [JsonRequired]
     public DateOnly FechaInicio { get; set; }
+    [JsonRequired]
     public DateOnly FechaFin { get; set; }
 }
