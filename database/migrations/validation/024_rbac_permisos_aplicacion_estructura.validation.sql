@@ -1,47 +1,32 @@
--- Validacion Migracion 024: los permisos de aplicacion academico.estructura.*
--- existen en el catalogo, estan otorgados al rol admin, y la capa interna
--- configuracion.grados.* / configuracion.jornadas.* / configuracion.secciones.*
--- sigue intacta. Una fila devuelta por cualquiera de estas consultas es un
--- hallazgo.
-
--- 1. Permisos de aplicacion ausentes del catalogo.
-select esperado.codigo as permiso_aplicacion_faltante
-from (values
- ('academico.estructura.ver'),
- ('academico.estructura.editar'),
- ('academico.estructura.desactivar')
-) esperado(codigo)
-where not exists (
-  select 1 from public.permisos p
-  where p.codigo = esperado.codigo
-);
-
--- 2. Rol admin sin el grant correspondiente a cada permiso de aplicacion.
-select p.codigo as permiso_sin_grant_admin
+-- Validacion 024: un solo inventario de permisos requeridos evita repetir
+-- la comprobacion de catalogo para aplicacion y capa interna. Cada fila es
+-- un hallazgo; conserva controles de admin activo y registro de migracion.
+with requeridos as (
+  select 'academico.estructura.' || accion as codigo,
+         'permiso_aplicacion_faltante' as diagnostico
+  from unnest(array['ver', 'editar', 'desactivar']) as acciones(accion)
+  union all
+  select 'configuracion.' || entidad || '.' || accion,
+         'permiso_interno_faltante'
+  from unnest(array['grados', 'jornadas', 'secciones']) as entidades(entidad)
+  cross join unnest(array['ver', 'crear', 'editar', 'desactivar']) as acciones(accion)
+), faltantes as (
+  select r.diagnostico, r.codigo
+  from requeridos r
+  left join public.permisos p using (codigo)
+  where p.id is null
+), grants_admin as (
+  select rp.permiso_id
+  from public.roles_permisos rp
+  join public.roles r on r.id = rp.rol_id
+  where r.codigo = 'admin' and r.activo
+)
+select diagnostico, codigo from faltantes
+union all
+select 'permiso_sin_grant_admin', p.codigo
 from public.permisos p
-where p.codigo like 'academico.estructura.%'
-  and not exists (
-    select 1
-    from public.roles r
-    join public.roles_permisos rp on rp.rol_id = r.id and rp.permiso_id = p.id
-    where r.codigo = 'admin' and r.activo = true
-  );
-
--- 3. Capa interna de la DB intacta (no renombrada ni eliminada).
-select esperado.codigo as permiso_interno_faltante
-from (values
- ('configuracion.grados.ver'),('configuracion.grados.crear'),
- ('configuracion.grados.editar'),('configuracion.grados.desactivar'),
- ('configuracion.jornadas.ver'),('configuracion.jornadas.crear'),
- ('configuracion.jornadas.editar'),('configuracion.jornadas.desactivar'),
- ('configuracion.secciones.ver'),('configuracion.secciones.crear'),
- ('configuracion.secciones.editar'),('configuracion.secciones.desactivar')
-) esperado(codigo)
-where not exists (
-  select 1 from public.permisos p
-  where p.codigo = esperado.codigo
-);
-
--- 4. Migracion registrada.
-select '024' as migracion_no_registrada
+left join grants_admin g on g.permiso_id = p.id
+where p.codigo like 'academico.estructura.%' and g.permiso_id is null
+union all
+select 'migracion_no_registrada', '024'
 where not exists (select 1 from public.schema_migrations where version = '024');
