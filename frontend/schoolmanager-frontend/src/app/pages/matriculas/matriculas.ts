@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -74,7 +74,12 @@ export class Matriculas implements OnInit {
   cambioDe: CambioEstado = { matricula: null, estado: '', motivo: '' };
 
   mostrarFormulario = false;
-  cargando = false;
+  // Signal: en Angular 22 (zoneless por defecto) una propiedad plana mutada tras
+  // `await`/`subscribe` NO notifica al scheduler, así la vista queda congelada en
+  // «Cargando matrículas...» hasta un evento. Al ser signal, el set() avisa al
+  // grafo reactivo y el CD corre al flush esperado. Es el fix mínimo central del
+  // bug de producción (Alumnos/Matrículas); no se usa detectChanges() manual.
+  cargando = signal(false);
   guardando = false;
   mensaje = '';
   esError = false;
@@ -140,7 +145,7 @@ export class Matriculas implements OnInit {
   }
 
   async cargarDatosIniciales(alumnoId?: string | null): Promise<void> {
-    this.cargando = true;
+    this.cargando.set(true);
     try {
       if (alumnoId) {
         const [alumno, ciclos] = await Promise.all([
@@ -160,7 +165,7 @@ export class Matriculas implements OnInit {
 
       if (this.puedeVer) await this.cargarMatriculas(alumnoId ?? undefined);
     } finally {
-      this.cargando = false;
+      this.cargando.set(false);
     }
   }
 

@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideZonelessChangeDetection } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
@@ -31,7 +32,7 @@ describe('Matriculas', () => {
   let consultarParametro: (key: string) => string | null;
   let alumnoMock: { listar: ReturnType<typeof vi.fn>; obtenerPorId: ReturnType<typeof vi.fn> };
 
-  function configurar(): void {
+  function configurar(zoneless = false): void {
     alumnoMock = {
       listar: vi.fn().mockResolvedValue(alumnos),
       obtenerPorId: vi.fn().mockResolvedValue(alumnos[0])
@@ -39,6 +40,7 @@ describe('Matriculas', () => {
     TestBed.configureTestingModule({
       imports: [Matriculas],
       providers: [
+        ...(zoneless ? [provideZonelessChangeDetection()] : []),
         { provide: Router, useValue: { navigate: vi.fn() } },
         { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: consultarParametro } } } },
         { provide: AuthService, useValue: { tienePermiso: (x: string) => per.has(x) } },
@@ -59,42 +61,42 @@ describe('Matriculas', () => {
       cambiarEstado: vi.fn().mockReturnValue(of(void 0))
     };
     await TestBed.resetTestingModule();
-    configurar();
+    configurar(true); // toda la suite corre en TestBed ZONELESS (repro honesto)
     await TestBed.compileComponents();
     f = TestBed.createComponent(Matriculas);
     c = f.componentInstance;
     f.detectChanges();
-    await vi.waitFor(() => expect(c.cargando).toBe(false));
+    await vi.waitFor(() => expect(c.cargando()).toBe(false));
   });
 
-  it('el spinner desaparece al resolver la carga async sin interacción del usuario', async () => {
-    // Regression Bloque 030: Matriculas no inyecta ChangeDetectorRef ni llama a
-    // detectChanges(); en Angular 22 (zoneless por defecto) resolver la carga
-    // async sin un evento de template no refrescaba la vista y la página podía
-    // quedar en «Cargando matrículas...» hasta un clic. El fix global
-    // provideZoneChangeDetection() restaura el refresco automático; este test
-    // lo demuestra con una promise diferida controlada en alumnoService.listar()
-    // (sin alumnoId preseleccionado): mientras está pendiente el spinner es
-    // visible, y al resolverla los datos aparecen SIN ningún evento de usuario.
+  it('el estado reactivo cambia y el DOM lo refleja tras el flush esperado del scheduler, sin clic de usuario', async () => {
+    // Repro del bug de producción: la carga async responde 200 con datos pero la
+    // vista queda congelada en «Cargando matrículas...» hasta una interacción
+    // porque la mutación tras el await no notifica al scheduler zoneless.
+    // Estrategia (sin whenStable como discriminador único ni fakeAsync, que
+    // requiere zone.js/testing fuera del entorno zoneless final): promise DIFERIDA
+    // + observar el estado reactivo hasta que cambie + render controlado con
+    // detectChanges() tras el flush esperado. NO se dispara ningún clic.
+    await TestBed.resetTestingModule();
+    configurar(true); // TestBed ZONELESS real
     let resolverCarga!: (v: typeof alumnos) => void;
     alumnoMock.listar = vi.fn().mockReturnValue(
       new Promise((r) => (resolverCarga = r))
     );
-
-    await TestBed.resetTestingModule();
-    configurar();
     await TestBed.compileComponents();
     f = TestBed.createComponent(Matriculas);
     c = f.componentInstance;
     f.detectChanges(); // render inicial con listar() pendiente
 
-    expect(c.cargando).toBe(true);
+    expect(c.cargando()).toBe(true);
     expect(f.nativeElement.textContent).toContain('Cargando matrículas...');
 
     resolverCarga(alumnos); // sin clicks ni eventos de usuario
-    await vi.waitFor(() => expect(c.cargando).toBe(false));
-    f.detectChanges();
 
+    // (1) el estado reactivo cambia correctamente (la signal se escribe).
+    await vi.waitFor(() => expect(c.cargando()).toBe(false));
+    // (2) el DOM representa ese estado tras el flush esperado del scheduler.
+    f.detectChanges(); // render controlado (NO un clic del usuario)
     expect(f.nativeElement.textContent).not.toContain('Cargando matrículas...');
     expect(f.nativeElement.textContent).toContain('Ana Pérez');
   });
@@ -192,7 +194,7 @@ describe('Matriculas', () => {
     f = TestBed.createComponent(Matriculas);
     c = f.componentInstance;
     f.detectChanges();
-    await vi.waitFor(() => expect(c.cargando).toBe(false));
+    await vi.waitFor(() => expect(c.cargando()).toBe(false));
 
     expect(c.nueva.alumnoId).toBe('a1');
     expect(c.filtros.alumnoId).toBe('a1');
@@ -212,7 +214,7 @@ describe('Matriculas', () => {
     f = TestBed.createComponent(Matriculas);
     c = f.componentInstance;
     f.detectChanges();
-    await vi.waitFor(() => expect(c.cargando).toBe(false));
+    await vi.waitFor(() => expect(c.cargando()).toBe(false));
     expect(c.nueva.alumnoId).toBe('');
     expect(c.mostrarFormulario).toBe(false);
     expect(alumnoMock.listar).toHaveBeenCalled();
@@ -226,7 +228,7 @@ describe('Matriculas', () => {
     f = TestBed.createComponent(Matriculas);
     c = f.componentInstance;
     f.detectChanges();
-    await vi.waitFor(() => expect(c.cargando).toBe(false));
+    await vi.waitFor(() => expect(c.cargando()).toBe(false));
     f.detectChanges();
     expect(c.matriculas).toEqual([]);
     expect(f.nativeElement.textContent).toContain('No hay matrículas registradas');
@@ -240,7 +242,7 @@ describe('Matriculas', () => {
     f = TestBed.createComponent(Matriculas);
     c = f.componentInstance;
     f.detectChanges();
-    await vi.waitFor(() => expect(c.cargando).toBe(false));
+    await vi.waitFor(() => expect(c.cargando()).toBe(false));
     expect(c.matriculas).toEqual([]);
     expect(c.mensaje).toContain('No se pudieron cargar las matrículas');
     expect(c.esError).toBe(true);
@@ -254,7 +256,7 @@ describe('Matriculas', () => {
     c = f.componentInstance;
     c.filtros.cicloId = 'ciclo-inexistente';
     f.detectChanges();
-    await vi.waitFor(() => expect(c.cargando).toBe(false));
+    await vi.waitFor(() => expect(c.cargando()).toBe(false));
     expect(c.filtros.cicloId).toBe('');
   });
 });

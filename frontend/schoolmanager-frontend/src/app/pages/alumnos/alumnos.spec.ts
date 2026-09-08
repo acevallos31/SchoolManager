@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideZonelessChangeDetection } from '@angular/core';
 import { Router } from '@angular/router';
 import { vi } from 'vitest';
 import { AlumnoListado, AlumnoService, AlumnoServiceError } from '../../core/services/alumno.service';
@@ -45,6 +46,7 @@ describe('Alumnos', () => {
     await TestBed.configureTestingModule({
       imports: [Alumnos],
       providers: [
+        provideZonelessChangeDetection(),
         { provide: Router, useValue: { navigate } },
         { provide: AuthService, useValue: { tienePermiso: (p: string) => permisos.has(p) } },
         { provide: AlumnoService, useValue: alumnoService },
@@ -66,30 +68,32 @@ describe('Alumnos', () => {
     expect(fixture.nativeElement.textContent).toContain('Sin matrícula');
   });
 
-  it('el spinner desaparece al resolver la carga async sin interacción del usuario', async () => {
-    // Regression Bloque 030: en Angular 22 el bootstrap arranca ZONELESS por
-    // defecto; si la app no provee provideZoneChangeDetection, resolver la
-    // promise de listar() no refresca la vista y la página queda en
-    // «Cargando alumnos...» hasta que un clic (evento de template) dispara CD.
-    // Este test usa una promise diferida: en el render inicial listar() queda
-    // pendiente (spinner visible), y al resolverla el listado aparece SIN ningún
-    // evento de usuario (solo el detectChanges del runner de tests).
+  it('el estado reactivo cambia y el DOM lo refleja tras el flush esperado del scheduler, sin clic de usuario', async () => {
+    // Repro del bug de producción: GET /api/alumnos responde 200 con datos pero
+    // la vista queda en «Cargando alumnos...» hasta una interacción. La causa es
+    // que la mutación tras el await no notifica al scheduler zoneless.
+    //
+    // Estrategia (sin whenStable como discriminador único ni fakeAsync, que
+    // requiere zone.js/testing fuera del entorno zoneless final): promise
+    // DIFERIDA + observar el estado reactivo hasta que cambie + render
+    // controlado con detectChanges() tras el flush esperado. NO se dispara
+    // ningún clic ni evento de usuario.
     let resolverCarga!: (v: AlumnoListado[]) => void;
     alumnoService['listar'].mockReturnValue(
       new Promise<AlumnoListado[]>((r) => (resolverCarga = r))
     );
 
     const f2 = TestBed.createComponent(Alumnos);
-    const c2 = f2.componentInstance;
     f2.detectChanges(); // render inicial con listar() pendiente
-    expect(c2.cargando).toBe(true);
+    expect(f2.componentInstance.cargando()).toBe(true);
     expect(f2.nativeElement.textContent).toContain('Cargando alumnos...');
 
     resolverCarga([alumnoSinMatricula]); // sin clicks ni eventos de usuario
-    await f2.whenStable();
-    f2.detectChanges();
 
-    expect(c2.cargando).toBe(false);
+    // (1) el estado reactivo cambia correctamente (la signal se escribe).
+    await vi.waitFor(() => expect(f2.componentInstance.cargando()).toBe(false));
+    // (2) el DOM representa ese estado tras el flush esperado del scheduler.
+    f2.detectChanges(); // render controlado (NO un clic del usuario)
     expect(f2.nativeElement.textContent).not.toContain('Cargando alumnos...');
     expect(f2.nativeElement.textContent).toContain('Ana López');
     f2.destroy();
