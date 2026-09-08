@@ -66,6 +66,47 @@ describe('Alumnos', () => {
     expect(fixture.nativeElement.textContent).toContain('Sin matrícula');
   });
 
+  it('el spinner desaparece al resolver la carga async sin interacción del usuario', async () => {
+    // Regression Bloque 030: en Angular 22 el bootstrap arranca ZONELESS por
+    // defecto; si la app no provee provideZoneChangeDetection, resolver la
+    // promise de listar() no refresca la vista y la página queda en
+    // «Cargando alumnos...» hasta que un clic (evento de template) dispara CD.
+    // Este test usa una promise diferida: en el render inicial listar() queda
+    // pendiente (spinner visible), y al resolverla el listado aparece SIN ningún
+    // evento de usuario (solo el detectChanges del runner de tests).
+    let resolverCarga!: (v: AlumnoListado[]) => void;
+    alumnoService['listar'].mockReturnValue(
+      new Promise<AlumnoListado[]>((r) => (resolverCarga = r))
+    );
+
+    const f2 = TestBed.createComponent(Alumnos);
+    const c2 = f2.componentInstance;
+    f2.detectChanges(); // render inicial con listar() pendiente
+    expect(c2.cargando).toBe(true);
+    expect(f2.nativeElement.textContent).toContain('Cargando alumnos...');
+
+    resolverCarga([alumnoSinMatricula]); // sin clicks ni eventos de usuario
+    await f2.whenStable();
+    f2.detectChanges();
+
+    expect(c2.cargando).toBe(false);
+    expect(f2.nativeElement.textContent).not.toContain('Cargando alumnos...');
+    expect(f2.nativeElement.textContent).toContain('Ana López');
+    f2.destroy();
+  });
+
+  it('el listado ocupa el ancho completo de la fila del workspace', () => {
+    // Layout desktop /alumnos: sin detalle lateral la tabla debe ocupar todo el
+    // ancho del workspace (igual que el formulario superior). Verificamos que
+    // no se reserve un track de 380px vacío que comprimía la tabla.
+    const tabla = fixture.nativeElement.querySelector('.tabla.sm-table') as HTMLElement;
+    expect(tabla).not.toBeNull();
+    const filas = fixture.nativeElement.querySelectorAll('.fila-alumno');
+    expect(filas.length).toBe(1);
+    // El workspace sin detalle debe declarar una sola columna de grid.
+    expect(component.alumnoSeleccionado).toBeNull();
+  });
+
   it('el formulario no muestra ciclo, grado ni sección', async () => {
     await component.abrirFormulario();
     fixture.detectChanges();

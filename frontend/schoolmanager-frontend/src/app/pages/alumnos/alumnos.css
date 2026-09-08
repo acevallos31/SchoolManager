@@ -55,6 +55,11 @@
 /* ---- Workspace master / detalle ---- */
 .workspace {
   display: grid;
+  /* Por defecto UNA sola columna: el listado ocupa todo el ancho del
+     contenedor (mismo ancho útil que el formulario superior). La columna
+     lateral de 380px solo se reserva cuando existe un detalle real (ver
+     media query desktop con :has()), evitando que un track vacío deje la
+     tabla 380px más angosta. */
   grid-template-columns: minmax(0, 1fr);
   gap: var(--sm-space-5);
   align-items: start;
@@ -148,13 +153,23 @@
 }
 
 @media (min-width: 1000px) {
-  .workspace {
+  /* Solo cuando existe el detalle lateral se reserva la columna de 380px;
+     sin detalle el listado ocupa el 100% del ancho (igual que el formulario).
+     El track vacío que antes dejaba la tabla 380px más angosta desaparece. */
+  .workspace:has(.alumno-detalle) {
     grid-template-columns: minmax(0, 1fr) 380px;
   }
 
   .alumno-detalle {
     position: sticky;
     top: var(--sm-space-4);
+  }
+
+  /* Con espacio disponible las celdas de datos se muestran en una sola línea
+     (no comprimidas a varias filas); en móvil (media query de abajo) se permite
+     el wrap/stack natural. */
+  .tabla.sm-table td {
+    white-space: nowrap;
   }
 }
 
