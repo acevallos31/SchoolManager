@@ -67,6 +67,38 @@ describe('Matriculas', () => {
     await vi.waitFor(() => expect(c.cargando).toBe(false));
   });
 
+  it('el spinner desaparece al resolver la carga async sin interacción del usuario', async () => {
+    // Regression Bloque 030: Matriculas no inyecta ChangeDetectorRef ni llama a
+    // detectChanges(); en Angular 22 (zoneless por defecto) resolver la carga
+    // async sin un evento de template no refrescaba la vista y la página podía
+    // quedar en «Cargando matrículas...» hasta un clic. El fix global
+    // provideZoneChangeDetection() restaura el refresco automático; este test
+    // lo demuestra con una promise diferida controlada en alumnoService.listar()
+    // (sin alumnoId preseleccionado): mientras está pendiente el spinner es
+    // visible, y al resolverla los datos aparecen SIN ningún evento de usuario.
+    let resolverCarga!: (v: typeof alumnos) => void;
+    alumnoMock.listar = vi.fn().mockReturnValue(
+      new Promise((r) => (resolverCarga = r))
+    );
+
+    await TestBed.resetTestingModule();
+    configurar();
+    await TestBed.compileComponents();
+    f = TestBed.createComponent(Matriculas);
+    c = f.componentInstance;
+    f.detectChanges(); // render inicial con listar() pendiente
+
+    expect(c.cargando).toBe(true);
+    expect(f.nativeElement.textContent).toContain('Cargando matrículas...');
+
+    resolverCarga(alumnos); // sin clicks ni eventos de usuario
+    await vi.waitFor(() => expect(c.cargando).toBe(false));
+    f.detectChanges();
+
+    expect(f.nativeElement.textContent).not.toContain('Cargando matrículas...');
+    expect(f.nativeElement.textContent).toContain('Ana Pérez');
+  });
+
   it('lista matrículas del servicio', () => {
     expect(s['listar']).toHaveBeenCalledWith(undefined);
     expect(c.matriculas).toEqual([MAT]);
