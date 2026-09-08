@@ -50,6 +50,35 @@ describe('Configuracion', () => {
     expect(texto).toContain('RNE: obligatorio');
   });
 
+  it('el spinner de carga desaparece al resolver la carga async sin interacción del usuario', async () => {
+    // Regression Bloque 030 (cambio de detección GLOBAL): aunque esta página
+    // ya inyecta ChangeDetectorRef y llama cdr.detectChanges() en su finally,
+    // verificamos que la resolución de la promise de obtenerConfiguracionInstitucion
+    // actualiza el DOM sin requerir clic/evento del usuario: mientras la promise
+    // queda pendiente el spinner es visible, y al resolverla desaparece y aparecen
+    // los datos. No se retira el detectChanges() existente (es el patrón que la
+    // página ya usa para refrescar tras cada operación async).
+    let resolverCarga!: (v: typeof configuracion) => void;
+    service['obtenerConfiguracionInstitucion'].mockReturnValue(
+      new Promise<typeof configuracion>((r) => (resolverCarga = r))
+    );
+
+    const f2 = TestBed.createComponent(Configuracion);
+    const c2 = f2.componentInstance;
+    f2.detectChanges(); // render inicial con la promise pendiente
+    expect(c2.cargando).toBe(true);
+    expect(f2.nativeElement.textContent).toContain('Cargando configuración...');
+
+    resolverCarga(configuracion); // sin clicks ni eventos de usuario
+    await f2.whenStable();
+    f2.detectChanges();
+
+    expect(c2.cargando).toBe(false);
+    expect(f2.nativeElement.textContent).not.toContain('Cargando configuración...');
+    expect(f2.nativeElement.textContent).toContain('Centro educativo');
+    f2.destroy();
+  });
+
   it('muestra la tarjeta de ciclos con permiso y navega a su ruta', async () => {
     const tarjeta = fixture.nativeElement.querySelector('.navigation-card') as HTMLElement;
     const enlace = tarjeta.querySelector('a') as HTMLAnchorElement;
