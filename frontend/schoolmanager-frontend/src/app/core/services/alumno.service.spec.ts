@@ -162,6 +162,53 @@ describe('AlumnoService', () => {
     await expect(rechazo).rejects.toMatchObject({ status: 409, message: expect.stringContaining('Ya existe') });
   });
 
+  it('listado y detalle vacíos conservan sus contratos', async () => {
+    const lista = service.listar();
+    http.expectOne(BASE).flush(null);
+    await expect(lista).resolves.toEqual([]);
+    const detalle = service.obtenerPorId('a1');
+    http.expectOne(`${BASE}/a1`).flush(null);
+    await expect(detalle).resolves.toBeNull();
+  });
+
+  it('paginación sin respuesta válida rechaza la operación', async () => {
+    const result = service.buscarPaginado();
+    const assertion = expect(result).rejects.toMatchObject({ status: 0, message: expect.stringContaining('búsqueda') });
+    http.expectOne(BASE).flush(null);
+    await assertion;
+  });
+
+  it('alta sin id no comunica éxito y conserva identificadores no vacíos', async () => {
+    const result = service.crear({
+      institucionId: 'i1', nombres: 'Ana', apellidos: 'López', tipoIdentificacion: 'identidad',
+      numeroIdentificacion: '0801', fechaNacimiento: null, rne: ' RNE ', codigoInterno: ' CI '
+    });
+    const assertion = expect(result).rejects.toMatchObject({ status: 0, message: expect.stringContaining('creación') });
+    const request = http.expectOne(BASE);
+    expect(request.request.body).toMatchObject({ rne: 'RNE', codigoInterno: 'CI' });
+    request.flush(null);
+    await assertion;
+  });
+
+  it.each([
+    ['listado', (s: AlumnoService) => s.listar()],
+    ['paginación', (s: AlumnoService) => s.buscarPaginado()],
+    ['detalle', (s: AlumnoService) => s.obtenerPorId('a1')],
+    ['reactivación', (s: AlumnoService) => s.reactivar('a1')]
+  ] as const)('%s propaga fallos de autorización', async (_name, call) => {
+    const result = call(service);
+    const assertion = expect(result).rejects.toMatchObject({ status: 403 });
+    http.expectOne(request => request.url.startsWith(BASE)).flush(null, { status: 403, statusText: 'Forbidden' });
+    await assertion;
+  });
+
+  it.each([400, 409, 500])('HTTP %s sin payload usa error estable', async status => {
+    const result = service.listar();
+    const assertion = expect(result).rejects.toMatchObject({ status, message: expect.any(String) });
+    http.expectOne(BASE).flush(null, { status, statusText: 'Error' });
+    await assertion;
+  });
+
   it('mapea un 403 a un mensaje de permiso', async () => {
     const rechazo = service.desactivar('alumno-id', 'motivo');
     http.expectOne(`${BASE}/alumno-id/desactivar`).flush({}, { status: 403, statusText: 'Forbidden' });
