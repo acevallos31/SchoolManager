@@ -109,16 +109,8 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
         CancellationToken ct)
     {
         // El grado no exige motivo; la desactivacion soft se delega en la RPC.
-        return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
-        {
-            await using var cmd = c.CreateCommand();
-            cmd.Transaction = tx;
-            cmd.CommandText = "select public.rpc_desactivar_grado(@id, @institucionId)";
-            cmd.Parameters.AddWithValue("id", id);
-            cmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
-            await cmd.ExecuteNonQueryAsync(ct);
-            return NoContent();
-        }, ct);
+        return await CambiarEstadoCatalogoAsync(
+            "select public.rpc_desactivar_grado(@id, @institucionId)", id, institucionId, ct);
     }
 
     [HttpPost("grados/{id:guid}/reactivar")]
@@ -128,16 +120,8 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
         [FromQuery] Guid? institucionId,
         CancellationToken ct)
     {
-        return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
-        {
-            await using var cmd = c.CreateCommand();
-            cmd.Transaction = tx;
-            cmd.CommandText = "select public.rpc_reactivar_grado(@id, @institucionId)";
-            cmd.Parameters.AddWithValue("id", id);
-            cmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
-            await cmd.ExecuteNonQueryAsync(ct);
-            return NoContent();
-        }, ct);
+        return await CambiarEstadoCatalogoAsync(
+            "select public.rpc_reactivar_grado(@id, @institucionId)", id, institucionId, ct);
     }
 
     // ----- Jornadas academicas -----
@@ -228,16 +212,8 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
         CancellationToken ct)
     {
         // La jornada no exige motivo; la desactivacion soft se delega en la RPC.
-        return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
-        {
-            await using var cmd = c.CreateCommand();
-            cmd.Transaction = tx;
-            cmd.CommandText = "select public.rpc_desactivar_jornada(@id, @institucionId)";
-            cmd.Parameters.AddWithValue("id", id);
-            cmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
-            await cmd.ExecuteNonQueryAsync(ct);
-            return NoContent();
-        }, ct);
+        return await CambiarEstadoCatalogoAsync(
+            "select public.rpc_desactivar_jornada(@id, @institucionId)", id, institucionId, ct);
     }
 
     [HttpPost("jornadas/{id:guid}/reactivar")]
@@ -247,16 +223,8 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
         [FromQuery] Guid? institucionId,
         CancellationToken ct)
     {
-        return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
-        {
-            await using var cmd = c.CreateCommand();
-            cmd.Transaction = tx;
-            cmd.CommandText = "select public.rpc_reactivar_jornada(@id, @institucionId)";
-            cmd.Parameters.AddWithValue("id", id);
-            cmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
-            await cmd.ExecuteNonQueryAsync(ct);
-            return NoContent();
-        }, ct);
+        return await CambiarEstadoCatalogoAsync(
+            "select public.rpc_reactivar_jornada(@id, @institucionId)", id, institucionId, ct);
     }
 
     // ----- Secciones -----
@@ -395,15 +363,19 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
         [FromQuery] Guid? institucionId,
         CancellationToken ct)
     {
-        return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
+        return await CambiarEstadoCatalogoAsync(
+            "select public.rpc_reactivar_seccion(@id, @institucionId)", id, institucionId, ct);
+    }
+
+    // Solo recibe sentencias fijas de los endpoints; los valores siguen parametrizados.
+    private Task<IActionResult> CambiarEstadoCatalogoAsync(
+        string sql, Guid id, Guid? institucionId, CancellationToken ct) =>
+        EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-            await using var cmd = c.CreateCommand();
-            cmd.Transaction = tx;
-            cmd.CommandText = "select public.rpc_reactivar_seccion(@id, @institucionId)";
+            await using var cmd = new NpgsqlCommand(sql, c, tx);
             cmd.Parameters.AddWithValue("id", id);
             cmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
             await cmd.ExecuteNonQueryAsync(ct);
             return NoContent();
         }, ct);
-    }
 }
