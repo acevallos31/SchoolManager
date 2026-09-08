@@ -102,7 +102,33 @@ Institución -> Ciclo -> Período matrícula -> Grado -> Jornada opcional -> Sec
   (listado), `configuracion/ciclos` y `configuracion/estructura-academica`. Esta es
   deuda #10 registrada en `docs/technical-debt.md`; queda fuera del Bloque 029.
 
-## Calidad / Bloque 029 + 029B — CERRADO (verde real, análisis completo)
+> Actualización 030F (Codex, 2026-09-07/08): la referencia anterior a páginas
+> que consultan Supabase y las menciones posteriores a deuda #10 pendiente
+> describen el estado previo a 030. Quedan sustituidas por el estado 030 siguiente;
+> se conserva el detalle histórico de 029.
+
+## Arquitectura API / Bloque 030 — CERRADO; deuda #10 RESUELTA (PR #53, sin merge)
+
+- 030B Alumnos, 030C verificación de Matrículas, 030D Ciclos/Períodos y 030E
+  Estructura Académica están implementados en `feature/arquitectura-api-030`.
+- 030F migra las cinco RPC de `configuracion.service.ts` a `/api/configuracion`,
+  incluida la consulta de contexto. **0 accesos directos Supabase de negocio**;
+  única excepción productiva: `auth.ts`, Supabase Auth aprobado e intacto.
+- Configuración usa permisos existentes en 012: `configuracion.sistema.editar`
+  y `configuracion.instituciones.ver/editar`. La lectura acepta ver **o** editar;
+  el contexto solo exige autenticación en .NET e identidad interna en RPC.
+  Autorización .NET y permisos internos DB conservan sus capas separadas.
+- Reglas/invariantes de configuración siguen en RPC 012/013; ninguna migración
+  nueva en 030F. Migraciones 023/024 de 030D/E: aditivas, pendientes de aplicación
+  manual tras revisión/CI, no aplicadas por esta sesión en Supabase.
+- Suites locales: API 156/156, DB 156/156, frontend 289/289; builds correctos.
+  CI y Vercel verdes en `3feb517` (run `34192575139`). SonarScanner for .NET
+  con análisis C# real + TypeScript e importación Cobertura/LCOV: QG **OK**,
+  New Code 86,5% cobertura / 2,7% duplicación; reglas y umbrales intactos.
+- Evidencia y contratos: `docs/handoffs/030F-cierre-global.md`.
+
+## Calidad / Bloque 029 + 029B — CERRADO (registro histórico)
+
 Rama: `feature/calidad-sonar-e2e-029`, creada desde `main` después del merge de PR #51.
 
 Estado final (2026-09-07): **análisis SonarCloud completo y verde** — frontend TS +
