@@ -2,6 +2,13 @@ namespace SchoolManager.API.Authorization;
 
 public static class Permisos
 {
+    public static class Configuracion
+    {
+        public const string EditarSistema = "configuracion.sistema.editar";
+        public const string VerInstituciones = "configuracion.instituciones.ver";
+        public const string EditarInstituciones = "configuracion.instituciones.editar";
+    }
+
     public static class Alumnos
     {
         public const string Ver = "academico.alumnos.ver";
@@ -71,6 +78,9 @@ public static class Permisos
 
     public static IReadOnlyList<string> Todos { get; } =
     [
+        Configuracion.EditarSistema,
+        Configuracion.VerInstituciones,
+        Configuracion.EditarInstituciones,
         Alumnos.Ver,
         Alumnos.Crear,
         Alumnos.Editar,
