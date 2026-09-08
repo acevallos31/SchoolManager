@@ -121,6 +121,7 @@ frontend en cada push/PR; despliega a producción solo desde `main`
 - `docs/engineering-principles.md` — los 12 principios (reglas del proyecto).
 - `docs/database/*.md` — ACID, ERD, RBAC, RLS/RPC, historial de normalización.
 - `docs/handoffs/` — estado por bloque/fase.
+- `docs/testing/e2e-staging-plan.md` — plan de E2E autenticado + staging.
 
 ## Notas de mantenimiento
 
