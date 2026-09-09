@@ -46,7 +46,6 @@ describe('Cargos (020)', () => {
     await TestBed.compileComponents();
     f = TestBed.createComponent(Cargos);
     c = f.componentInstance;
-    f.detectChanges();
   }
 
   beforeEach(() => {
@@ -69,10 +68,8 @@ describe('Cargos (020)', () => {
   });
 
   it('redirige al dashboard si no tiene permiso de ver', async () => {
-    await armar('a1');
-    s['listarCargosAlumno'].mockClear();
-    router.navigate.mockClear();
     permisos.clear();
+    await armar('a1');
     await c.ngOnInit();
     expect(router.navigate).toHaveBeenCalledWith(['/dashboard']);
     expect(s['listarCargosAlumno']).not.toHaveBeenCalled();
@@ -80,7 +77,7 @@ describe('Cargos (020)', () => {
 
   it('carga cargos y resumen del alumno indicado por query param', async () => {
     await armar('a1');
-    await c.cargar();
+    await c.ngOnInit();
     expect(s['listarCargosAlumno']).toHaveBeenCalledWith('a1');
     expect(s['obtenerResumenAlumno']).toHaveBeenCalledWith('a1');
     expect(c.cargos).toHaveLength(2);
@@ -98,8 +95,6 @@ describe('Cargos (020)', () => {
 
   it('sincroniza el alumno seleccionado en la URL y carga su detalle', async () => {
     await armar(null);
-    router.navigate.mockClear();
-    s['listarCargosAlumno'].mockClear();
     c.alumnoId = 'a1';
 
     await c.seleccionarAlumno();
@@ -114,8 +109,6 @@ describe('Cargos (020)', () => {
 
   it('limpia el filtro sin intentar cargar detalle', async () => {
     await armar('a1');
-    router.navigate.mockClear();
-    s['listarCargosAlumno'].mockClear();
     c.alumnoId = null;
 
     await c.seleccionarAlumno();
@@ -150,8 +143,9 @@ describe('Cargos (020)', () => {
   });
 
   it('muestra error cuando la API falla', async () => {
-    await armar('a1');
     s['listarCargosAlumno'] = vi.fn().mockRejectedValue(new Error('Sin conexión'));
+    await armar('a1');
+    c.alumnoId = 'a1';
     await c.cargar();
     expect(c.esError).toBe(true);
     expect(c.mensaje).toBeTruthy();
