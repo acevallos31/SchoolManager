@@ -7,6 +7,10 @@ import { AlumnoListado, AlumnoService } from '../../core/services/alumno.service
 import {
   Cargo, CargoError, CargosService, ResumenFinanciero,
 } from '../../core/services/cargos.service';
+import {
+  inicializarContextoAlumnoFinanciero,
+  sincronizarAlumnoFinancieroEnUrl,
+} from '../../core/utils/alumno-contexto-financiero';
 
 @Component({
   selector: 'app-cargos',
@@ -68,19 +72,15 @@ export class Cargos implements OnInit {
       return;
     }
 
-    try {
-      this.alumnos = await this.alumnoService.listar();
-    } catch (e: unknown) {
-      this.error(e);
-    } finally {
-      // Angular 22 zoneless: asignar un array después de await no programa por sí
-      // solo un render. Sin esto el select existe pero queda visualmente vacío
-      // hasta el siguiente evento del navegador.
-      this.cdr.detectChanges();
-    }
+    const contexto = await inicializarContextoAlumnoFinanciero(
+      this.alumnoService,
+      this.route,
+      this.cdr,
+      (error) => this.error(error),
+    );
+    this.alumnos = contexto.alumnos;
+    this.alumnoId = contexto.alumnoId;
 
-    const id = this.route.snapshot.queryParamMap.get('alumnoId');
-    if (id) this.alumnoId = id;
     if (this.alumnoId) await this.cargar();
   }
 
@@ -90,13 +90,7 @@ export class Cargos implements OnInit {
     this.mensaje = '';
     this.esError = false;
 
-    await this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams: { alumnoId: this.alumnoId || null },
-      queryParamsHandling: 'merge',
-      replaceUrl: true,
-    });
-
+    await sincronizarAlumnoFinancieroEnUrl(this.router, this.route, this.alumnoId);
     if (this.alumnoId) await this.cargar();
   }
 
