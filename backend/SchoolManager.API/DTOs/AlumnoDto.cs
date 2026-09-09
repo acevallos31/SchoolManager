@@ -27,9 +27,11 @@ public class MatriculaActualAlumnoDto
 }
 
 // Crear un alumno con una persona nueva (documento). Atómico en la RPC.
+// InstitucionId es nullable para detectar explícitamente un campo omitido en
+// JSON; el controller mantiene la validación de obligatorio antes de ir a DB.
 public class CrearAlumnoDto
 {
-    public Guid InstitucionId { get; set; } // NOSONAR:csharpsquid:S6964 (requerido; se valida en el controller)
+    public Guid? InstitucionId { get; set; }
     public string Nombres { get; set; } = string.Empty;
     public string Apellidos { get; set; } = string.Empty;
     public string TipoIdentificacion { get; set; } = string.Empty;
