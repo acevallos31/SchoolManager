@@ -12,8 +12,8 @@ where version = '026'
 group by version
 having count(*) > 1;
 
--- 2. La unicidad global historica ya no debe existir.
-select 'uq_matriculas_alumno_ciclo_indebida' as error
+-- 2. La restriccion global historica ya no debe existir como CONSTRAINT.
+select 'uq_matriculas_alumno_ciclo_constraint_indebida' as error
 where exists (
   select 1 from pg_constraint where conname = 'uq_matriculas_alumno_ciclo'
 );
@@ -23,27 +23,28 @@ where exists (
   select 1 from pg_constraint where conname = 'matriculas_alumno_id_ciclo_id_key'
 );
 
--- 3. Debe existir el indice unico parcial alumno+ciclo excluyendo anuladas.
-select 'ux_matriculas_alumno_ciclo_no_anulada_faltante' as error
-where to_regclass('public.ux_matriculas_alumno_ciclo_no_anulada') is null;
+-- 3. Debe existir uq_matriculas_alumno_ciclo como INDICE UNIQUE parcial que
+-- excluye las filas anuladas.
+select 'uq_matriculas_alumno_ciclo_faltante' as error
+where to_regclass('public.uq_matriculas_alumno_ciclo') is null;
 
-select 'ux_matriculas_alumno_ciclo_no_anulada_no_unico' as error
-where to_regclass('public.ux_matriculas_alumno_ciclo_no_anulada') is not null
+select 'uq_matriculas_alumno_ciclo_no_unico' as error
+where to_regclass('public.uq_matriculas_alumno_ciclo') is not null
   and not exists (
     select 1
     from pg_index i
     join pg_class c on c.oid = i.indexrelid
-    where c.relname = 'ux_matriculas_alumno_ciclo_no_anulada'
+    where c.relname = 'uq_matriculas_alumno_ciclo'
       and i.indisunique
   );
 
-select 'ux_matriculas_alumno_ciclo_no_anulada_definicion_incorrecta' as error
-where to_regclass('public.ux_matriculas_alumno_ciclo_no_anulada') is not null
+select 'uq_matriculas_alumno_ciclo_definicion_incorrecta' as error
+where to_regclass('public.uq_matriculas_alumno_ciclo') is not null
   and not exists (
     select 1
     from pg_index i
     join pg_class c on c.oid = i.indexrelid
-    where c.relname = 'ux_matriculas_alumno_ciclo_no_anulada'
+    where c.relname = 'uq_matriculas_alumno_ciclo'
       and pg_get_indexdef(i.indexrelid) like '%(alumno_id, ciclo_id)%'
       and pg_get_expr(i.indpred, i.indrelid) = '(estado <> ''anulada''::text)'
   );
