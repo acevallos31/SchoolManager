@@ -44,14 +44,13 @@ describe('Pagos (021)', () => {
         { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => alumnoId } } } },
         { provide: AuthService, useValue: { tienePermiso: (x: string) => permisos.has(x) } },
         { provide: AlumnoService, useValue: alumnoService },
-        { provide: CargosService, useValue: { listarCargosAlumno: s.listarCargosAlumno } },
+        { provide: CargosService, useValue: s },
         { provide: PagosService, useValue: s }
       ]
     });
     await TestBed.compileComponents();
     f = TestBed.createComponent(Pagos);
     c = f.componentInstance;
-    f.detectChanges();
   }
 
   beforeEach(() => {
@@ -77,11 +76,8 @@ describe('Pagos (021)', () => {
   });
 
   it('redirige al dashboard sin permiso de ver y no carga', async () => {
+    permisos.clear();
     await armar('a1');
-    s.listarCargosAlumno.mockClear();
-    s.listarPagosAlumno.mockClear();
-    router.navigate.mockClear();
-    permisos = new Set();
     await c.ngOnInit();
     expect(router.navigate).toHaveBeenCalledWith(['/dashboard']);
     expect(s.listarPagosAlumno).not.toHaveBeenCalled();
@@ -89,7 +85,7 @@ describe('Pagos (021)', () => {
 
   it('carga cargos y pagos del alumno del query param', async () => {
     await armar('a1');
-    await c.cargar();
+    await c.ngOnInit();
     expect(s.listarCargosAlumno).toHaveBeenCalledWith('a1');
     expect(s.listarPagosAlumno).toHaveBeenCalledWith('a1');
     expect(c.cargos).toHaveLength(2);
@@ -107,8 +103,6 @@ describe('Pagos (021)', () => {
 
   it('sincroniza el alumno seleccionado en la URL y carga cobranza', async () => {
     await armar(null);
-    router.navigate.mockClear();
-    s.listarPagosAlumno.mockClear();
     c.alumnoId = 'a1';
 
     await c.seleccionarAlumno();
@@ -123,8 +117,6 @@ describe('Pagos (021)', () => {
 
   it('limpia selección y estado contextual sin cargar llamadas financieras', async () => {
     await armar('a1');
-    router.navigate.mockClear();
-    s.listarPagosAlumno.mockClear();
     c.alumnoId = null;
     c.detalle = pagoRegistrado;
     c.showFormulario = true;
@@ -170,6 +162,7 @@ describe('Pagos (021)', () => {
 
   it('registra el pago con el cuerpo correcto y limpia el formulario', async () => {
     await armar('a1');
+    c.alumnoId = 'a1';
     c.cargos = [cargoPendiente, cargoPagado];
     c.montos = { c1: '200' };
     c.metodoPago = 'transferencia';
@@ -195,6 +188,7 @@ describe('Pagos (021)', () => {
 
   it('anula el pago con motivo y restablece saldos', async () => {
     await armar('a1');
+    c.alumnoId = 'a1';
     c.motivoAnulacion = 'Pago duplicado';
     await c.anular(pagoRegistrado);
     expect(s.anularPago).toHaveBeenCalledWith('p1', 'Pago duplicado');
