@@ -29,7 +29,7 @@ export const routes: Routes = [
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
 
-      // Dashboard: autenticación pura (sin permiso concreto en Permisos.cs).
+      // Dashboard: autenticación pura (sin permiso concreto).
       { path: 'dashboard', component: Dashboard },
 
       {
@@ -46,13 +46,20 @@ export const routes: Routes = [
         data: { permiso: 'academico.matriculas.ver' }
       },
 
-      // Configuracion y sus vistas genéricas no tienen permiso concreto en
-      // Permisos.cs (solo autenticación). Los submenús financieros sí.
+      // Configuración raíz mantiene autenticación pura; cada submódulo con
+      // permiso de aplicación conocido protege su ruta de forma explícita.
       { path: 'configuracion', component: Configuracion },
-      { path: 'configuracion/ciclos', component: ConfiguracionCiclos },
+      {
+        path: 'configuracion/ciclos',
+        component: ConfiguracionCiclos,
+        canActivate: [permissionGuard],
+        data: { permiso: 'academico.ciclos.ver' }
+      },
       {
         path: 'configuracion/estructura-academica',
-        component: ConfiguracionEstructuraAcademica
+        component: ConfiguracionEstructuraAcademica,
+        canActivate: [permissionGuard],
+        data: { permiso: 'academico.estructura.ver' }
       },
       {
         path: 'configuracion/conceptos-financieros',

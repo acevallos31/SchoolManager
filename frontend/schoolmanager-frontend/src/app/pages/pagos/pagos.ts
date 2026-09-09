@@ -3,8 +3,13 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/services/auth';
+import { AlumnoListado, AlumnoService } from '../../core/services/alumno.service';
 import { Cargo, CargoError, CargosService } from '../../core/services/cargos.service';
 import { AplicacionRequest, PagosService, Pago, PagoError } from '../../core/services/pagos.service';
+import {
+  inicializarVistaFinanciera,
+  sincronizarAlumnoFinancieroEnUrl,
+} from '../../core/utils/alumno-contexto-financiero';
 
 // Vista de pagos/cobranza (Bloque 021). Permite registrar un pago aplicado a
 // uno o varios cargos del alumno (parcial o total) y anular un pago
@@ -19,6 +24,7 @@ import { AplicacionRequest, PagosService, Pago, PagoError } from '../../core/ser
 })
 export class Pagos implements OnInit {
   alumnoId: string | null = null;
+  alumnos: AlumnoListado[] = [];
   cargos: Cargo[] = [];
   pagos: Pago[] = [];
   cargando = false;
@@ -41,6 +47,7 @@ export class Pagos implements OnInit {
     private readonly route: ActivatedRoute,
     private readonly router: Router,
     private readonly auth: AuthService,
+    private readonly alumnoService: AlumnoService,
     private readonly pagosService: PagosService,
     private readonly cargosService: CargosService,
     private readonly cdr: ChangeDetectorRef,
@@ -73,12 +80,27 @@ export class Pagos implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
-    if (!this.puedeVer) {
-      await this.router.navigate(['/dashboard']);
-      return;
-    }
-    const id = this.route.snapshot.queryParamMap.get('alumnoId');
-    if (id) this.alumnoId = id;
+    await inicializarVistaFinanciera(
+      this,
+      this.puedeVer,
+      this.router,
+      this.route,
+      this.alumnoService,
+      this.cdr,
+      (error) => this.error(error),
+    );
+  }
+
+  async seleccionarAlumno(): Promise<void> {
+    this.cargos = [];
+    this.pagos = [];
+    this.detalle = null;
+    this.aplicaciones = [];
+    this.cerrarFormulario();
+    this.mensaje = '';
+    this.esError = false;
+
+    await sincronizarAlumnoFinancieroEnUrl(this.router, this.route, this.alumnoId);
     if (this.alumnoId) await this.cargar();
   }
 

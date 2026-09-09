@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -77,8 +77,7 @@ export class Matriculas implements OnInit {
   // Signal: en Angular 22 (zoneless por defecto) una propiedad plana mutada tras
   // `await`/`subscribe` NO notifica al scheduler, así la vista queda congelada en
   // «Cargando matrículas...» hasta un evento. Al ser signal, el set() avisa al
-  // grafo reactivo y el CD corre al flush esperado. Es el fix mínimo central del
-  // bug de producción (Alumnos/Matrículas); no se usa detectChanges() manual.
+  // grafo reactivo y el CD corre al flush esperado.
   cargando = signal(false);
   guardando = false;
   mensaje = '';
@@ -92,7 +91,8 @@ export class Matriculas implements OnInit {
     private readonly matriculaService: MatriculaService,
     private readonly alumnoService: AlumnoService,
     private readonly cicloService: CicloEscolarService,
-    private readonly estructuraService: EstructuraAcademicaService
+    private readonly estructuraService: EstructuraAcademicaService,
+    private readonly cdr: ChangeDetectorRef
   ) {}
 
   get puedeVer(): boolean {
@@ -222,25 +222,32 @@ export class Matriculas implements OnInit {
       return;
     }
     this.guardando = true;
-    await new Promise<void>((resolve) => {
-      this.matriculaService.crear({
-        alumnoId: this.nueva.alumnoId,
-        seccionId: this.nueva.seccionId,
-        periodoMatriculaId: this.nueva.periodoMatriculaId
-      }).subscribe({
-        next: () => {
-          this.mostrarMensaje('✅ Matrícula registrada correctamente.');
-          this.cerrarFormulario();
-          resolve();
-        },
-        error: (err) => {
-          this.mostrarError(err, 'No se pudo registrar la matrícula.');
-          resolve();
-        }
+    try {
+      await new Promise<void>((resolve) => {
+        this.matriculaService.crear({
+          alumnoId: this.nueva.alumnoId,
+          seccionId: this.nueva.seccionId,
+          periodoMatriculaId: this.nueva.periodoMatriculaId
+        }).subscribe({
+          next: () => {
+            this.mostrarMensaje('✅ Matrícula registrada correctamente.');
+            this.cerrarFormulario();
+            resolve();
+          },
+          error: (err) => {
+            this.mostrarError(err, 'No se pudo registrar la matrícula.');
+            resolve();
+          }
+        });
       });
-    });
-    this.guardando = false;
-    await this.cargarMatriculas(this.filtros.alumnoId || undefined);
+      await this.cargarMatriculas(this.filtros.alumnoId || undefined);
+    } finally {
+      // Angular zoneless: estas asignaciones ocurren tras await/subscribe. Sin una
+      // notificación explícita, el botón puede quedar en «Registrando...» y la
+      // nueva fila no aparecer hasta otro evento del navegador.
+      this.guardando = false;
+      this.cdr.detectChanges();
+    }
   }
 
   puedeTransicionar(m: Matricula): boolean {
@@ -278,24 +285,28 @@ export class Matriculas implements OnInit {
     if (!confirmar) return;
 
     this.guardando = true;
-    await new Promise<void>((resolve) => {
-      this.matriculaService.cambiarEstado(m.id, {
-        estado: nuevoEstado,
-        motivo: this.requiereMotivo ? this.cambioDe.motivo.trim() : null
-      }).subscribe({
-        next: () => {
-          this.mostrarMensaje(`✅ Estado actualizado a "${nuevoEstado}".`);
-          this.cerrarCambioEstado();
-          resolve();
-        },
-        error: (err) => {
-          this.mostrarError(err, 'No se pudo cambiar el estado de la matrícula.');
-          resolve();
-        }
+    try {
+      await new Promise<void>((resolve) => {
+        this.matriculaService.cambiarEstado(m.id, {
+          estado: nuevoEstado,
+          motivo: this.requiereMotivo ? this.cambioDe.motivo.trim() : null
+        }).subscribe({
+          next: () => {
+            this.mostrarMensaje(`✅ Estado actualizado a "${nuevoEstado}".`);
+            this.cerrarCambioEstado();
+            resolve();
+          },
+          error: (err) => {
+            this.mostrarError(err, 'No se pudo cambiar el estado de la matrícula.');
+            resolve();
+          }
+        });
       });
-    });
-    this.guardando = false;
-    await this.cargarMatriculas(this.filtros.alumnoId || undefined);
+      await this.cargarMatriculas(this.filtros.alumnoId || undefined);
+    } finally {
+      this.guardando = false;
+      this.cdr.detectChanges();
+    }
   }
 
   claseEstado(estado: string): string {

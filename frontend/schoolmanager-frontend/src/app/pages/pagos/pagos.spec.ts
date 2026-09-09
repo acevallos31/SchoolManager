@@ -3,6 +3,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { vi } from 'vitest';
 import { Pagos } from './pagos';
 import { AuthService } from '../../core/services/auth';
+import { AlumnoService } from '../../core/services/alumno.service';
 import { Cargo, CargosService } from '../../core/services/cargos.service';
 import { PagosService, Pago } from '../../core/services/pagos.service';
 
@@ -32,6 +33,7 @@ describe('Pagos (021)', () => {
   let s: Record<string, ReturnType<typeof vi.fn>>;
   let permisos: Set<string>;
   let router: { navigate: ReturnType<typeof vi.fn> };
+  let alumnoService: { listar: ReturnType<typeof vi.fn> };
 
   async function armar(alumnoId: string | null): Promise<void> {
     await TestBed.resetTestingModule();
@@ -41,19 +43,24 @@ describe('Pagos (021)', () => {
         { provide: Router, useValue: router },
         { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => alumnoId } } } },
         { provide: AuthService, useValue: { tienePermiso: (x: string) => permisos.has(x) } },
-        { provide: CargosService, useValue: { listarCargosAlumno: s.listarCargosAlumno } },
+        { provide: AlumnoService, useValue: alumnoService },
+        { provide: CargosService, useValue: s },
         { provide: PagosService, useValue: s }
       ]
     });
     await TestBed.compileComponents();
     f = TestBed.createComponent(Pagos);
     c = f.componentInstance;
-    f.detectChanges();
   }
 
   beforeEach(() => {
     permisos = new Set(['academico.pagos.ver', 'academico.pagos.registrar', 'academico.pagos.anular']);
     router = { navigate: vi.fn().mockResolvedValue(true) };
+    alumnoService = {
+      listar: vi.fn().mockResolvedValue([
+        { id: 'a1', nombreCompleto: 'Ana Pérez', estado: 'activo' }
+      ])
+    };
     s = {
       listarCargosAlumno: vi.fn().mockResolvedValue([cargoPendiente, cargoVencido]),
       listarPagosAlumno: vi.fn().mockResolvedValue([pagoRegistrado]),
@@ -69,11 +76,8 @@ describe('Pagos (021)', () => {
   });
 
   it('redirige al dashboard sin permiso de ver y no carga', async () => {
+    permisos.clear();
     await armar('a1');
-    s.listarCargosAlumno.mockClear();
-    s.listarPagosAlumno.mockClear();
-    router.navigate.mockClear();
-    permisos = new Set();
     await c.ngOnInit();
     expect(router.navigate).toHaveBeenCalledWith(['/dashboard']);
     expect(s.listarPagosAlumno).not.toHaveBeenCalled();
@@ -81,11 +85,58 @@ describe('Pagos (021)', () => {
 
   it('carga cargos y pagos del alumno del query param', async () => {
     await armar('a1');
-    await c.cargar();
+    await c.ngOnInit();
     expect(s.listarCargosAlumno).toHaveBeenCalledWith('a1');
     expect(s.listarPagosAlumno).toHaveBeenCalledWith('a1');
     expect(c.cargos).toHaveLength(2);
     expect(c.pagos).toHaveLength(1);
+  });
+
+  it('carga alumnos aunque no venga alumnoId para permitir filtrar', async () => {
+    await armar(null);
+    await c.ngOnInit();
+    expect(alumnoService.listar).toHaveBeenCalled();
+    expect(c.alumnos).toHaveLength(1);
+    expect(c.alumnoId).toBeNull();
+    expect(s.listarPagosAlumno).not.toHaveBeenCalled();
+  });
+
+  it('sincroniza el alumno seleccionado en la URL y carga cobranza', async () => {
+    await armar(null);
+    c.alumnoId = 'a1';
+
+    await c.seleccionarAlumno();
+
+    expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({
+      queryParams: { alumnoId: 'a1' },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    }));
+    expect(s.listarPagosAlumno).toHaveBeenCalledWith('a1');
+  });
+
+  it('limpia selección y estado contextual sin cargar llamadas financieras', async () => {
+    await armar('a1');
+    c.alumnoId = null;
+    c.detalle = pagoRegistrado;
+    c.showFormulario = true;
+
+    await c.seleccionarAlumno();
+
+    expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({
+      queryParams: { alumnoId: null },
+    }));
+    expect(s.listarPagosAlumno).not.toHaveBeenCalled();
+    expect(c.detalle).toBeNull();
+    expect(c.showFormulario).toBe(false);
+  });
+
+  it('muestra error si falla la carga del selector de alumnos', async () => {
+    alumnoService.listar.mockRejectedValueOnce(new Error('Sin conexión'));
+    await armar(null);
+    await c.ngOnInit();
+    expect(c.alumnos).toEqual([]);
+    expect(c.esError).toBe(true);
   });
 
   it('expone solo cargos pendientes o parciales como cobrables', async () => {
@@ -111,6 +162,7 @@ describe('Pagos (021)', () => {
 
   it('registra el pago con el cuerpo correcto y limpia el formulario', async () => {
     await armar('a1');
+    c.alumnoId = 'a1';
     c.cargos = [cargoPendiente, cargoPagado];
     c.montos = { c1: '200' };
     c.metodoPago = 'transferencia';
@@ -136,6 +188,7 @@ describe('Pagos (021)', () => {
 
   it('anula el pago con motivo y restablece saldos', async () => {
     await armar('a1');
+    c.alumnoId = 'a1';
     c.motivoAnulacion = 'Pago duplicado';
     await c.anular(pagoRegistrado);
     expect(s.anularPago).toHaveBeenCalledWith('p1', 'Pago duplicado');

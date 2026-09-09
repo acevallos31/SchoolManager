@@ -3,6 +3,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { vi } from 'vitest';
 import { Cargos } from './cargos';
 import { AuthService } from '../../core/services/auth';
+import { AlumnoService } from '../../core/services/alumno.service';
 import { Cargo, CargosService, ResumenFinanciero } from '../../core/services/cargos.service';
 
 describe('Cargos (020)', () => {
@@ -28,6 +29,7 @@ describe('Cargos (020)', () => {
   let s: Record<string, ReturnType<typeof vi.fn>>;
   let permisos: Set<string>;
   let router: { navigate: ReturnType<typeof vi.fn> };
+  let alumnoService: { listar: ReturnType<typeof vi.fn> };
 
   async function armar(alumnoId: string | null): Promise<void> {
     await TestBed.resetTestingModule();
@@ -37,18 +39,23 @@ describe('Cargos (020)', () => {
         { provide: Router, useValue: router },
         { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => alumnoId } } } },
         { provide: AuthService, useValue: { tienePermiso: (x: string) => permisos.has(x) } },
+        { provide: AlumnoService, useValue: alumnoService },
         { provide: CargosService, useValue: s }
       ]
     });
     await TestBed.compileComponents();
     f = TestBed.createComponent(Cargos);
     c = f.componentInstance;
-    f.detectChanges();
   }
 
   beforeEach(() => {
     permisos = new Set(['academico.cargos.ver']);
     router = { navigate: vi.fn().mockResolvedValue(true) };
+    alumnoService = {
+      listar: vi.fn().mockResolvedValue([
+        { id: 'a1', nombreCompleto: 'Ana Pérez', estado: 'activo' }
+      ])
+    };
     s = {
       listarCargosAlumno: vi.fn().mockResolvedValue([cargoPendiente, cargoVencido]),
       obtenerResumenAlumno: vi.fn().mockResolvedValue(resumen)
@@ -61,10 +68,8 @@ describe('Cargos (020)', () => {
   });
 
   it('redirige al dashboard si no tiene permiso de ver', async () => {
-    await armar('a1');
-    s['listarCargosAlumno'].mockClear();
-    router.navigate.mockClear();
     permisos.clear();
+    await armar('a1');
     await c.ngOnInit();
     expect(router.navigate).toHaveBeenCalledWith(['/dashboard']);
     expect(s['listarCargosAlumno']).not.toHaveBeenCalled();
@@ -72,17 +77,55 @@ describe('Cargos (020)', () => {
 
   it('carga cargos y resumen del alumno indicado por query param', async () => {
     await armar('a1');
-    await c.cargar();
+    await c.ngOnInit();
     expect(s['listarCargosAlumno']).toHaveBeenCalledWith('a1');
     expect(s['obtenerResumenAlumno']).toHaveBeenCalledWith('a1');
     expect(c.cargos).toHaveLength(2);
     expect(c.resumen?.totalPendiente).toBe(400);
   });
 
-  it('no carga si no hay alumnoId en el query param', async () => {
+  it('carga alumnos aunque no venga alumnoId para permitir filtrar', async () => {
     await armar(null);
     await c.ngOnInit();
+    expect(alumnoService.listar).toHaveBeenCalled();
+    expect(c.alumnos).toHaveLength(1);
+    expect(c.alumnoId).toBeNull();
     expect(s['listarCargosAlumno']).not.toHaveBeenCalled();
+  });
+
+  it('sincroniza el alumno seleccionado en la URL y carga su detalle', async () => {
+    await armar(null);
+    c.alumnoId = 'a1';
+
+    await c.seleccionarAlumno();
+
+    expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({
+      queryParams: { alumnoId: 'a1' },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    }));
+    expect(s['listarCargosAlumno']).toHaveBeenCalledWith('a1');
+  });
+
+  it('limpia el filtro sin intentar cargar detalle', async () => {
+    await armar('a1');
+    c.alumnoId = null;
+
+    await c.seleccionarAlumno();
+
+    expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({
+      queryParams: { alumnoId: null },
+    }));
+    expect(s['listarCargosAlumno']).not.toHaveBeenCalled();
+    expect(c.resumen).toBeNull();
+  });
+
+  it('muestra error si falla la carga del selector de alumnos', async () => {
+    alumnoService.listar.mockRejectedValueOnce(new Error('Sin conexión'));
+    await armar(null);
+    await c.ngOnInit();
+    expect(c.alumnos).toEqual([]);
+    expect(c.esError).toBe(true);
   });
 
   it('calcula el total pendiente sumando cargos pendientes', async () => {
@@ -100,8 +143,9 @@ describe('Cargos (020)', () => {
   });
 
   it('muestra error cuando la API falla', async () => {
-    await armar('a1');
     s['listarCargosAlumno'] = vi.fn().mockRejectedValue(new Error('Sin conexión'));
+    await armar('a1');
+    c.alumnoId = 'a1';
     await c.cargar();
     expect(c.esError).toBe(true);
     expect(c.mensaje).toBeTruthy();

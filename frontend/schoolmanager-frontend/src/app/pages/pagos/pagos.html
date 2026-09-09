@@ -1,7 +1,27 @@
 <div class="page-container">
   <div class="page-header">
     <h1 class="sm-page-title">Pagos y cobranza</h1>
-    <button class="sm-btn sm-btn--secondary" type="button" (click)="volver()">Volver a cargos</button>
+    <button class="sm-btn sm-btn--secondary" type="button" (click)="volver()">
+      {{ alumnoId ? 'Volver a cargos' : 'Volver a alumnos' }}
+    </button>
+  </div>
+
+  <div class="filtros">
+    <div class="sm-field filtro-grupo">
+      <label class="sm-label" for="filtroAlumnoPagos">Alumno</label>
+      <select
+        id="filtroAlumnoPagos"
+        class="sm-select"
+        [(ngModel)]="alumnoId"
+        name="filtroAlumnoPagos"
+        (ngModelChange)="seleccionarAlumno()">
+        <option [ngValue]="null">Seleccionar alumno</option>
+        @for (a of alumnos; track a.id) {
+          <option [ngValue]="a.id">{{ a.nombreCompleto }}</option>
+        }
+      </select>
+      <span class="sm-helper">Si llega desde Alumnos o Cargos, el alumno queda seleccionado automáticamente.</span>
+    </div>
   </div>
 
   @if (mensaje) {
@@ -158,8 +178,8 @@
     }
   } @else {
     <div class="sm-state">
-      <p class="sm-state__title">Acceso desde un alumno</p>
-      <p class="sm-state__body">Acceda a los pagos desde un alumno para gestionar su cobranza.</p>
+      <p class="sm-state__title">Seleccione un alumno</p>
+      <p class="sm-state__body">Use el filtro superior para consultar pagos, saldos y cobranza.</p>
     </div>
   }
 

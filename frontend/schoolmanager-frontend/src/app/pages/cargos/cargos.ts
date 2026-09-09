@@ -1,20 +1,27 @@
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/services/auth';
+import { AlumnoListado, AlumnoService } from '../../core/services/alumno.service';
 import {
   Cargo, CargoError, CargosService, ResumenFinanciero,
 } from '../../core/services/cargos.service';
+import {
+  inicializarVistaFinanciera,
+  sincronizarAlumnoFinancieroEnUrl,
+} from '../../core/utils/alumno-contexto-financiero';
 
 @Component({
   selector: 'app-cargos',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './cargos.html',
   styleUrl: './cargos.css',
 })
 export class Cargos implements OnInit {
   alumnoId: string | null = null;
+  alumnos: AlumnoListado[] = [];
   cargos: Cargo[] = [];
   resumen: ResumenFinanciero | null = null;
   cargando = false;
@@ -25,6 +32,7 @@ export class Cargos implements OnInit {
     private readonly route: ActivatedRoute,
     private readonly router: Router,
     private readonly auth: AuthService,
+    private readonly alumnoService: AlumnoService,
     private readonly service: CargosService,
     private readonly cdr: ChangeDetectorRef,
   ) {}
@@ -59,12 +67,24 @@ export class Cargos implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
-    if (!this.puedeVer) {
-      await this.router.navigate(['/dashboard']);
-      return;
-    }
-    const id = this.route.snapshot.queryParamMap.get('alumnoId');
-    if (id) this.alumnoId = id;
+    await inicializarVistaFinanciera(
+      this,
+      this.puedeVer,
+      this.router,
+      this.route,
+      this.alumnoService,
+      this.cdr,
+      (error) => this.error(error),
+    );
+  }
+
+  async seleccionarAlumno(): Promise<void> {
+    this.cargos = [];
+    this.resumen = null;
+    this.mensaje = '';
+    this.esError = false;
+
+    await sincronizarAlumnoFinancieroEnUrl(this.router, this.route, this.alumnoId);
     if (this.alumnoId) await this.cargar();
   }
 
