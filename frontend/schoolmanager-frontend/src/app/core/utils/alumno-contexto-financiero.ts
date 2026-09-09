@@ -15,13 +15,12 @@ export interface VistaFinancieraContextual {
 
 /**
  * Carga el catálogo usado por Cargos/Pagos y obtiene el alumno contextual de
- * la URL. El detectChanges explícito es intencional: estas vistas funcionan
- * en modo zoneless y la continuación posterior al await no agenda un render.
+ * la URL. Estas vistas funcionan en modo zoneless, por lo que el render debe
+ * solicitarse después de aplicar el resultado a la vista, no antes.
  */
 export async function inicializarContextoAlumnoFinanciero(
   alumnoService: Pick<AlumnoService, 'listar'>,
   route: ActivatedRoute,
-  cdr: ChangeDetectorRef,
   onError: (error: unknown) => void,
 ): Promise<ContextoAlumnoFinanciero> {
   let alumnos: AlumnoListado[] = [];
@@ -29,8 +28,6 @@ export async function inicializarContextoAlumnoFinanciero(
     alumnos = await alumnoService.listar();
   } catch (error: unknown) {
     onError(error);
-  } finally {
-    cdr.detectChanges();
   }
 
   return {
@@ -61,11 +58,15 @@ export async function inicializarVistaFinanciera(
   const contexto = await inicializarContextoAlumnoFinanciero(
     alumnoService,
     route,
-    cdr,
     onError,
   );
   vista.alumnos = contexto.alumnos;
   vista.alumnoId = contexto.alumnoId;
+
+  // En modo zoneless el await anterior no agenda por sí solo un render.
+  // El detectChanges debe ocurrir después de asignar alumnos/alumnoId;
+  // hacerlo durante la carga dejaba el selector vacío de forma intermitente.
+  cdr.detectChanges();
 
   if (vista.alumnoId) await vista.cargar();
 }
