@@ -7,6 +7,12 @@ export interface ContextoAlumnoFinanciero {
   alumnoId: string | null;
 }
 
+export interface VistaFinancieraContextual {
+  alumnos: AlumnoListado[];
+  alumnoId: string | null;
+  cargar(): Promise<void>;
+}
+
 /**
  * Carga el catálogo usado por Cargos/Pagos y obtiene el alumno contextual de
  * la URL. El detectChanges explícito es intencional: estas vistas funcionan
@@ -33,38 +39,35 @@ export async function inicializarContextoAlumnoFinanciero(
   };
 }
 
-export interface InicializacionVistaFinanciera {
-  puedeVer: boolean;
-  router: Router;
-  route: ActivatedRoute;
-  alumnoService: Pick<AlumnoService, 'listar'>;
-  cdr: ChangeDetectorRef;
-  onError: (error: unknown) => void;
-  aplicarContexto: (contexto: ContextoAlumnoFinanciero) => void;
-  cargarDetalle: () => Promise<void>;
-}
-
 /**
- * Inicialización común de las vistas financieras: controla permiso, carga el
- * selector de alumnos, aplica el alumno de la URL y, si existe, carga detalle.
+ * Inicialización común de las vistas financieras. Además de validar acceso,
+ * aplica el catálogo y el alumno contextual directamente sobre la vista y
+ * carga su detalle cuando la URL ya trae un alumno.
  */
 export async function inicializarVistaFinanciera(
-  opciones: InicializacionVistaFinanciera,
+  vista: VistaFinancieraContextual,
+  puedeVer: boolean,
+  router: Router,
+  route: ActivatedRoute,
+  alumnoService: Pick<AlumnoService, 'listar'>,
+  cdr: ChangeDetectorRef,
+  onError: (error: unknown) => void,
 ): Promise<void> {
-  if (!opciones.puedeVer) {
-    await opciones.router.navigate(['/dashboard']);
+  if (!puedeVer) {
+    await router.navigate(['/dashboard']);
     return;
   }
 
   const contexto = await inicializarContextoAlumnoFinanciero(
-    opciones.alumnoService,
-    opciones.route,
-    opciones.cdr,
-    opciones.onError,
+    alumnoService,
+    route,
+    cdr,
+    onError,
   );
-  opciones.aplicarContexto(contexto);
+  vista.alumnos = contexto.alumnos;
+  vista.alumnoId = contexto.alumnoId;
 
-  if (contexto.alumnoId) await opciones.cargarDetalle();
+  if (vista.alumnoId) await vista.cargar();
 }
 
 /** Mantiene el alumno seleccionado en la URL para navegación y recarga. */
