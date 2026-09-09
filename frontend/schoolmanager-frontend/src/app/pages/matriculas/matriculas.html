@@ -8,7 +8,7 @@
     }
   </div>
 
-  @if (mensaje) {
+  @if (mensaje && !mostrarFormulario && !cambioDe.matricula) {
     <div class="sm-alert" [class.sm-alert--error]="esError" [class.sm-alert--success]="!esError" role="status">
       {{ mensaje }}
     </div>
@@ -17,6 +17,11 @@
   @if (mostrarFormulario && puedeCrear) {
     <form class="formulario sm-card" (ngSubmit)="crearMatricula()">
       <h3 class="sm-section-title">Registrar nueva matrícula</h3>
+      @if (mensaje) {
+        <div class="sm-alert" [class.sm-alert--error]="esError" [class.sm-alert--success]="!esError" role="status">
+          {{ mensaje }}
+        </div>
+      }
       <div class="form-grid">
         <div class="sm-field form-group">
           <label class="sm-label" for="nuevaAlumno">Alumno *</label>
@@ -158,6 +163,11 @@
     <div class="sm-modal-overlay">
       <div class="sm-modal" role="dialog" aria-modal="true" aria-label="Cambiar estado de matrícula">
         <h3 class="sm-modal__title">Cambiar estado — {{ cambioDe.matricula.nombreAlumno }}</h3>
+        @if (mensaje) {
+          <div class="sm-alert" [class.sm-alert--error]="esError" [class.sm-alert--success]="!esError" role="status">
+            {{ mensaje }}
+          </div>
+        }
         <p class="sm-modal__detail">Estado actual: <strong>{{ cambioDe.matricula.estado }}</strong></p>
         <div class="sm-field form-group">
           <label class="sm-label" for="cambioEstado">Nuevo estado *</label>
