@@ -42,6 +42,33 @@ public sealed class MigrationTests(PostgreSqlFixture fixture) : IClassFixture<Po
     }
 
     [Fact]
+    public void Cada_migracion_activa_tiene_rollback_y_validacion()
+    {
+        var migrationPaths = MigrationRunner.GetActiveMigrationPaths();
+        var migrationDirectory = Path.GetDirectoryName(migrationPaths[0])!;
+
+        var expectedValidationNames = migrationPaths
+            .Select(path => Path.GetFileNameWithoutExtension(path) + ".validation.sql")
+            .ToArray();
+        var actualValidationNames = MigrationRunner.GetActiveValidationPaths()
+            .Select(Path.GetFileName)
+            .ToArray();
+
+        Assert.Equal(expectedValidationNames, actualValidationNames);
+
+        var expectedRollbackNames = migrationPaths
+            .Select(path => Path.GetFileNameWithoutExtension(path) + ".rollback.sql")
+            .ToArray();
+        var actualRollbackNames = Directory
+            .EnumerateFiles(Path.Combine(migrationDirectory, "rollback"), "*.rollback.sql", SearchOption.TopDirectoryOnly)
+            .Select(Path.GetFileName)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(expectedRollbackNames, actualRollbackNames);
+    }
+
+    [Fact]
     public async Task Reejecucion_estructural_de_migraciones_es_idempotente()
     {
         await MigrationRunner.ApplyActiveAsync(fixture.DataSource);
