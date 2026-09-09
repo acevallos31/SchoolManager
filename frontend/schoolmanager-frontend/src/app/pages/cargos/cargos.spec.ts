@@ -92,7 +92,47 @@ describe('Cargos (020)', () => {
     await c.ngOnInit();
     expect(alumnoService.listar).toHaveBeenCalled();
     expect(c.alumnos).toHaveLength(1);
+    expect(c.alumnoId).toBeNull();
     expect(s['listarCargosAlumno']).not.toHaveBeenCalled();
+  });
+
+  it('sincroniza el alumno seleccionado en la URL y carga su detalle', async () => {
+    await armar(null);
+    router.navigate.mockClear();
+    s['listarCargosAlumno'].mockClear();
+    c.alumnoId = 'a1';
+
+    await c.seleccionarAlumno();
+
+    expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({
+      queryParams: { alumnoId: 'a1' },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    }));
+    expect(s['listarCargosAlumno']).toHaveBeenCalledWith('a1');
+  });
+
+  it('limpia el filtro sin intentar cargar detalle', async () => {
+    await armar('a1');
+    router.navigate.mockClear();
+    s['listarCargosAlumno'].mockClear();
+    c.alumnoId = null;
+
+    await c.seleccionarAlumno();
+
+    expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({
+      queryParams: { alumnoId: null },
+    }));
+    expect(s['listarCargosAlumno']).not.toHaveBeenCalled();
+    expect(c.resumen).toBeNull();
+  });
+
+  it('muestra error si falla la carga del selector de alumnos', async () => {
+    alumnoService.listar.mockRejectedValueOnce(new Error('Sin conexión'));
+    await armar(null);
+    await c.ngOnInit();
+    expect(c.alumnos).toEqual([]);
+    expect(c.esError).toBe(true);
   });
 
   it('calcula el total pendiente sumando cargos pendientes', async () => {
