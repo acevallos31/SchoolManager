@@ -4,6 +4,24 @@
     <button class="sm-btn sm-btn--secondary" type="button" (click)="volver()">Volver a alumnos</button>
   </div>
 
+  <div class="filtros">
+    <div class="sm-field filtro-grupo">
+      <label class="sm-label" for="filtroAlumnoCargos">Alumno</label>
+      <select
+        id="filtroAlumnoCargos"
+        class="sm-select"
+        [(ngModel)]="alumnoId"
+        name="filtroAlumnoCargos"
+        (ngModelChange)="seleccionarAlumno()">
+        <option [ngValue]="null">Seleccionar alumno</option>
+        @for (a of alumnos; track a.id) {
+          <option [ngValue]="a.id">{{ a.nombreCompleto }}</option>
+        }
+      </select>
+      <span class="sm-helper">Si llega desde Alumnos, el alumno queda seleccionado automáticamente.</span>
+    </div>
+  </div>
+
   @if (mensaje) {
     <div class="sm-alert" [class.sm-alert--error]="esError" [class.sm-alert--success]="!esError" role="status">
       {{ mensaje }}
@@ -94,8 +112,8 @@
     }
   } @else {
     <div class="sm-state">
-      <p class="sm-state__title">Acceso desde un alumno</p>
-      <p class="sm-state__body">Acceda a los cargos desde un alumno para ver su información financiera.</p>
+      <p class="sm-state__title">Seleccione un alumno</p>
+      <p class="sm-state__body">Use el filtro superior para consultar cargos y saldos.</p>
     </div>
   }
 </div>
