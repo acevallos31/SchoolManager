@@ -85,6 +85,11 @@ export class Pagos implements OnInit {
       this.alumnos = await this.alumnoService.listar();
     } catch (e: unknown) {
       this.error(e);
+    } finally {
+      // Angular 22 zoneless no repinta automáticamente por una asignación plana
+      // que ocurre al continuar después de await. Sin este flush el select se
+      // muestra vacío hasta que otro evento dispara change detection.
+      this.cdr.detectChanges();
     }
 
     const id = this.route.snapshot.queryParamMap.get('alumnoId');
