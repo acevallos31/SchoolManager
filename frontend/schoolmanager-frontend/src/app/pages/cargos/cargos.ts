@@ -1,7 +1,9 @@
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/services/auth';
+import { AlumnoListado, AlumnoService } from '../../core/services/alumno.service';
 import {
   Cargo, CargoError, CargosService, ResumenFinanciero,
 } from '../../core/services/cargos.service';
@@ -9,12 +11,13 @@ import {
 @Component({
   selector: 'app-cargos',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './cargos.html',
   styleUrl: './cargos.css',
 })
 export class Cargos implements OnInit {
   alumnoId: string | null = null;
+  alumnos: AlumnoListado[] = [];
   cargos: Cargo[] = [];
   resumen: ResumenFinanciero | null = null;
   cargando = false;
@@ -25,6 +28,7 @@ export class Cargos implements OnInit {
     private readonly route: ActivatedRoute,
     private readonly router: Router,
     private readonly auth: AuthService,
+    private readonly alumnoService: AlumnoService,
     private readonly service: CargosService,
     private readonly cdr: ChangeDetectorRef,
   ) {}
@@ -63,8 +67,31 @@ export class Cargos implements OnInit {
       await this.router.navigate(['/dashboard']);
       return;
     }
+
+    try {
+      this.alumnos = await this.alumnoService.listar();
+    } catch (e: unknown) {
+      this.error(e);
+    }
+
     const id = this.route.snapshot.queryParamMap.get('alumnoId');
     if (id) this.alumnoId = id;
+    if (this.alumnoId) await this.cargar();
+  }
+
+  async seleccionarAlumno(): Promise<void> {
+    this.cargos = [];
+    this.resumen = null;
+    this.mensaje = '';
+    this.esError = false;
+
+    await this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { alumnoId: this.alumnoId || null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+
     if (this.alumnoId) await this.cargar();
   }
 
