@@ -3,6 +3,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/services/auth';
+import { AlumnoListado, AlumnoService } from '../../core/services/alumno.service';
 import { Cargo, CargoError, CargosService } from '../../core/services/cargos.service';
 import { AplicacionRequest, PagosService, Pago, PagoError } from '../../core/services/pagos.service';
 
@@ -19,6 +20,7 @@ import { AplicacionRequest, PagosService, Pago, PagoError } from '../../core/ser
 })
 export class Pagos implements OnInit {
   alumnoId: string | null = null;
+  alumnos: AlumnoListado[] = [];
   cargos: Cargo[] = [];
   pagos: Pago[] = [];
   cargando = false;
@@ -41,6 +43,7 @@ export class Pagos implements OnInit {
     private readonly route: ActivatedRoute,
     private readonly router: Router,
     private readonly auth: AuthService,
+    private readonly alumnoService: AlumnoService,
     private readonly pagosService: PagosService,
     private readonly cargosService: CargosService,
     private readonly cdr: ChangeDetectorRef,
@@ -77,8 +80,34 @@ export class Pagos implements OnInit {
       await this.router.navigate(['/dashboard']);
       return;
     }
+
+    try {
+      this.alumnos = await this.alumnoService.listar();
+    } catch (e: unknown) {
+      this.error(e);
+    }
+
     const id = this.route.snapshot.queryParamMap.get('alumnoId');
     if (id) this.alumnoId = id;
+    if (this.alumnoId) await this.cargar();
+  }
+
+  async seleccionarAlumno(): Promise<void> {
+    this.cargos = [];
+    this.pagos = [];
+    this.detalle = null;
+    this.aplicaciones = [];
+    this.cerrarFormulario();
+    this.mensaje = '';
+    this.esError = false;
+
+    await this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { alumnoId: this.alumnoId || null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+
     if (this.alumnoId) await this.cargar();
   }
 
