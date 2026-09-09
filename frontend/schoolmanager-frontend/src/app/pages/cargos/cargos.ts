@@ -8,7 +8,7 @@ import {
   Cargo, CargoError, CargosService, ResumenFinanciero,
 } from '../../core/services/cargos.service';
 import {
-  inicializarContextoAlumnoFinanciero,
+  inicializarVistaFinanciera,
   sincronizarAlumnoFinancieroEnUrl,
 } from '../../core/utils/alumno-contexto-financiero';
 
@@ -67,21 +67,19 @@ export class Cargos implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
-    if (!this.puedeVer) {
-      await this.router.navigate(['/dashboard']);
-      return;
-    }
-
-    const contexto = await inicializarContextoAlumnoFinanciero(
-      this.alumnoService,
-      this.route,
-      this.cdr,
-      (error) => this.error(error),
-    );
-    this.alumnos = contexto.alumnos;
-    this.alumnoId = contexto.alumnoId;
-
-    if (this.alumnoId) await this.cargar();
+    await inicializarVistaFinanciera({
+      puedeVer: this.puedeVer,
+      router: this.router,
+      route: this.route,
+      alumnoService: this.alumnoService,
+      cdr: this.cdr,
+      onError: (error) => this.error(error),
+      aplicarContexto: ({ alumnos, alumnoId }) => {
+        this.alumnos = alumnos;
+        this.alumnoId = alumnoId;
+      },
+      cargarDetalle: () => this.cargar(),
+    });
   }
 
   async seleccionarAlumno(): Promise<void> {
