@@ -54,7 +54,7 @@ public abstract class ApiControllerBase(NpgsqlDataSource dataSource) : Controlle
     }
 
     protected static ObjectResult ToError(PostgresException ex) =>
-        new ObjectResult(new { error = ex.MessageText ?? "Error en base de datos" })
+        new ObjectResult(new { error = MensajeError(ex) })
         {
             // P0001 (raise_exception generico) no se trata como 403: cae en el default.
             // "SM001"/"SM003" son codigos de contexto de la implementacion (validacion
@@ -68,4 +68,10 @@ public abstract class ApiControllerBase(NpgsqlDataSource dataSource) : Controlle
                 _ => StatusCodes.Status400BadRequest
             }
         };
+
+    private static string MensajeError(PostgresException ex) =>
+        ex.SqlState == PostgresErrorCodes.UniqueViolation &&
+        ex.ConstraintName == "uq_matriculas_alumno_ciclo"
+            ? "El alumno ya tiene una matrícula vigente en este ciclo escolar."
+            : ex.MessageText ?? "Error en base de datos";
 }
