@@ -3,6 +3,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { vi } from 'vitest';
 import { Cargos } from './cargos';
 import { AuthService } from '../../core/services/auth';
+import { AlumnoService } from '../../core/services/alumno.service';
 import { Cargo, CargosService, ResumenFinanciero } from '../../core/services/cargos.service';
 
 describe('Cargos (020)', () => {
@@ -28,6 +29,7 @@ describe('Cargos (020)', () => {
   let s: Record<string, ReturnType<typeof vi.fn>>;
   let permisos: Set<string>;
   let router: { navigate: ReturnType<typeof vi.fn> };
+  let alumnoService: { listar: ReturnType<typeof vi.fn> };
 
   async function armar(alumnoId: string | null): Promise<void> {
     await TestBed.resetTestingModule();
@@ -37,6 +39,7 @@ describe('Cargos (020)', () => {
         { provide: Router, useValue: router },
         { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => alumnoId } } } },
         { provide: AuthService, useValue: { tienePermiso: (x: string) => permisos.has(x) } },
+        { provide: AlumnoService, useValue: alumnoService },
         { provide: CargosService, useValue: s }
       ]
     });
@@ -49,6 +52,11 @@ describe('Cargos (020)', () => {
   beforeEach(() => {
     permisos = new Set(['academico.cargos.ver']);
     router = { navigate: vi.fn().mockResolvedValue(true) };
+    alumnoService = {
+      listar: vi.fn().mockResolvedValue([
+        { id: 'a1', nombreCompleto: 'Ana Pérez', estado: 'activo' }
+      ])
+    };
     s = {
       listarCargosAlumno: vi.fn().mockResolvedValue([cargoPendiente, cargoVencido]),
       obtenerResumenAlumno: vi.fn().mockResolvedValue(resumen)
@@ -79,9 +87,11 @@ describe('Cargos (020)', () => {
     expect(c.resumen?.totalPendiente).toBe(400);
   });
 
-  it('no carga si no hay alumnoId en el query param', async () => {
+  it('carga alumnos aunque no venga alumnoId para permitir filtrar', async () => {
     await armar(null);
     await c.ngOnInit();
+    expect(alumnoService.listar).toHaveBeenCalled();
+    expect(c.alumnos).toHaveLength(1);
     expect(s['listarCargosAlumno']).not.toHaveBeenCalled();
   });
 
