@@ -33,6 +33,40 @@ export async function inicializarContextoAlumnoFinanciero(
   };
 }
 
+export interface InicializacionVistaFinanciera {
+  puedeVer: boolean;
+  router: Router;
+  route: ActivatedRoute;
+  alumnoService: Pick<AlumnoService, 'listar'>;
+  cdr: ChangeDetectorRef;
+  onError: (error: unknown) => void;
+  aplicarContexto: (contexto: ContextoAlumnoFinanciero) => void;
+  cargarDetalle: () => Promise<void>;
+}
+
+/**
+ * Inicialización común de las vistas financieras: controla permiso, carga el
+ * selector de alumnos, aplica el alumno de la URL y, si existe, carga detalle.
+ */
+export async function inicializarVistaFinanciera(
+  opciones: InicializacionVistaFinanciera,
+): Promise<void> {
+  if (!opciones.puedeVer) {
+    await opciones.router.navigate(['/dashboard']);
+    return;
+  }
+
+  const contexto = await inicializarContextoAlumnoFinanciero(
+    opciones.alumnoService,
+    opciones.route,
+    opciones.cdr,
+    opciones.onError,
+  );
+  opciones.aplicarContexto(contexto);
+
+  if (contexto.alumnoId) await opciones.cargarDetalle();
+}
+
 /** Mantiene el alumno seleccionado en la URL para navegación y recarga. */
 export async function sincronizarAlumnoFinancieroEnUrl(
   router: Router,
