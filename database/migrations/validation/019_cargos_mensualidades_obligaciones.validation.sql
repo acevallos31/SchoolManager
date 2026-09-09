@@ -1,6 +1,8 @@
 -- Validacion Migracion 019: cargos / mensualidades / obligaciones generadas.
 -- Contrato: cada consulta debe devolver cero filas. Cualquier fila es un hallazgo.
--- Esta validacion describe el estado inmediatamente posterior a 019.
+-- Esta validacion describe el estado inmediatamente posterior a 019, pero es
+-- segura de ejecutar tambien como preflight: si 019 no esta aplicada devuelve
+-- hallazgos en lugar de depender de que los objetos ya existan.
 
 -- 1. La migracion debe estar registrada exactamente una vez y con el nombre esperado.
 select '019_no_registrada_o_nombre_incorrecto' as error
@@ -40,7 +42,18 @@ where not exists (
     and c.contype = 'f'
     and rn.nspname = 'public'
     and rt.relname = 'planes_pago'
-    and pg_get_constraintdef(c.oid) like '%(plan_pago_id)%REFERENCES public.planes_pago(id)%'
+    and exists (
+      select 1
+      from unnest(c.conkey) as key(attnum)
+      join pg_attribute a on a.attrelid = c.conrelid and a.attnum = key.attnum
+      where a.attname = 'plan_pago_id'
+    )
+    and exists (
+      select 1
+      from unnest(c.confkey) as key(attnum)
+      join pg_attribute a on a.attrelid = c.confrelid and a.attnum = key.attnum
+      where a.attname = 'id'
+    )
 );
 
 -- 3. Tabla cargos y controles estructurales principales.
@@ -98,14 +111,17 @@ from (values
 where to_regprocedure('public.' || esperado.firma) is null;
 
 -- 5. Helpers de trigger no deben quedar expuestos a clientes.
+-- Se usa el OID de to_regprocedure para que el preflight sea seguro si aun faltan.
 select roles.rol, fn.firma as trigger_auxiliar_expuesto
 from (values ('anon'), ('authenticated')) roles(rol)
 cross join (values
   ('trg_matriculas_plan_institucion()'),
   ('trg_cargos_coherencia()')
 ) fn(firma)
-where to_regprocedure('public.' || fn.firma) is not null
-  and has_function_privilege(roles.rol, 'public.' || fn.firma, 'EXECUTE');
+where has_function_privilege(
+  roles.rol,
+  to_regprocedure('public.' || fn.firma),
+  'EXECUTE') is true;
 
 -- 6. Permisos propios de cargos presentes y asignados al admin activo.
 select esperado.codigo as permiso_faltante
@@ -172,8 +188,10 @@ cross join (values
   ('rpc_generar_cargos_matricula(uuid,uuid)'),
   ('rpc_anular_cargo(uuid,text,uuid)')
 ) fn(firma)
-where to_regprocedure('public.' || fn.firma) is not null
-  and has_function_privilege(roles.rol, 'public.' || fn.firma, 'EXECUTE');
+where has_function_privilege(
+  roles.rol,
+  to_regprocedure('public.' || fn.firma),
+  'EXECUTE') is true;
 
 select roles.rol, fn.firma as rpc_sin_grant_requerido
 from (values ('authenticated'), ('service_role')) roles(rol)
@@ -186,7 +204,10 @@ cross join (values
   ('rpc_anular_cargo(uuid,text,uuid)')
 ) fn(firma)
 where to_regprocedure('public.' || fn.firma) is not null
-  and not has_function_privilege(roles.rol, 'public.' || fn.firma, 'EXECUTE');
+  and has_function_privilege(
+    roles.rol,
+    to_regprocedure('public.' || fn.firma),
+    'EXECUTE') is not true;
 
 -- 10. La tabla cargos no debe dar acceso directo a anon/authenticated.
 select roles.rol, privilegios.privilegio as privilegio_tabla_indebido
@@ -194,5 +215,7 @@ from (values ('anon'), ('authenticated')) roles(rol)
 cross join (values
   ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE'), ('TRUNCATE'), ('REFERENCES'), ('TRIGGER')
 ) privilegios(privilegio)
-where to_regclass('public.cargos') is not null
-  and has_table_privilege(roles.rol, 'public.cargos', privilegios.privilegio);
+where has_table_privilege(
+  roles.rol,
+  to_regclass('public.cargos'),
+  privilegios.privilegio) is true;
