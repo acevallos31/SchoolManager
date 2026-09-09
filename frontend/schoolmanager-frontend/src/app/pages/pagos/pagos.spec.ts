@@ -101,7 +101,50 @@ describe('Pagos (021)', () => {
     await c.ngOnInit();
     expect(alumnoService.listar).toHaveBeenCalled();
     expect(c.alumnos).toHaveLength(1);
+    expect(c.alumnoId).toBeNull();
     expect(s.listarPagosAlumno).not.toHaveBeenCalled();
+  });
+
+  it('sincroniza el alumno seleccionado en la URL y carga cobranza', async () => {
+    await armar(null);
+    router.navigate.mockClear();
+    s.listarPagosAlumno.mockClear();
+    c.alumnoId = 'a1';
+
+    await c.seleccionarAlumno();
+
+    expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({
+      queryParams: { alumnoId: 'a1' },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    }));
+    expect(s.listarPagosAlumno).toHaveBeenCalledWith('a1');
+  });
+
+  it('limpia selección y estado contextual sin cargar llamadas financieras', async () => {
+    await armar('a1');
+    router.navigate.mockClear();
+    s.listarPagosAlumno.mockClear();
+    c.alumnoId = null;
+    c.detalle = pagoRegistrado;
+    c.showFormulario = true;
+
+    await c.seleccionarAlumno();
+
+    expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({
+      queryParams: { alumnoId: null },
+    }));
+    expect(s.listarPagosAlumno).not.toHaveBeenCalled();
+    expect(c.detalle).toBeNull();
+    expect(c.showFormulario).toBe(false);
+  });
+
+  it('muestra error si falla la carga del selector de alumnos', async () => {
+    alumnoService.listar.mockRejectedValueOnce(new Error('Sin conexión'));
+    await armar(null);
+    await c.ngOnInit();
+    expect(c.alumnos).toEqual([]);
+    expect(c.esError).toBe(true);
   });
 
   it('expone solo cargos pendientes o parciales como cobrables', async () => {
