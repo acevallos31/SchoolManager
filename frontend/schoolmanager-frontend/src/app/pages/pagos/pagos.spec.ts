@@ -3,6 +3,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { vi } from 'vitest';
 import { Pagos } from './pagos';
 import { AuthService } from '../../core/services/auth';
+import { AlumnoService } from '../../core/services/alumno.service';
 import { Cargo, CargosService } from '../../core/services/cargos.service';
 import { PagosService, Pago } from '../../core/services/pagos.service';
 
@@ -32,6 +33,7 @@ describe('Pagos (021)', () => {
   let s: Record<string, ReturnType<typeof vi.fn>>;
   let permisos: Set<string>;
   let router: { navigate: ReturnType<typeof vi.fn> };
+  let alumnoService: { listar: ReturnType<typeof vi.fn> };
 
   async function armar(alumnoId: string | null): Promise<void> {
     await TestBed.resetTestingModule();
@@ -41,6 +43,7 @@ describe('Pagos (021)', () => {
         { provide: Router, useValue: router },
         { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => alumnoId } } } },
         { provide: AuthService, useValue: { tienePermiso: (x: string) => permisos.has(x) } },
+        { provide: AlumnoService, useValue: alumnoService },
         { provide: CargosService, useValue: { listarCargosAlumno: s.listarCargosAlumno } },
         { provide: PagosService, useValue: s }
       ]
@@ -54,6 +57,11 @@ describe('Pagos (021)', () => {
   beforeEach(() => {
     permisos = new Set(['academico.pagos.ver', 'academico.pagos.registrar', 'academico.pagos.anular']);
     router = { navigate: vi.fn().mockResolvedValue(true) };
+    alumnoService = {
+      listar: vi.fn().mockResolvedValue([
+        { id: 'a1', nombreCompleto: 'Ana Pérez', estado: 'activo' }
+      ])
+    };
     s = {
       listarCargosAlumno: vi.fn().mockResolvedValue([cargoPendiente, cargoVencido]),
       listarPagosAlumno: vi.fn().mockResolvedValue([pagoRegistrado]),
@@ -86,6 +94,14 @@ describe('Pagos (021)', () => {
     expect(s.listarPagosAlumno).toHaveBeenCalledWith('a1');
     expect(c.cargos).toHaveLength(2);
     expect(c.pagos).toHaveLength(1);
+  });
+
+  it('carga alumnos aunque no venga alumnoId para permitir filtrar', async () => {
+    await armar(null);
+    await c.ngOnInit();
+    expect(alumnoService.listar).toHaveBeenCalled();
+    expect(c.alumnos).toHaveLength(1);
+    expect(s.listarPagosAlumno).not.toHaveBeenCalled();
   });
 
   it('expone solo cargos pendientes o parciales como cobrables', async () => {
