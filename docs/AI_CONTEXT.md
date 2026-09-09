@@ -5,8 +5,9 @@
 - Arquitectura objetivo: Angular -> API .NET -> PostgreSQL/Supabase/RPC.
 - Supabase directo en frontend queda reservado a autenticación (`auth.ts`).
 - Deuda #10 de accesos directos de negocio a Supabase: RESUELTA en Bloque 030 / PR #53.
-- Producción quedó alineada hasta migración 025 el 2026-09-09.
-- Estructura Académica volvió a funcionar en producción después de aplicar 019→025 y refrescar sesión.
+- Producción quedó alineada hasta migración 026 el 2026-09-09.
+- Estructura Académica funciona en producción después de aplicar 019→025 y refrescar sesión.
+- La rematrícula tras anulación quedó corregida con 026 y validada manualmente en producción.
 
 ## Arquitectura
 - Angular standalone frontend.
@@ -39,7 +40,7 @@ Institución -> Ciclo -> Período matrícula -> Grado -> Jornada opcional -> Sec
 - Una sección con matrículas no cambia ciclo, grado ni jornada.
 
 ## Migraciones
-Todas las migraciones activas 001→025 están en `main`.
+Todas las migraciones activas 001→026 están en `main`.
 
 - 001-008: RBAC y modelo académico base.
 - 009: RLS y RPC.
@@ -59,6 +60,7 @@ Todas las migraciones activas 001→025 están en `main`.
 - 023: permisos de aplicación `academico.ciclos.*`.
 - 024: permisos de aplicación `academico.estructura.*`.
 - 025: corrección de unicidad de grados/jornadas por institución.
+- 026: permite rematrícula en el mismo ciclo únicamente cuando la matrícula anterior está `anulada`; mantiene bloqueadas las matrículas no anuladas.
 
 ### Estado real de producción
 El 2026-09-09 se confirmó que producción estaba detenida en 018. Se ejecutaron manualmente, una por una, con PostgreSQL 17 `psql` y `ON_ERROR_STOP=1`:
@@ -66,6 +68,8 @@ El 2026-09-09 se confirmó que producción estaba detenida en 018. Se ejecutaron
 `019 -> 020 -> 021 -> 022 -> 023 -> 024 -> 025`
 
 Cada migración terminó en `COMMIT` y se ejecutó su validación SQL post-migración antes de continuar. Todas devolvieron cero hallazgos.
+
+Después del merge del PR #63 se aplicó también `026_permitir_rematricula_tras_anulacion.sql` y su validación devolvió cero hallazgos.
 
 Estado final de producción:
 - 019 aplicada + validada.
@@ -75,8 +79,9 @@ Estado final de producción:
 - 023 aplicada + validada.
 - 024 aplicada + validada.
 - 025 aplicada + validada.
+- 026 aplicada + validada.
 
-Antes de aplicar la cadena se creó backup restorable del schema `public` con `pg_dump` 17.
+Antes de aplicar la cadena 019→025 se creó backup restorable del schema `public` con `pg_dump` 17.
 
 ## Validaciones de migraciones
 - PR #60 (`test(db): completar validaciones faltantes de migraciones 019 y 022`) mergeado en `main` como `0ede6ff9a5d9f9ff69da3f1e0a693ce89c304d59`.
@@ -84,6 +89,7 @@ Antes de aplicar la cadena se creó backup restorable del schema `public` con `p
 - Se añadieron validaciones faltantes para 019 y 022.
 - `MigrationTests` exige que toda migración activa tenga exactamente un rollback y una validación.
 - CI run #287 quedó verde después de refactorizar duplicación detectada por Sonar.
+- PR #63 amplió la cadena esperada hasta 026 y CI run #317 quedó completamente verde, incluidos tests DB y Sonar Quality Gate.
 - No se relajaron reglas ni umbrales de Sonar.
 
 ### Nota 020/025
@@ -92,6 +98,20 @@ Antes de aplicar la cadena se creó backup restorable del schema `public` con `p
 - `ux_grados_institucion_nombre` UNIQUE;
 - `ux_jornadas_institucion_nombre` UNIQUE;
 - definición `(institucion_id, lower(btrim(nombre)))`.
+
+### Nota 026 — rematrícula tras anulación
+La restricción histórica `UNIQUE(alumno_id, ciclo_id)` impedía conservar una matrícula anulada y volver a matricular al mismo alumno en el mismo ciclo.
+
+026 sustituye esa restricción por un índice UNIQUE parcial con el mismo nombre `uq_matriculas_alumno_ciclo`:
+- `estado = 'anulada'` libera alumno+ciclo para una nueva matrícula;
+- `pendiente`, `activa`, `finalizada`, `retirada` y `trasladada` siguen bloqueando una segunda matrícula del mismo alumno/ciclo;
+- se conserva historial; no se revive ni elimina la fila anulada;
+- `ix_matriculas_alumno` mantiene eficiente la consulta del historial completo.
+
+Validación manual en producción:
+- rematrícula después de anular: permitida;
+- intento con matrícula activa: bloqueado;
+- intento con matrícula finalizada: bloqueado.
 
 ## Módulo Responsables
 - Namespace vigente: `academico.responsables.*`.
@@ -144,6 +164,11 @@ Pruebas de cierre del bloque:
 - `/login` y `/portal-padre` quedan fuera del AppShell.
 - `PermissionGuard` es el guard de navegación vigente.
 - `AdminGuard`/`PadreGuard` fueron eliminados; no reintroducirlos.
+- PR #62 (`feat(nav): navegación académica y filtros financieros por alumno`) mergeado como `d08235132b4c3c0f8b84d3bd8f8560bdbd49fdf5`.
+- Ciclos y Estructura Académica quedan visibles desde el AppShell según permisos.
+- Cargos/Pagos permiten acceso directo con selector de alumno y conservan `?alumnoId=...`.
+- Se corrigieron refrescos zoneless en Cargos, Pagos y Matrículas; validación manual confirmó que los alumnos se muestran de forma consistente en los selectores.
+- Los errores de Matrículas se muestran dentro del formulario/modal activo.
 
 Rutas principales:
 - `/dashboard`
@@ -182,7 +207,8 @@ Resolución:
 - Quality Gate bloquea CI cuando falla.
 - Guard anti falso-verde de `SONAR_TOKEN` vigente.
 - Deudas #7 y #9 relacionadas con Sonar: resueltas.
-- PR #60 también pasó QG sin excluir archivos ni bajar threshold.
+- PR #60 y PR #63 pasaron QG sin excluir archivos ni bajar thresholds.
+- Los hallazgos `High` del Overall Code de Sonar siguen pendientes de auditoría específica; el Quality Gate del código nuevo está verde.
 
 ## E2E
 - Smoke local disponible.
@@ -192,15 +218,16 @@ Resolución:
 ## Riesgos / deuda real pendiente
 - Selector global multiinstitución.
 - E2E autenticado en staging.
+- Revisar los issues `High` históricos de Sonar y clasificar vulnerabilidad real vs deuda/falso positivo.
+- Mejorar mensajes de error de negocio: actualmente algunos `23505` pueden mostrar texto crudo de PostgreSQL; deben mapearse a mensajes amigables sin debilitar la validación DB.
 - Mejorar observabilidad más allá de `/health` y `/health/ready` si se necesita trazabilidad.
 - Revisar divergencia de namespaces de permisos entre aplicación (`academico.estructura.*`, `academico.ciclos.*`) y capa interna DB (`configuracion.*`) para evitar confusión futura, sin romper la separación de capas.
-- Mejorar navegación de Estructura Académica: no dejarla escondida únicamente dentro de Configuración; debe ser más accesible desde navegación principal/dashboard según permisos.
 
 ## Próximo bloque recomendado
-1. Ajuste de navegación de Estructura Académica y Ciclos sin cambiar reglas de negocio.
-2. Smoke test corto de Ciclos, Cargos, Pagos y Portal Responsable en producción.
-3. Mantener permisos/guards existentes; no reintroducir guards por rol.
-4. Después, retomar staging E2E y selector multiinstitución.
+1. Mejorar mensajes de error de negocio (`23505` y conflictos equivalentes) manteniendo la DB como autoridad.
+2. Auditar issues `High` del Overall Code en Sonar.
+3. Retomar E2E autenticado en staging seguro.
+4. Después, selector global multiinstitución y observabilidad adicional según necesidad.
 
 ## Git y operación
 - Trabajar siempre en rama; no escribir directamente a `main`.
