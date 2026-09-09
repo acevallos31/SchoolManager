@@ -6,6 +6,10 @@ import { AuthService } from '../../core/services/auth';
 import { AlumnoListado, AlumnoService } from '../../core/services/alumno.service';
 import { Cargo, CargoError, CargosService } from '../../core/services/cargos.service';
 import { AplicacionRequest, PagosService, Pago, PagoError } from '../../core/services/pagos.service';
+import {
+  inicializarContextoAlumnoFinanciero,
+  sincronizarAlumnoFinancieroEnUrl,
+} from '../../core/utils/alumno-contexto-financiero';
 
 // Vista de pagos/cobranza (Bloque 021). Permite registrar un pago aplicado a
 // uno o varios cargos del alumno (parcial o total) y anular un pago
@@ -81,19 +85,15 @@ export class Pagos implements OnInit {
       return;
     }
 
-    try {
-      this.alumnos = await this.alumnoService.listar();
-    } catch (e: unknown) {
-      this.error(e);
-    } finally {
-      // Angular 22 zoneless no repinta automáticamente por una asignación plana
-      // que ocurre al continuar después de await. Sin este flush el select se
-      // muestra vacío hasta que otro evento dispara change detection.
-      this.cdr.detectChanges();
-    }
+    const contexto = await inicializarContextoAlumnoFinanciero(
+      this.alumnoService,
+      this.route,
+      this.cdr,
+      (error) => this.error(error),
+    );
+    this.alumnos = contexto.alumnos;
+    this.alumnoId = contexto.alumnoId;
 
-    const id = this.route.snapshot.queryParamMap.get('alumnoId');
-    if (id) this.alumnoId = id;
     if (this.alumnoId) await this.cargar();
   }
 
@@ -106,13 +106,7 @@ export class Pagos implements OnInit {
     this.mensaje = '';
     this.esError = false;
 
-    await this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams: { alumnoId: this.alumnoId || null },
-      queryParamsHandling: 'merge',
-      replaceUrl: true,
-    });
-
+    await sincronizarAlumnoFinancieroEnUrl(this.router, this.route, this.alumnoId);
     if (this.alumnoId) await this.cargar();
   }
 
