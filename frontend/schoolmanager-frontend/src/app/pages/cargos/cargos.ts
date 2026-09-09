@@ -67,19 +67,15 @@ export class Cargos implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
-    await inicializarVistaFinanciera({
-      puedeVer: this.puedeVer,
-      router: this.router,
-      route: this.route,
-      alumnoService: this.alumnoService,
-      cdr: this.cdr,
-      onError: (error) => this.error(error),
-      aplicarContexto: ({ alumnos, alumnoId }) => {
-        this.alumnos = alumnos;
-        this.alumnoId = alumnoId;
-      },
-      cargarDetalle: () => this.cargar(),
-    });
+    await inicializarVistaFinanciera(
+      this,
+      this.puedeVer,
+      this.router,
+      this.route,
+      this.alumnoService,
+      this.cdr,
+      (error) => this.error(error),
+    );
   }
 
   async seleccionarAlumno(): Promise<void> {
