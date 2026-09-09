@@ -18,7 +18,8 @@ BEGIN
 END
 $$;
 
-drop index if exists public.ux_matriculas_alumno_ciclo_no_anulada;
+-- En 026 uq_matriculas_alumno_ciclo es un INDICE UNIQUE parcial, no constraint.
+drop index if exists public.uq_matriculas_alumno_ciclo;
 drop index if exists public.ix_matriculas_alumno;
 
 alter table public.matriculas
