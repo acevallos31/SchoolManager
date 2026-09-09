@@ -1,105 +1,108 @@
-# HANDOFF — Matrículas Fase 1C (frontend)
+# HANDOFF — Producción alineada hasta migración 025
 
-## Fecha y hora
+## Fecha
+2026-09-09 (UTC-6).
 
-2026-09-04 07:00 -06:00 (UTC-6).
+## Rama de documentación
+`docs/cierre-prod-019-025`
 
-## Rama
+## Estado general
+Producción quedó alineada con el esquema esperado por `main` hasta la migración 025.
+El incidente de permisos/carga de `/configuracion/estructura-academica` quedó resuelto.
 
-`feature/matriculas-fase-1c-frontend`, creada desde `main` (`19c7f5f`).
+## Qué ocurrió
+El frontend/backend ya consumían contratos y permisos introducidos después de la migración 018, pero la base de datos de producción seguía detenida en 018.
 
-## Objetivo
+Esto provocaba en Estructura Académica:
+- `No tienes permiso para realizar esta operación`;
+- listado de grados vacío;
+- comportamiento inconsistente entre código desplegado y esquema real.
 
-Implementar la Fase 1C de Matrículas en el frontend Angular sobre la API .NET ya integrada (Fase 17A, PR #26): servicio HTTP de matrículas, reescritura de la página `/matriculas`, botón "Matricular" en Alumnos, tests, revisión de checks externos y actualización de documentación.
+## Auditoría previa
+Se confirmó en producción que:
+- `schema_migrations` llegaba únicamente hasta 018;
+- 019→025 no estaban registradas;
+- tampoco existían físicamente sus objetos principales;
+- el gate de datos de 020 no tenía conflictos:
+  - 1 institución activa;
+  - 0 grados huérfanos;
+  - 0 jornadas huérfanas;
+  - 0 grados compartidos;
+  - 0 jornadas compartidas;
+  - 0 duplicados por institución.
 
-## Estado
+## Backup
+Antes de aplicar cambios se generó backup restorable del schema `public` con PostgreSQL 17 `pg_dump`.
+No restaurar sobre producción salvo incidente real y procedimiento explícito.
 
-Completado a nivel de implementación. PR #28 abierto y Ready for review, sin merge. La revisión posterior reforzó tipado estricto y restringió las transiciones de estado del frontend al contrato permitido por backend.
+## PR #60 — validaciones de migraciones
+Mergeado en `main`:
+- merge SHA: `0ede6ff9a5d9f9ff69da3f1e0a693ce89c304d59`;
+- añade validaciones faltantes de 019 y 022;
+- fortalece `MigrationTests` para exigir relación 1:1 migración/rollback/validation;
+- CI run #287: verde;
+- Sonar Quality Gate: verde;
+- no se bajaron thresholds ni se excluyeron validaciones.
 
-## Completado
+## Migraciones aplicadas a producción
+Se ejecutaron una por una con PostgreSQL 17 `psql`, `ON_ERROR_STOP=1`, deteniéndose después de cada una para validar:
 
-- `core/services/matriculas.service.ts`: consume `/api/matriculas` vía `HttpClient` — listar, crear y cambiar estado, con mapeo de errores (400/403/404/409).
-- `pages/matriculas/*`: tabla con alumno, ciclo, grado, sección, jornada, período, fecha y estado; filtros por alumno/ciclo/estado; formulario de alta guiado (alumno + ciclo → sección y período, sin monto); modal de cambio de estado con motivo obligatorio para retirada/anulada/trasladada.
-- Transiciones UI alineadas con backend: `pendiente -> activa|anulada`; `activa -> finalizada|retirada|anulada|trasladada`; estados terminales sin nuevas transiciones.
-- `pages/alumnos/*`: getter `puedeMatricular` y botón "Matricular" para alumnos activos con permiso `academico.matriculas.crear`.
-- Tests: `matriculas.service.spec.ts` con HttpTestingController y `matriculas.spec.ts` con servicios mockeados, incluyendo cobertura de transiciones.
-- Accesibilidad: controles asociados a sus labels mediante `id`/`for`.
-- `AGENTS.md`: autonomía nocturna aclarada, regla de salida truncada añadida y HANDOFF canónico actualizado.
+1. `019_cargos_mensualidades_obligaciones.sql` — COMMIT — validación: 0 hallazgos.
+2. `020_grados_jornadas_multiinstitucion.sql` — COMMIT — validación: 0 hallazgos.
+3. `021_pagos_cobranza.sql` — COMMIT — validación: 0 hallazgos.
+4. `022_portal_responsable_lectura.sql` — COMMIT — validación: 0 hallazgos.
+5. `023_rbac_permisos_aplicacion_ciclos.sql` — COMMIT — validación: 0 hallazgos.
+6. `024_rbac_permisos_aplicacion_estructura.sql` — COMMIT — validación: 0 hallazgos.
+7. `025_fix_unicidad_grados_jornadas_institucion.sql` — COMMIT — validación: 0 hallazgos.
 
-## Archivos
+## Resultado funcional
+Después de refrescar sesión/login:
+- `/configuracion/estructura-academica` carga correctamente;
+- desapareció el mensaje de falta de permiso;
+- los datos académicos vuelven a mostrarse;
+- no se observaron errores visibles en la prueba manual.
 
-- Frontend: `core/services/matriculas.service.ts` (+spec), `pages/matriculas/matriculas.{ts,html,css,spec.ts}`, `pages/alumnos/alumnos.{ts,html,css}`.
-- Docs: `docs/AI_CONTEXT.md`, `docs/HANDOFF.md`, `AGENTS.md`.
+## Estado de producción
+```text
+001-018  ya aplicadas previamente
+019      aplicada + validada
+020      aplicada + validada
+021      aplicada + validada
+022      aplicada + validada
+023      aplicada + validada
+024      aplicada + validada
+025      aplicada + validada
+```
 
-## Validaciones
+## Puntos importantes
+- 025 corrige el residual histórico de unicidad global de grados/jornadas que 020 no cubría para todos los nombres de constraints legacy.
+- La unicidad final es por institución con índices:
+  - `ux_grados_institucion_nombre`;
+  - `ux_jornadas_institucion_nombre`;
+  ambos `UNIQUE` sobre `(institucion_id, lower(btrim(nombre)))`.
+- 023/024 agregan permisos de aplicación para ciclos y estructura.
+- La capa interna DB conserva permisos `configuracion.*`; no mezclar sin una decisión explícita de arquitectura.
 
-Antes de la revisión adicional:
+## Arquitectura vigente
+- Angular -> API .NET -> PostgreSQL/Supabase/RPC.
+- Supabase directo en frontend únicamente para Auth (`auth.ts`).
+- Deuda #10 de Supabase directo de negocio: resuelta en Bloque 030 / PR #53.
+- `PermissionGuard` es el guard vigente.
+- `AdminGuard`/`PadreGuard` no deben reintroducirse.
+- `/portal-padre` sigue fuera del AppShell administrativo y es read-only.
 
-- `npm run build`: correcto, sin errores (warnings preexistentes canvg/jspdf).
-- `npx ng test --watch=false`: 17 archivos / 61 tests en verde.
-- `git diff --check`: correcto.
-- CI GitHub Actions: pass.
-- SonarCloud: pass, 0 issues.
-- Vercel: pass (preview).
+## Próximos pasos
+1. Mejorar navegación de Estructura Académica para que no quede escondida únicamente dentro de Configuración.
+2. Validar también `/configuracion/ciclos` en producción.
+3. Smoke test no destructivo de Cargos, Pagos y Portal Responsable.
+4. Mantener pendiente E2E autenticado hasta disponer de staging seguro.
+5. Más adelante: selector global multiinstitución y revisión de la divergencia de namespaces de permisos app/DB.
 
-Después de la revisión adicional se modificaron tipado y transiciones y se agregaron tests; por lo tanto los checks del HEAD actualizado del PR #28 deben volver a completarse antes del merge.
-
-## Commits / Git
-
-Commits originales de Hermes:
-
-- `921915e` feat(matriculas): conectar frontend Matriculas a la API de Fase 1C...
-- `9a9ddc7` fix(matriculas): asociar labels con sus controles vía id/for (Sonar)
-- `dfb6305` docs: actualizar estado frontend + HANDOFF
-
-Revisión posterior:
-
-- tipado estricto de estados;
-- limitación de transiciones válidas;
-- cobertura de tests adicional;
-- actualización de `AI_CONTEXT.md`, `HANDOFF.md` y `AGENTS.md`.
-
-PR #28: Ready for review. Merge: no realizado.
-
-## Pendientes
-
-- Esperar CI/Sonar/Vercel del HEAD actualizado.
-- Revisión humana final del PR #28 y merge a `main` si todo permanece verde.
-- Verificación E2E del flujo real frontend ↔ API con datos de prueba controlados tras el merge.
-
-## Riesgos
-
-- El contrato frontend ↔ API no se ha ejecutado aún contra una instancia viva con datos de prueba; los tests del frontend usan mocks.
-
-## Política de AGENTS.md
-
-`AGENTS.md` es el handoff operativo canónico y puede/debe ser actualizado por agentes cuando la tarea autoriza documentación o handoff. Si el runtime de un agente protege ese archivo y exige aprobación, eso es una restricción de la herramienta, no una prohibición del repositorio. En esta sesión de cierre, el runtime bloqueó la escritura a `AGENTS.md` (sin usuario interactivo para aprobar); por ello el handoff de cierre vive en `docs/handoffs/017D-integracion-alumnos.md`, `017E-tests.md` y `017F-cierre.md`, y queda pendiente que un humano consolide el HANDOFF canónico de `AGENTS.md` si lo desea.
-
----
-
-# HANDOFF — Cierre Matrículas Fase 1C (017D–017F)
-
-## Agente, fecha y rama
-
-Hermes Agent (cron), 2026-09-04 11:58 -06:00 (UTC-6). Rama `feature/matriculas-fase-1c-cierre` desde `main` (`2c5f866`, merge de PR #28).
-
-## Estado
-
-17D y 17E completos. 17F parcial: pendiente auditoría remota read-only de Supabase (sin credenciales de auditor en esta sesión) y E2E real de escritura (sin entorno desechable seguro). Todas las validaciones locales en verde.
-
-## Completado
-
-- 17D: integración Alumnos → Matricular auditada (ya correcta de 17C): botón solo activos + permiso `academico.matriculas.crear`, navegación a `/matriculas?alumnoId=<id>`, preselección, sin `cancelada`/`pagada`, sin duplicar reglas backend. Solo se añadieron tests.
-- 17E: tests añadidos para vacío, error de listado, preselección por query param (con/sin permiso crear) y limpieza de filtro obsoleto en `matriculas.spec.ts`; acción Matricular activo/sin permiso/inactivo en `alumnos.spec.ts`. Sin duplicar cobertura existente del servicio ni backend/DB.
-- Validaciones: frontend 17 archivos / 71 tests; API 28 tests; DB 80 tests; `dotnet build -c Release` OK; `npm run build` OK (warnings preexistentes canvg/jspdf); `git diff --check` OK.
-- Docs: `docs/AI_CONTEXT.md` + `docs/handoffs/{017D,017E,017F}*.md`.
-
-## Pendientes
-
-- Auditoría remota read-only de Supabase cuando haya credenciales de auditor.
-- Esperar CI/Sonar/Vercel del HEAD del PR de cierre.
-- E2E real de escritura con datos de prueba controlados.
-
-## Deliverable
-
-Rama con commits de tests y docs; PR hacia `main`, Ready for review, sin merge (no autorizado).
+## Reglas operativas
+- Siempre rama; no escribir directo a `main`.
+- No force push.
+- No secretos en repo.
+- No E2E destructivo en producción.
+- No aplicar migraciones fuera de orden.
+- Validar cada migración antes de continuar.
+- `AGENTS.md` sigue siendo la referencia operativa del repositorio.
