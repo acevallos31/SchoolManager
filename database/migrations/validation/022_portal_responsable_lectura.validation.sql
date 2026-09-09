@@ -1,6 +1,7 @@
 -- Validacion Migracion 022: portal responsable de solo lectura.
 -- Contrato: cada consulta debe devolver cero filas. Cualquier fila es un hallazgo.
--- Esta validacion describe el estado inmediatamente posterior a 022.
+-- Esta validacion describe el estado inmediatamente posterior a 022 y usa OIDs
+-- de to_regprocedure para no fallar por resolucion de nombres si algun objeto falta.
 
 -- 1. La migracion debe estar registrada exactamente una vez y con el nombre esperado.
 select '022_no_registrada_o_nombre_incorrecto' as error
@@ -48,18 +49,17 @@ where not p.prosecdef
 -- 4. El helper es interno: public/anon/authenticated no deben ejecutarlo.
 select roles.rol as helper_expuesto_indebidamente
 from (values ('public'), ('anon'), ('authenticated')) roles(rol)
-where to_regprocedure('public.usuario_es_responsable_financiero_del_alumno(uuid)') is not null
-  and has_function_privilege(
-    roles.rol,
-    'public.usuario_es_responsable_financiero_del_alumno(uuid)',
-    'EXECUTE');
+where has_function_privilege(
+  roles.rol,
+  to_regprocedure('public.usuario_es_responsable_financiero_del_alumno(uuid)'),
+  'EXECUTE') is true;
 
 select 'service_role' as helper_sin_grant_requerido
 where to_regprocedure('public.usuario_es_responsable_financiero_del_alumno(uuid)') is not null
-  and not has_function_privilege(
+  and has_function_privilege(
     'service_role',
-    'public.usuario_es_responsable_financiero_del_alumno(uuid)',
-    'EXECUTE');
+    to_regprocedure('public.usuario_es_responsable_financiero_del_alumno(uuid)'),
+    'EXECUTE') is not true;
 
 -- 5. RPCs del portal: nada para public/anon; authenticated y service_role si ejecutan.
 select roles.rol, fn.firma as rpc_expuesta_indebidamente
@@ -71,8 +71,10 @@ cross join (values
   ('rpc_pagos_responsable(uuid,uuid)'),
   ('rpc_pago_aplicaciones_responsable(uuid,uuid)')
 ) fn(firma)
-where to_regprocedure('public.' || fn.firma) is not null
-  and has_function_privilege(roles.rol, 'public.' || fn.firma, 'EXECUTE');
+where has_function_privilege(
+  roles.rol,
+  to_regprocedure('public.' || fn.firma),
+  'EXECUTE') is true;
 
 select roles.rol, fn.firma as rpc_sin_grant_requerido
 from (values ('authenticated'), ('service_role')) roles(rol)
@@ -84,7 +86,10 @@ cross join (values
   ('rpc_pago_aplicaciones_responsable(uuid,uuid)')
 ) fn(firma)
 where to_regprocedure('public.' || fn.firma) is not null
-  and not has_function_privilege(roles.rol, 'public.' || fn.firma, 'EXECUTE');
+  and has_function_privilege(
+    roles.rol,
+    to_regprocedure('public.' || fn.firma),
+    'EXECUTE') is not true;
 
 -- 6. El helper debe seguir resolviendo la identidad autenticada por auth.uid().
 select 'helper_sin_auth_uid' as error
@@ -94,8 +99,7 @@ where n.nspname = 'public'
   and p.oid = to_regprocedure('public.usuario_es_responsable_financiero_del_alumno(uuid)')
   and pg_get_functiondef(p.oid) not like '%auth.uid()%';
 
--- 7. Las cinco RPC deben conservar el guard de acceso responsable y no depender
---    de permisos administrativos de cargos/pagos.
+-- 7. Las RPC de lectura financiera deben conservar el guard de responsable.
 select esperado.firma as rpc_sin_guard_responsable
 from (values
   ('rpc_resumen_financiero_responsable(uuid,uuid)'),
