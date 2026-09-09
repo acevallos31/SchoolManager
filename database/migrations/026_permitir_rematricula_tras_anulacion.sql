@@ -27,16 +27,16 @@ alter table public.matriculas
 alter table public.matriculas
   drop constraint if exists matriculas_alumno_id_ciclo_id_key;
 
--- Una fila anulada deja de bloquear una nueva matricula del mismo alumno en el
--- mismo ciclo. Pendiente/activa/finalizada/retirada/trasladada siguen siendo
--- excluyentes para evitar dos matriculas vigentes o historicos incompatibles.
-create unique index if not exists ux_matriculas_alumno_ciclo_no_anulada
+-- Conservamos el nombre uq_matriculas_alumno_ciclo como NOMBRE DE INDICE para
+-- no romper observabilidad/tests/perf que identifican la defensa de unicidad,
+-- pero deja de ser una constraint global: ahora es un indice UNIQUE parcial.
+-- Una fila anulada libera el alumno+ciclo para una nueva matricula.
+create unique index if not exists uq_matriculas_alumno_ciclo
   on public.matriculas (alumno_id, ciclo_id)
   where estado <> 'anulada';
 
--- La restriccion unica anterior tambien servia al listado historico por alumno.
--- El indice parcial no cubre las filas anuladas, por lo que se conserva un
--- indice simple para no degradar consultas que muestran todo el historial.
+-- El indice parcial no cubre filas anuladas. Este indice simple mantiene
+-- eficiente el historial completo por alumno, incluido lo anulado.
 create index if not exists ix_matriculas_alumno
   on public.matriculas (alumno_id);
 
