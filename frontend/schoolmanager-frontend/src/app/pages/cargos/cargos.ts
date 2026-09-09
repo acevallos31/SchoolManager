@@ -72,6 +72,11 @@ export class Cargos implements OnInit {
       this.alumnos = await this.alumnoService.listar();
     } catch (e: unknown) {
       this.error(e);
+    } finally {
+      // Angular 22 zoneless: asignar un array después de await no programa por sí
+      // solo un render. Sin esto el select existe pero queda visualmente vacío
+      // hasta el siguiente evento del navegador.
+      this.cdr.detectChanges();
     }
 
     const id = this.route.snapshot.queryParamMap.get('alumnoId');
