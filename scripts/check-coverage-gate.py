@@ -7,7 +7,6 @@ docs/coverage-baseline.json. Falla SOLO si la cobertura actual cae por debajo de
 baseline - TOLERANCIA. No impone un umbral global aspiracional sobre el historico.
 """
 import argparse
-import glob
 import json
 from pathlib import Path
 import re
@@ -15,6 +14,8 @@ import sys
 
 TOLERANCIA_PUNTOS = 1.0
 WORKSPACE = Path.cwd().resolve()
+BACKEND_PATTERN = "coverage-backend/**/coverage.cobertura.xml"
+FRONTEND_PATTERN = "frontend/schoolmanager-frontend/coverage/**/lcov.info"
 
 
 def _ruta_segura(path):
@@ -32,12 +33,6 @@ def _ruta_segura(path):
     if not resuelta.is_file():
         raise SystemExit(f"[coverage-gate] archivo no encontrado: {path}")
     return resuelta
-
-
-def _validar_patron_relativo(patron):
-    candidato = Path(patron)
-    if candidato.is_absolute() or ".." in candidato.parts:
-        raise SystemExit(f"[coverage-gate] patron de ruta no permitido: {patron}")
 
 
 def lineas_desde_lcov(path):
@@ -73,18 +68,24 @@ def lineas_backend(path, paquete):
 
 
 def resolver_ruta(patron):
-    """Resuelve un patron relativo de ruta a un unico archivo seguro."""
-    _validar_patron_relativo(patron)
-    if "*" in patron:
-        coincidencias = glob.glob(patron, recursive=True)
-        if not coincidencias:
-            raise SystemExit(f"[coverage-gate] sin coincidencias para: {patron}")
-        if len(coincidencias) > 1:
-            raise SystemExit(
-                f"[coverage-gate] multiples archivos coinciden con {patron}: {coincidencias}"
-            )
-        return str(_ruta_segura(coincidencias[0]).relative_to(WORKSPACE))
-    return str(_ruta_segura(patron).relative_to(WORKSPACE))
+    """Resuelve exclusivamente los dos artefactos de cobertura generados por CI."""
+    if patron == BACKEND_PATTERN:
+        coincidencias = list(WORKSPACE.glob("coverage-backend/**/coverage.cobertura.xml"))
+    elif patron == FRONTEND_PATTERN:
+        coincidencias = list(
+            WORKSPACE.glob("frontend/schoolmanager-frontend/coverage/**/lcov.info")
+        )
+    else:
+        raise SystemExit(f"[coverage-gate] patron de cobertura no permitido: {patron}")
+
+    if not coincidencias:
+        raise SystemExit(f"[coverage-gate] sin coincidencias para: {patron}")
+    if len(coincidencias) > 1:
+        raise SystemExit(
+            f"[coverage-gate] multiples archivos coinciden con {patron}: {coincidencias}"
+        )
+
+    return str(_ruta_segura(coincidencias[0]).relative_to(WORKSPACE))
 
 
 def main():
