@@ -16,6 +16,29 @@ namespace SchoolManager.API.Controllers;
 [ApiController]
 public abstract class ApiControllerBase(NpgsqlDataSource dataSource) : ControllerBase
 {
+    private static readonly IReadOnlyDictionary<string, string> MensajesRestricciones =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["uq_matriculas_alumno_ciclo"] = "El alumno ya tiene una matrícula vigente en este ciclo escolar.",
+            ["ux_personas_documento_normalizado"] = "Ya existe una persona con esa identificación.",
+            ["ux_alumnos_rne_global"] = "Ya existe un alumno con ese RNE.",
+            ["ux_alumnos_codigo_interno_por_institucion"] = "Ya existe un alumno con ese código interno en la institución.",
+            ["uq_responsables_persona_institucion"] = "Esta persona ya está registrada como responsable en la institución.",
+            ["uq_alumno_responsable"] = "Este responsable ya está vinculado con el alumno.",
+            ["ux_alumno_responsable_principal_activo"] = "El alumno ya tiene un responsable principal activo.",
+            ["uq_periodos_matricula_ciclo_nombre"] = "Ya existe un período de matrícula con ese nombre en el ciclo escolar.",
+            ["ux_grados_institucion_nombre"] = "Ya existe un grado con ese nombre en la institución.",
+            ["ux_jornadas_institucion_nombre"] = "Ya existe una jornada con ese nombre en la institución.",
+            ["ux_secciones_contexto_jornada_nombre"] = "Ya existe una sección con ese nombre en el mismo contexto académico.",
+            ["ux_secciones_contexto_sin_jornada_nombre"] = "Ya existe una sección con ese nombre en el mismo contexto académico.",
+            ["ux_secciones_contexto_nombre"] = "Ya existe una sección con ese nombre en el mismo contexto académico.",
+            ["ux_conceptos_financieros_nombre_normalizado"] = "Ya existe un concepto financiero con ese nombre.",
+            ["ux_planes_pago_nombre_normalizado"] = "Ya existe un plan de pago con ese nombre.",
+            ["ux_plan_cuotas_orden"] = "El orden de las cuotas no puede repetirse dentro del plan de pago.",
+            ["uq_pagos_numero_recibo"] = "Ya existe un pago con ese número de recibo.",
+            ["ux_pagos_referencia_externa_institucion"] = "Ya existe un pago con esa referencia externa en la institución."
+        };
+
     // Centraliza el ciclo de vida repetido en las operaciones académicas.
     // Cada callback conserva su SQL/RPC; errores y respuestas de rechazo
     // disponen la transacción sin commit y el claim nunca sale de su ámbito.
@@ -69,9 +92,17 @@ public abstract class ApiControllerBase(NpgsqlDataSource dataSource) : Controlle
             }
         };
 
-    private static string MensajeError(PostgresException ex) =>
-        ex.SqlState == PostgresErrorCodes.UniqueViolation &&
-        ex.ConstraintName == "uq_matriculas_alumno_ciclo"
-            ? "El alumno ya tiene una matrícula vigente en este ciclo escolar."
-            : ex.MessageText ?? "Error en base de datos";
+    private static string MensajeError(PostgresException ex)
+    {
+        if (!string.IsNullOrWhiteSpace(ex.ConstraintName) &&
+            MensajesRestricciones.TryGetValue(ex.ConstraintName, out var mensaje))
+        {
+            return mensaje;
+        }
+
+        // Los RAISE de las RPC ya usan mensajes de negocio y normalmente no
+        // incluyen ConstraintName. Se conservan tal cual; solo se oculta el
+        // detalle tecnico de restricciones conocidas que PostgreSQL genera.
+        return ex.MessageText ?? "Error en base de datos";
+    }
 }
