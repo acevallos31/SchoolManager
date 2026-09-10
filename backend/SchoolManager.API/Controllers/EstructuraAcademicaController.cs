@@ -27,7 +27,6 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
     {
         return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
             // Delega en la RPC de listado 016; la RPC resuelve el ambito
@@ -60,15 +59,16 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
     {
         if (string.IsNullOrWhiteSpace(dto.Nombre))
             return BadRequest(new { error = "El nombre es obligatorio." });
+        if (!dto.Orden.HasValue)
+            return BadRequest(new { error = "El orden es obligatorio." });
         return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
             // Delega en la RPC 016 (valida duplicados, rango y permiso interno).
             cmd.CommandText = "select public.rpc_crear_grado(@nombre, @orden, @institucionId)";
             cmd.Parameters.AddWithValue("nombre", dto.Nombre.Trim());
-            cmd.Parameters.AddWithValue("orden", dto.Orden);
+            cmd.Parameters.AddWithValue("orden", dto.Orden.Value);
             cmd.Parameters.AddWithValue("institucionId", (object?)dto.InstitucionId ?? DBNull.Value);
             var id = (Guid)(await cmd.ExecuteScalarAsync(ct))!;
             return CreatedAtAction(nameof(ListarGrados), new { id }, new { id });
@@ -85,16 +85,17 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
     {
         if (string.IsNullOrWhiteSpace(dto.Nombre))
             return BadRequest(new { error = "El nombre es obligatorio." });
+        if (!dto.Orden.HasValue)
+            return BadRequest(new { error = "El orden es obligatorio." });
         return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
             // Delega en la RPC 016 (revalida duplicados, rango y pertenencia).
             cmd.CommandText = "select public.rpc_actualizar_grado(@id, @nombre, @orden, @institucionId)";
             cmd.Parameters.AddWithValue("id", id);
             cmd.Parameters.AddWithValue("nombre", dto.Nombre.Trim());
-            cmd.Parameters.AddWithValue("orden", dto.Orden);
+            cmd.Parameters.AddWithValue("orden", dto.Orden.Value);
             cmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
             await cmd.ExecuteNonQueryAsync(ct);
             return NoContent();
@@ -134,7 +135,6 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
     {
         return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
             // Delega en la RPC de listado 016 (configuracion.jornadas.ver interna).
@@ -167,7 +167,6 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
             return BadRequest(new { error = "El nombre es obligatorio." });
         return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
             // Delega en la RPC 016 (valida duplicados y permiso interno).
@@ -191,7 +190,6 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
             return BadRequest(new { error = "El nombre es obligatorio." });
         return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
             // Delega en la RPC 016 (revalida duplicados y pertenencia).
@@ -241,7 +239,6 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
             return BadRequest(new { error = "cicloId es obligatorio." });
         return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
             // Delega en la RPC de listado 016 (configuracion.secciones.ver interna).
@@ -282,18 +279,18 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
     {
         if (string.IsNullOrWhiteSpace(dto.Nombre))
             return BadRequest(new { error = "El nombre es obligatorio." });
-        if (dto.CicloId == Guid.Empty || dto.GradoId == Guid.Empty)
+        if (!dto.CicloId.HasValue || dto.CicloId == Guid.Empty
+            || !dto.GradoId.HasValue || dto.GradoId == Guid.Empty)
             return BadRequest(new { error = "cicloId y gradoId son obligatorios." });
         return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
             // Delega en la RPC 016 (valida duplicados, cupo y permiso interno).
             cmd.CommandText = "select public.rpc_crear_seccion(@institucionId, @cicloId, @gradoId, @jornadaId, @nombre, @cupo)";
             cmd.Parameters.AddWithValue("institucionId", (object?)dto.InstitucionId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("cicloId", dto.CicloId);
-            cmd.Parameters.AddWithValue("gradoId", dto.GradoId);
+            cmd.Parameters.AddWithValue("cicloId", dto.CicloId.Value);
+            cmd.Parameters.AddWithValue("gradoId", dto.GradoId.Value);
             cmd.Parameters.AddWithValue("jornadaId", (object?)dto.JornadaId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("nombre", dto.Nombre.Trim());
             cmd.Parameters.AddWithValue("cupo", (object?)dto.Cupo ?? DBNull.Value);
@@ -312,18 +309,18 @@ public class EstructuraAcademicaController(NpgsqlDataSource dataSource) : ApiCon
     {
         if (string.IsNullOrWhiteSpace(dto.Nombre))
             return BadRequest(new { error = "El nombre es obligatorio." });
-        if (dto.CicloId == Guid.Empty || dto.GradoId == Guid.Empty)
+        if (!dto.CicloId.HasValue || dto.CicloId == Guid.Empty
+            || !dto.GradoId.HasValue || dto.GradoId == Guid.Empty)
             return BadRequest(new { error = "cicloId y gradoId son obligatorios." });
         return await EnTransaccionComoUsuarioAsync(async (c, tx) =>
         {
-
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
             // Delega en la RPC 016 (revalida duplicados, cupo y pertenencia).
             cmd.CommandText = "select public.rpc_actualizar_seccion(@id, @cicloId, @gradoId, @jornadaId, @nombre, @cupo, @institucionId)";
             cmd.Parameters.AddWithValue("id", id);
-            cmd.Parameters.AddWithValue("cicloId", dto.CicloId);
-            cmd.Parameters.AddWithValue("gradoId", dto.GradoId);
+            cmd.Parameters.AddWithValue("cicloId", dto.CicloId.Value);
+            cmd.Parameters.AddWithValue("gradoId", dto.GradoId.Value);
             cmd.Parameters.AddWithValue("jornadaId", (object?)dto.JornadaId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("nombre", dto.Nombre.Trim());
             cmd.Parameters.AddWithValue("cupo", (object?)dto.Cupo ?? DBNull.Value);
