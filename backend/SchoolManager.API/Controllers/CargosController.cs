@@ -130,7 +130,7 @@ public class CargosController(NpgsqlDataSource dataSource) : ApiControllerBase(d
     [Authorize(Policy = Permisos.Cargos.Generar)]
     public async Task<IActionResult> AsignarPlan(Guid matriculaId, [FromBody] AsignarPlanPagoDto dto, [FromQuery] Guid? institucionId, CancellationToken ct)
     {
-        if (dto.PlanPagoId == Guid.Empty)
+        if (!dto.PlanPagoId.HasValue || dto.PlanPagoId == Guid.Empty)
             return BadRequest(new { error = "El plan de pago es obligatorio" });
         try
         {
@@ -141,7 +141,7 @@ public class CargosController(NpgsqlDataSource dataSource) : ApiControllerBase(d
             cmd.Transaction = tx;
             cmd.CommandText = "select public.rpc_asignar_plan_pago_matricula(@matriculaId, @planPagoId, @institucionId)";
             cmd.Parameters.AddWithValue("matriculaId", matriculaId);
-            cmd.Parameters.AddWithValue("planPagoId", dto.PlanPagoId);
+            cmd.Parameters.AddWithValue("planPagoId", dto.PlanPagoId.Value);
             cmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
             await cmd.ExecuteScalarAsync(ct);
             await tx.CommitAsync(ct);
