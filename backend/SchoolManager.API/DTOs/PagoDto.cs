@@ -47,10 +47,12 @@ public class AplicacionCargoInputDto
     public decimal Monto { get; set; }
 }
 
-// Entrada para registrar un pago sobre uno o varios cargos del alumno.
+// Entrada para registrar un pago sobre uno o varios cargos del alumno. Nullable
+// distingue monto omitido de cero explícito; rango y suma siguen validados por
+// controller + RPC.
 public class RegistrarPagoDto
 {
-    public decimal MontoTotal { get; set; }
+    public decimal? MontoTotal { get; set; }
     public List<AplicacionCargoInputDto> Aplicaciones { get; set; } = [];
     public Guid? ResponsableId { get; set; }
     public string? MetodoPago { get; set; }

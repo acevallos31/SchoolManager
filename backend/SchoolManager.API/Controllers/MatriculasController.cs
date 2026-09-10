@@ -180,7 +180,9 @@ public class MatriculasController(NpgsqlDataSource dataSource) : ApiControllerBa
     [Authorize(Policy = Permisos.Matriculas.Crear)]
     public async Task<IActionResult> Create([FromBody] MatriculaCreateDto dto, CancellationToken ct)
     {
-        if (dto.AlumnoId == Guid.Empty || dto.SeccionId == Guid.Empty || dto.PeriodoMatriculaId == Guid.Empty)
+        if (!dto.AlumnoId.HasValue || dto.AlumnoId == Guid.Empty
+            || !dto.SeccionId.HasValue || dto.SeccionId == Guid.Empty
+            || !dto.PeriodoMatriculaId.HasValue || dto.PeriodoMatriculaId == Guid.Empty)
             return BadRequest(new { error = "Faltan datos obligatorios" });
         try
         {
@@ -190,9 +192,9 @@ public class MatriculasController(NpgsqlDataSource dataSource) : ApiControllerBa
             await using var cmd = c4.CreateCommand();
             cmd.Transaction = tx;
             cmd.CommandText = "select public.rpc_matricular_alumno(@a, @s, @pm)";
-            cmd.Parameters.AddWithValue("a", dto.AlumnoId);
-            cmd.Parameters.AddWithValue("s", dto.SeccionId);
-            cmd.Parameters.AddWithValue("pm", dto.PeriodoMatriculaId);
+            cmd.Parameters.AddWithValue("a", dto.AlumnoId.Value);
+            cmd.Parameters.AddWithValue("s", dto.SeccionId.Value);
+            cmd.Parameters.AddWithValue("pm", dto.PeriodoMatriculaId.Value);
             var id = (Guid)(await cmd.ExecuteScalarAsync(ct))!;
             await tx.CommitAsync(ct);
             return CreatedAtAction(nameof(GetById), new { id }, new { id });
