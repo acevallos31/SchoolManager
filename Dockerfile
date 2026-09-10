@@ -12,4 +12,8 @@ WORKDIR /app
 
 COPY --from=build /app/publish .
 
-ENTRYPOINT ["sh", "-c", "dotnet SchoolManager.API.dll --urls http://0.0.0.0:${PORT:-8080}"]
+# La imagen oficial de .NET incluye el usuario no privilegiado 'app'.
+USER app
+
+# Render termina TLS en el edge; dentro de su red privada el contenedor recibe HTTP.
+ENTRYPOINT ["sh", "-c", "dotnet SchoolManager.API.dll --urls http://0.0.0.0:${PORT:-8080}"] # NOSONAR
