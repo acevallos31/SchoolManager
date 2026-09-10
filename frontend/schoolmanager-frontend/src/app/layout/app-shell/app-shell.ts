@@ -10,10 +10,9 @@ import {
 import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
 import { AuthService } from '../../core/services/auth';
+import { ConfiguracionService } from '../../core/services/configuracion.service';
+import { DebugStateService } from '../../core/services/debug-state.service';
 
-/** Enlace de navegación primario del shell. `permiso` opcional: cuando se
- *  indica, el enlace se oculta sin ese permiso; el guard de ruta sigue siendo
- *  la autoridad para la navegación directa por URL. */
 interface NavItem {
   etiqueta: string;
   ruta: string;
@@ -32,9 +31,9 @@ export class AppShell implements OnDestroy {
   private usuarioSubscription: Subscription;
   navAbierta = false;
   roles: string[] = [];
+  debugActivo = false;
+  private debugCargado = false;
 
-  // Enlaces con el permiso real que exige cada ruta; el guard sigue siendo la
-  // autoridad para navegación directa por URL. Panel: sin permiso concreto.
   readonly items: NavItem[] = [
     { etiqueta: 'Panel', ruta: '/dashboard' },
     { etiqueta: 'Alumnos', ruta: '/alumnos', permiso: 'academico.alumnos.ver' },
@@ -48,7 +47,9 @@ export class AppShell implements OnDestroy {
 
   constructor(
     private readonly auth: AuthService,
-    private readonly router: Router
+    private readonly router: Router,
+    private readonly configuracionService: ConfiguracionService,
+    debugState: DebugStateService
   ) {
     this.navSubscription = this.router.events
       .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
@@ -58,6 +59,14 @@ export class AppShell implements OnDestroy {
 
     this.usuarioSubscription = this.auth.usuarioActual$.subscribe((usuario) => {
       this.roles = usuario?.roles ?? [];
+      if (usuario && !this.debugCargado && this.auth.tienePermiso('sistema.debug.ver')) {
+        this.debugCargado = true;
+        void this.configuracionService.obtenerDebug().catch(() => undefined);
+      }
+    });
+
+    debugState.status$.subscribe(status => {
+      this.debugActivo = status.habilitado;
     });
   }
 
@@ -67,13 +76,10 @@ export class AppShell implements OnDestroy {
   }
 
   mostrarItem(item: NavItem): boolean {
-    // Panel (sin permiso) siempre visible para autenticados; el resto exige el
-    // mismo permiso que su ruta.
     if (!item.permiso) return true;
     return this.auth.tienePermiso(item.permiso);
   }
 
-  /** Activa el enlace del panel solo en su ruta exacta; el resto, por prefijo. */
   esRutaActiva(item: NavItem): boolean {
     const url = this.router.url;
     if (item.ruta === '/dashboard') return url === '/dashboard';
