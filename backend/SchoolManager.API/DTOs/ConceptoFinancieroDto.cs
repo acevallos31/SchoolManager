@@ -14,11 +14,13 @@ public class ConceptoFinancieroDto
     public string? MotivoDesactivacion { get; set; }
 }
 
-// Entrada para crear/editar un concepto financiero.
+// Entrada para crear/editar un concepto financiero. Monto nullable permite
+// distinguir un campo omitido de un cero explícito; la regla de rango sigue en
+// la RPC y el controller solo exige presencia.
 public class ConceptoFinancieroUpsertDto
 {
     public string Nombre { get; set; } = string.Empty;
-    public decimal Monto { get; set; }
+    public decimal? Monto { get; set; }
     public string? Descripcion { get; set; }
 }
 
