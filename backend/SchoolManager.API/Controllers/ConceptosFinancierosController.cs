@@ -25,6 +25,15 @@ public class ConceptosFinancierosController(NpgsqlDataSource dataSource) : ApiCo
         MotivoDesactivacion = r.IsDBNull(6) ? null : r.GetString(6)
     };
 
+    private static IActionResult? ValidarUpsert(ConceptoFinancieroUpsertDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Nombre))
+            return new BadRequestObjectResult(new { error = "El nombre del concepto es obligatorio" });
+        if (!dto.Monto.HasValue)
+            return new BadRequestObjectResult(new { error = "El monto del concepto es obligatorio" });
+        return null;
+    }
+
     [HttpGet]
     [Authorize(Policy = Permisos.ConceptosFinancieros.Ver)]
     public async Task<IActionResult> GetAll(
@@ -58,10 +67,8 @@ public class ConceptosFinancierosController(NpgsqlDataSource dataSource) : ApiCo
     [Authorize(Policy = Permisos.ConceptosFinancieros.Crear)]
     public async Task<IActionResult> Create([FromBody] ConceptoFinancieroUpsertDto dto, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(dto.Nombre))
-            return BadRequest(new { error = "El nombre del concepto es obligatorio" });
-        if (!dto.Monto.HasValue)
-            return BadRequest(new { error = "El monto del concepto es obligatorio" });
+        var validacion = ValidarUpsert(dto);
+        if (validacion is not null) return validacion;
         try
         {
             await using var c = await AbrirComoUsuarioAsync(ct);
@@ -72,7 +79,7 @@ public class ConceptosFinancierosController(NpgsqlDataSource dataSource) : ApiCo
             cmd.Transaction = tx;
             cmd.CommandText = "select public.rpc_crear_concepto_financiero(@nombre, @monto, @descripcion, @institucionId)";
             cmd.Parameters.AddWithValue("nombre", dto.Nombre.Trim());
-            cmd.Parameters.AddWithValue("monto", dto.Monto.Value);
+            cmd.Parameters.AddWithValue("monto", dto.Monto!.Value);
             cmd.Parameters.AddWithValue("descripcion", (object?)dto.Descripcion ?? DBNull.Value);
             cmd.Parameters.AddWithValue("institucionId", DBNull.Value);
             var id = (Guid)(await cmd.ExecuteScalarAsync(ct))!;
@@ -117,10 +124,8 @@ public class ConceptosFinancierosController(NpgsqlDataSource dataSource) : ApiCo
     [Authorize(Policy = Permisos.ConceptosFinancieros.Editar)]
     public async Task<IActionResult> Update(Guid id, [FromBody] ConceptoFinancieroUpsertDto dto, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(dto.Nombre))
-            return BadRequest(new { error = "El nombre del concepto es obligatorio" });
-        if (!dto.Monto.HasValue)
-            return BadRequest(new { error = "El monto del concepto es obligatorio" });
+        var validacion = ValidarUpsert(dto);
+        if (validacion is not null) return validacion;
         try
         {
             await using var c = await AbrirComoUsuarioAsync(ct);
@@ -132,7 +137,7 @@ public class ConceptosFinancierosController(NpgsqlDataSource dataSource) : ApiCo
             cmd.CommandText = "select public.rpc_actualizar_concepto_financiero(@id, @nombre, @monto, @descripcion, @institucionId)";
             cmd.Parameters.AddWithValue("id", id);
             cmd.Parameters.AddWithValue("nombre", dto.Nombre.Trim());
-            cmd.Parameters.AddWithValue("monto", dto.Monto.Value);
+            cmd.Parameters.AddWithValue("monto", dto.Monto!.Value);
             cmd.Parameters.AddWithValue("descripcion", (object?)dto.Descripcion ?? DBNull.Value);
             cmd.Parameters.AddWithValue("institucionId", DBNull.Value);
             await cmd.ExecuteNonQueryAsync(ct);
