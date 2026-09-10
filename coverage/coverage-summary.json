@@ -1,0 +1,33 @@
+{
+  "total": {
+    "lines": {
+      "total": 7106,
+      "covered": 5742,
+      "skipped": 0,
+      "pct": 80.8
+    }
+  },
+  "schoolmanager": {
+    "generated_at": "2026-09-10T06:40:11Z",
+    "source_workflow_run": 349,
+    "source_commit": "87b2764430510dd427a3da29e530133a3c083297",
+    "method": "weighted productive line coverage from backend Cobertura package SchoolManager.API plus frontend LCOV",
+    "backend": {
+      "format": "cobertura",
+      "package": "SchoolManager.API",
+      "lines": {
+        "total": 4044,
+        "covered": 3586,
+        "pct": 88.67
+      }
+    },
+    "frontend": {
+      "format": "lcov",
+      "lines": {
+        "total": 3062,
+        "covered": 2156,
+        "pct": 70.41
+      }
+    }
+  }
+}
