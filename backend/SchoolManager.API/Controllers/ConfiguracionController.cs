@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Npgsql;
 using NpgsqlTypes;
 using SchoolManager.API.Authorization;
+using SchoolManager.API.Diagnostics;
 using SchoolManager.API.DTOs;
 
 namespace SchoolManager.API.Controllers;
@@ -13,10 +14,9 @@ namespace SchoolManager.API.Controllers;
 [Authorize]
 public sealed class ConfiguracionController(
     NpgsqlDataSource dataSource,
-    IAuthorizationService authorization) : ApiControllerBase(dataSource)
+    IAuthorizationService authorization,
+    DebugModeState debugMode) : ApiControllerBase(dataSource)
 {
-    // El contexto está disponible a usuarios autenticados; la RPC exige además
-    // una identidad interna válida. No requiere permisos de administración.
     [HttpGet("contexto")]
     public Task<IActionResult> ObtenerContexto(CancellationToken ct) =>
         EjecutarAsync("select public.rpc_obtener_contexto_implementacion()", [], ct);
@@ -27,11 +27,39 @@ public sealed class ConfiguracionController(
         EjecutarAsync("select public.rpc_actualizar_multiples_instituciones(@multi)",
             [new("multi", NpgsqlDbType.Boolean) { Value = input.MultiplesInstituciones!.Value }], ct);
 
+    [HttpGet("debug")]
+    [Authorize(Policy = Permisos.Configuracion.Debug)]
+    public IActionResult ObtenerDebug() => Ok(new
+    {
+        habilitado = debugMode.IsEnabled,
+        expiraEn = debugMode.EnabledUntil,
+        requestId = HttpContext.TraceIdentifier
+    });
+
+    [HttpPut("debug")]
+    [Authorize(Policy = Permisos.Configuracion.Debug)]
+    public IActionResult ActualizarDebug(ActualizarDebugModeDto input)
+    {
+        if (!input.Habilitado.HasValue)
+            return BadRequest(new { error = "Debe indicar si el modo debug se habilita o deshabilita." });
+
+        if (!input.Habilitado.Value)
+        {
+            debugMode.Disable();
+            return Ok(new { habilitado = false, expiraEn = (DateTimeOffset?)null, requestId = HttpContext.TraceIdentifier });
+        }
+
+        var minutos = input.Minutos ?? 60;
+        if (minutos is < 5 or > 120)
+            return BadRequest(new { error = "La duración del modo debug debe estar entre 5 y 120 minutos." });
+
+        var expiraEn = debugMode.Enable(TimeSpan.FromMinutes(minutos));
+        return Ok(new { habilitado = true, expiraEn, requestId = HttpContext.TraceIdentifier });
+    }
+
     [HttpGet("institucion")]
     public async Task<IActionResult> ObtenerInstitucion([FromQuery] Guid? institucionId, CancellationToken ct)
     {
-        // 013 permite ver O editar. Dos atributos Authorize exigirían ambos
-        // y restringirían el contrato; cada policy usa el handler .NET habitual.
         var puedeVer = await authorization.AuthorizeAsync(User, Permisos.Configuracion.VerInstituciones);
         if (!puedeVer.Succeeded)
         {
@@ -91,9 +119,13 @@ public sealed class ConfiguracionController(
         }
         catch (PostgresException ex)
         {
-            // Los callers distinguen SM003 de otros errores 400. Conservamos
-            // el código estable solo en este contrato, sin cambiar otras APIs.
-            return StatusCode(ToError(ex).StatusCode!.Value, new { error = ex.MessageText, code = ex.SqlState });
+            return ToError(ex, incluirCodigo: true);
         }
     }
+}
+
+public sealed class ActualizarDebugModeDto
+{
+    public bool? Habilitado { get; init; }
+    public int? Minutos { get; init; }
 }
