@@ -150,6 +150,7 @@ jobs:
           ARGS="${ARGS} /d:sonar.scanner.scanAll=true"
           ARGS="${ARGS} /d:sonar.sourceEncoding=UTF-8"
           ARGS="${ARGS} /d:sonar.python.version=3.11"
+          ARGS="${ARGS} /d:sonar.plsql.file.suffixes=.pks,.pkb,.pls,.plb"
           ARGS="${ARGS} /d:sonar.exclusions=**/node_modules/**,**/dist/**,**/bin/**,**/obj/**,**/coverage/**,**/*.min.js,coverage-backend/**,**/lcov.info,**/*.cobertura.xml,**/*.spec.ts,**/*.test.ts,e2e/**"
           # Script de tooling/CI: se analiza estáticamente, pero no forma parte del código
           # productivo instrumentado por Coverlet/LCOV, por lo que no debe penalizar cobertura.
