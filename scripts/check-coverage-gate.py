@@ -3,32 +3,47 @@
 Gate de cobertura contra regresiones reales (deuda tecnica #9).
 
 Compara la cobertura de lineas generada por CI contra un baseline versionado en
-docs/coverage-baseline.json. Fallo SOLO si la cobertura actual cae por debajo de
-baseline - TOLERANCIA. No impone un umbral global aspiracional sobre el historico
-(backend ~79.6%, frontend ~64%), por lo que no exige subir la cobertura: solo
-protege contra regresiones reales.
-
-Uso:
-  python3 scripts/check-coverage-gate.py \
-      --backend <coverage.cobertura.xml> \
-      --frontend <lcov.info>
-
-New Code / diff coverage real requiere SonarCloud (SONAR_TOKEN), no simulado aqui:
-#9 se deja como PARCIAL con este gate local/CI razonable. Ver docs/technical-debt.md.
+docs/coverage-baseline.json. Falla SOLO si la cobertura actual cae por debajo de
+baseline - TOLERANCIA. No impone un umbral global aspiracional sobre el historico.
 """
 import argparse
 import glob
 import json
-import os
+from pathlib import Path
 import re
 import sys
 
-TOLERANCIA_PUNTOS = 1.0  # margen para absorber fluctuaciones de medicion no regresiones reales
+TOLERANCIA_PUNTOS = 1.0
+WORKSPACE = Path.cwd().resolve()
+
+
+def _ruta_segura(path):
+    """Resuelve y valida que un archivo permanezca dentro del workspace del CI."""
+    candidato = Path(path)
+    if candidato.is_absolute():
+        raise SystemExit(f"[coverage-gate] no se permiten rutas absolutas: {path}")
+
+    resuelta = (WORKSPACE / candidato).resolve()
+    try:
+        resuelta.relative_to(WORKSPACE)
+    except ValueError as exc:
+        raise SystemExit(f"[coverage-gate] ruta fuera del workspace: {path}") from exc
+
+    if not resuelta.is_file():
+        raise SystemExit(f"[coverage-gate] archivo no encontrado: {path}")
+    return resuelta
+
+
+def _validar_patron_relativo(patron):
+    candidato = Path(patron)
+    if candidato.is_absolute() or ".." in candidato.parts:
+        raise SystemExit(f"[coverage-gate] patron de ruta no permitido: {patron}")
 
 
 def lineas_desde_lcov(path):
+    ruta = _ruta_segura(path)
     lf = lh = 0
-    for line in open(path, encoding="utf-8"):
+    for line in ruta.read_text(encoding="utf-8").splitlines():
         if line.startswith("LF:"):
             lf += int(line[3:])
         elif line.startswith("LH:"):
@@ -39,8 +54,8 @@ def lineas_desde_lcov(path):
 
 
 def lineas_backend(path, paquete):
-    data = open(path, encoding="utf-8").read()
-    # Filtrar solo el paquete productivo (excluye proyectos de test).
+    ruta = _ruta_segura(path)
+    data = ruta.read_text(encoding="utf-8")
     m = re.search(
         r'<package name="' + re.escape(paquete) + r'"[\s\S]*?</package>', data
     )
@@ -58,7 +73,8 @@ def lineas_backend(path, paquete):
 
 
 def resolver_ruta(patron):
-    """Resuelve un patron de ruta (posiblemente con **/glob) a un archivo unico."""
+    """Resuelve un patron relativo de ruta a un unico archivo seguro."""
+    _validar_patron_relativo(patron)
     if "*" in patron:
         coincidencias = glob.glob(patron, recursive=True)
         if not coincidencias:
@@ -67,8 +83,8 @@ def resolver_ruta(patron):
             raise SystemExit(
                 f"[coverage-gate] multiples archivos coinciden con {patron}: {coincidencias}"
             )
-        return coincidencias[0]
-    return patron
+        return str(_ruta_segura(coincidencias[0]).relative_to(WORKSPACE))
+    return str(_ruta_segura(patron).relative_to(WORKSPACE))
 
 
 def main():
@@ -78,7 +94,8 @@ def main():
     ap.add_argument("--baseline", default="docs/coverage-baseline.json")
     args = ap.parse_args()
 
-    baseline = json.load(open(args.baseline, encoding="utf-8"))
+    baseline_path = _ruta_segura(args.baseline)
+    baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
     be_path = resolver_ruta(args.backend)
     fe_path = resolver_ruta(args.frontend)
     be_actual = lineas_backend(be_path, baseline["backend"]["paquete"])
@@ -102,12 +119,11 @@ def main():
 
     if fallos:
         print("[coverage-gate] REGRESION DETECTADA:")
-        for f in fallos:
-            print(f"  - {f}")
+        for fallo in fallos:
+            print(f"  - {fallo}")
         sys.exit(1)
 
     print("[coverage-gate] OK: sin regresiones frente al baseline versionado.")
-    sys.exit(0)
 
 
 if __name__ == "__main__":
