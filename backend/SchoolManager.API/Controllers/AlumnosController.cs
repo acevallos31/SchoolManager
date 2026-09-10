@@ -182,7 +182,7 @@ public class AlumnosController(NpgsqlDataSource dataSource) : ApiControllerBase(
     [Authorize(Policy = Permisos.Alumnos.Crear)]
     public async Task<IActionResult> Create([FromBody] CrearAlumnoDto dto, CancellationToken ct)
     {
-        if (dto.InstitucionId == Guid.Empty
+        if (!dto.InstitucionId.HasValue || dto.InstitucionId == Guid.Empty
             || string.IsNullOrWhiteSpace(dto.Nombres)
             || string.IsNullOrWhiteSpace(dto.Apellidos)
             || string.IsNullOrWhiteSpace(dto.TipoIdentificacion)
@@ -199,7 +199,7 @@ public class AlumnosController(NpgsqlDataSource dataSource) : ApiControllerBase(
             // + alumno + identificación normalizada) en C#.
             cmd.CommandText = "select public.rpc_crear_alumno_nueva_persona_con_documento("
                 + "@institucionId, @nombres, @apellidos, @tipo, @numero, @fechaNac, @rne, @codigoInterno)";
-            cmd.Parameters.AddWithValue("institucionId", dto.InstitucionId);
+            cmd.Parameters.AddWithValue("institucionId", dto.InstitucionId.Value);
             cmd.Parameters.AddWithValue("nombres", dto.Nombres.Trim());
             cmd.Parameters.AddWithValue("apellidos", dto.Apellidos.Trim());
             cmd.Parameters.AddWithValue("tipo", dto.TipoIdentificacion.Trim());
