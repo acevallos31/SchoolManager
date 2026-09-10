@@ -213,7 +213,7 @@ public class ResponsablesController(NpgsqlDataSource dataSource) : ApiController
     [Authorize(Policy = Permisos.Responsables.Crear)]
     public async Task<IActionResult> Create([FromBody] CrearResponsableDto dto, CancellationToken ct)
     {
-        if (dto.InstitucionId == Guid.Empty
+        if (!dto.InstitucionId.HasValue || dto.InstitucionId == Guid.Empty
             || string.IsNullOrWhiteSpace(dto.Nombres)
             || string.IsNullOrWhiteSpace(dto.Apellidos)
             || string.IsNullOrWhiteSpace(dto.TipoIdentificacion)
@@ -228,7 +228,7 @@ public class ResponsablesController(NpgsqlDataSource dataSource) : ApiController
             cmd.Transaction = tx;
             cmd.CommandText = "select public.rpc_crear_responsable_con_documento("
                 + "@institucionId, @nombres, @apellidos, @tipo, @numero, @telefono, @correo)";
-            cmd.Parameters.AddWithValue("institucionId", dto.InstitucionId);
+            cmd.Parameters.AddWithValue("institucionId", dto.InstitucionId.Value);
             cmd.Parameters.AddWithValue("nombres", dto.Nombres.Trim());
             cmd.Parameters.AddWithValue("apellidos", dto.Apellidos.Trim());
             cmd.Parameters.AddWithValue("tipo", dto.TipoIdentificacion.Trim());
@@ -247,7 +247,8 @@ public class ResponsablesController(NpgsqlDataSource dataSource) : ApiController
     [Authorize(Policy = Permisos.Responsables.Crear)]
     public async Task<IActionResult> CreateParaPersona([FromBody] CrearResponsableParaPersonaDto dto, CancellationToken ct)
     {
-        if (dto.PersonaId == Guid.Empty || dto.InstitucionId == Guid.Empty)
+        if (!dto.PersonaId.HasValue || dto.PersonaId == Guid.Empty
+            || !dto.InstitucionId.HasValue || dto.InstitucionId == Guid.Empty)
             return BadRequest(new { error = "Faltan datos obligatorios del responsable." });
         try
         {
@@ -257,8 +258,8 @@ public class ResponsablesController(NpgsqlDataSource dataSource) : ApiController
             await using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
             cmd.CommandText = "select public.rpc_crear_responsable_para_persona(@personaId, @institucionId)";
-            cmd.Parameters.AddWithValue("personaId", dto.PersonaId);
-            cmd.Parameters.AddWithValue("institucionId", dto.InstitucionId);
+            cmd.Parameters.AddWithValue("personaId", dto.PersonaId.Value);
+            cmd.Parameters.AddWithValue("institucionId", dto.InstitucionId.Value);
             var id = (Guid)(await cmd.ExecuteScalarAsync(ct))!;
             await tx.CommitAsync(ct);
             return CreatedAtAction(nameof(GetById), new { id }, new { id });
@@ -340,7 +341,7 @@ public class ResponsablesController(NpgsqlDataSource dataSource) : ApiController
     [Authorize(Policy = Permisos.Responsables.Editar)]
     public async Task<IActionResult> Vincular(Guid alumnoId, [FromBody] VincularResponsableDto dto, CancellationToken ct)
     {
-        if (dto.ResponsableId == Guid.Empty)
+        if (!dto.ResponsableId.HasValue || dto.ResponsableId == Guid.Empty)
             return BadRequest(new { error = "El responsable es obligatorio." });
         try
         {
@@ -352,10 +353,10 @@ public class ResponsablesController(NpgsqlDataSource dataSource) : ApiController
             cmd.CommandText = "select public.rpc_vincular_alumno_responsable("
                 + "@alumnoId, @responsableId, @parentesco, @esPrincipal, @accesoFinanciero)";
             cmd.Parameters.AddWithValue("alumnoId", alumnoId);
-            cmd.Parameters.AddWithValue("responsableId", dto.ResponsableId);
+            cmd.Parameters.AddWithValue("responsableId", dto.ResponsableId.Value);
             cmd.Parameters.AddWithValue("parentesco", (object?)(string.IsNullOrWhiteSpace(dto.Parentesco) ? null : dto.Parentesco.Trim()) ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("esPrincipal", dto.EsPrincipal);
-            cmd.Parameters.AddWithValue("accesoFinanciero", dto.AccesoFinanciero);
+            cmd.Parameters.AddWithValue("esPrincipal", dto.EsPrincipal ?? false);
+            cmd.Parameters.AddWithValue("accesoFinanciero", dto.AccesoFinanciero ?? false);
             var id = (Guid)(await cmd.ExecuteScalarAsync(ct))!;
             await tx.CommitAsync(ct);
             return CreatedAtAction(nameof(GetResponsablesDeAlumno), new { alumnoId }, new { id });

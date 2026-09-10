@@ -38,7 +38,7 @@ public class ResponsableVinculoDto
 // Crear responsable con nueva persona (documento) o reutilizando una existente.
 public class CrearResponsableDto
 {
-    public Guid InstitucionId { get; set; } // NOSONAR:csharpsquid:S6964 (requerido; se valida en el controller)
+    public Guid? InstitucionId { get; set; }
     public string Nombres { get; set; } = string.Empty;
     public string Apellidos { get; set; } = string.Empty;
     public string TipoIdentificacion { get; set; } = string.Empty;
@@ -50,8 +50,8 @@ public class CrearResponsableDto
 // Crear responsable para una persona ya conocida (sin duplicar identidad).
 public class CrearResponsableParaPersonaDto
 {
-    public Guid PersonaId { get; set; } // NOSONAR:csharpsquid:S6964 (requerido; se valida en el controller)
-    public Guid InstitucionId { get; set; } // NOSONAR:csharpsquid:S6964 (requerido; se valida en el controller)
+    public Guid? PersonaId { get; set; }
+    public Guid? InstitucionId { get; set; }
 }
 
 // Edición de los datos permitidos de la persona del responsable.
@@ -63,13 +63,14 @@ public class EditarResponsableDto
     public string? Correo { get; set; }
 }
 
-// Vincular un responsable a un alumno.
+// Vincular un responsable a un alumno. Los booleanos son opcionales por
+// contrato: si se omiten conservan el comportamiento histórico false.
 public class VincularResponsableDto
 {
-    public Guid ResponsableId { get; set; } // NOSONAR:csharpsquid:S6964 (requerido; se valida en el controller)
+    public Guid? ResponsableId { get; set; }
     public string? Parentesco { get; set; }
-    public bool EsPrincipal { get; set; } // NOSONAR:csharpsquid:S6964 (valor por defecto false es válido)
-    public bool AccesoFinanciero { get; set; } // NOSONAR:csharpsquid:S6964 (valor por defecto false es válido)
+    public bool? EsPrincipal { get; set; }
+    public bool? AccesoFinanciero { get; set; }
 }
 
 // Editar un vínculo existente.

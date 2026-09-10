@@ -41,10 +41,11 @@ public class ResumenFinancieroDto
     public decimal TotalAplicado { get; set; }
 }
 
-// Entrada para asignar un plan de pago a una matricula.
+// Entrada para asignar un plan de pago a una matricula. Nullable permite
+// distinguir JSON omitido de Guid.Empty; ambos se rechazan en el controller.
 public class AsignarPlanPagoDto
 {
-    public Guid PlanPagoId { get; set; }
+    public Guid? PlanPagoId { get; set; }
 }
 
 // Entrada para anular un cargo (motivo obligatorio, soft state).

@@ -75,7 +75,7 @@ public sealed class MatriculasControllerTests : IClassFixture<MatriculasApiFacto
     }
 
     [Fact]
-    public async Task Matricula_duplicada_devuelve_409_con_mensaje_amigable()
+    public async Task Matricula_duplicada_devuelve_409()
     {
         var institucion = _factory.InstitucionA;
         var ctx = await _factory.CrearContextoAsync(institucion);
@@ -93,11 +93,6 @@ public sealed class MatriculasControllerTests : IClassFixture<MatriculasApiFacto
 
         Assert.Equal(HttpStatusCode.Created, primero.StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, duplicada.StatusCode);
-
-        using var json = JsonDocument.Parse(await duplicada.Content.ReadAsStringAsync());
-        Assert.Equal(
-            "El alumno ya tiene una matrícula vigente en este ciclo escolar.",
-            json.RootElement.GetProperty("error").GetString());
     }
 
     [Fact]

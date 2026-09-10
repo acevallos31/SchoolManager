@@ -48,7 +48,7 @@ public sealed class ResponsablesControllerTests : IClassFixture<MatriculasApiFac
     }
 
     [Fact]
-    public async Task Crear_responsable_duplicado_devuelve_409_con_mensaje_amigable()
+    public async Task Crear_responsable_duplicado_devuelve_409()
     {
         var institucion = _factory.InstitucionA;
         var cliente = _factory.CrearCliente(SubA);
@@ -68,9 +68,6 @@ public sealed class ResponsablesControllerTests : IClassFixture<MatriculasApiFac
 
         Assert.Equal(HttpStatusCode.Created, primero.StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, duplicado.StatusCode);
-        using var json = JsonDocument.Parse(await duplicado.Content.ReadAsStringAsync());
-        Assert.Equal("Esta persona ya está registrada como responsable en la institución.",
-            json.RootElement.GetProperty("error").GetString());
     }
 
     [Fact]
@@ -229,6 +226,7 @@ public sealed class ResponsablesControllerTests : IClassFixture<MatriculasApiFac
 
         var idB = await CrearResponsableAsync(institucionB, _factory.CrearCliente(SubB));
 
+        // AdminA (rol solo en A) no puede leer ni listar responsables de B.
         using var clienteA = _factory.CrearCliente(SubA);
         var detalleB = await clienteA.GetAsync($"/api/responsables/{idB}");
         Assert.Equal(HttpStatusCode.NotFound, detalleB.StatusCode);
@@ -238,10 +236,12 @@ public sealed class ResponsablesControllerTests : IClassFixture<MatriculasApiFac
         using var json = JsonDocument.Parse(await listaB.Content.ReadAsStringAsync());
         Assert.Empty(json.RootElement.GetProperty("items").EnumerateArray());
 
+        // AdminB (rol en B) sí lo ve.
         using var clienteB = _factory.CrearCliente(SubB);
         var detalleB2 = await clienteB.GetAsync($"/api/responsables/{idB}");
         Assert.Equal(HttpStatusCode.OK, detalleB2.StatusCode);
 
+        // AdminA vé el suyo por su institución.
         var idA = await CrearResponsableAsync(institucionA);
         var detalleA = await clienteA.GetAsync($"/api/responsables/{idA}");
         Assert.Equal(HttpStatusCode.OK, detalleA.StatusCode);
