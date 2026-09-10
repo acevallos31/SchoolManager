@@ -134,7 +134,7 @@ public class PagosController(NpgsqlDataSource dataSource) : ApiControllerBase(da
     [Authorize(Policy = Permisos.Pagos.Registrar)]
     public async Task<IActionResult> Registrar(Guid alumnoId, [FromBody] RegistrarPagoDto dto, [FromQuery] Guid? institucionId, CancellationToken ct)
     {
-        if (dto.MontoTotal <= 0)
+        if (!dto.MontoTotal.HasValue || dto.MontoTotal.Value <= 0)
             return BadRequest(new { error = "El monto total del pago debe ser mayor a cero" });
         if (dto.Aplicaciones is null || dto.Aplicaciones.Count == 0)
             return BadRequest(new { error = "El pago debe aplicarse a al menos un cargo" });
@@ -156,7 +156,7 @@ public class PagosController(NpgsqlDataSource dataSource) : ApiControllerBase(da
             cmd.CommandText = "select public.rpc_registrar_pago(@alumnoId, @aplicaciones::jsonb, @montoTotal, @institucionId, @responsableId, @metodoPago, @referenciaExterna, @fechaPago)";
             cmd.Parameters.AddWithValue("alumnoId", alumnoId);
             cmd.Parameters.AddWithValue("aplicaciones", aplicacionesJson);
-            cmd.Parameters.AddWithValue("montoTotal", dto.MontoTotal);
+            cmd.Parameters.AddWithValue("montoTotal", dto.MontoTotal.Value);
             cmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("responsableId", (object?)dto.ResponsableId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("metodoPago", (object?)dto.MetodoPago ?? DBNull.Value);
