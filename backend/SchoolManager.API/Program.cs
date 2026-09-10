@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
 using SchoolManager.API.Authorization;
+using SchoolManager.API.Diagnostics;
 using SchoolManager.API.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -40,7 +41,8 @@ builder.Services.AddCors(options =>
                   ))
               .AllowAnyHeader()
               .AllowAnyMethod()
-              .AllowCredentials();
+              .AllowCredentials()
+              .WithExposedHeaders("X-Request-ID");
     });
 });
 
@@ -85,6 +87,7 @@ builder.Services.AddSingleton(sp =>
 
     return NpgsqlDataSource.Create(connectionString);
 });
+builder.Services.AddSingleton<DebugModeState>();
 builder.Services.AddScoped<IUsuarioActualService, UsuarioActualService>();
 builder.Services.AddScoped<IAuthorizationHandler, PermisoAuthorizationHandler>();
 
@@ -113,6 +116,7 @@ app.UseHttpsRedirection();
 app.UseCors("FrontendPolicy");
 
 app.UseAuthentication();
+app.UseMiddleware<DebugContextMiddleware>();
 app.UseAuthorization();
 
 app.MapGet("/health", () => Results.Ok(new
@@ -122,10 +126,6 @@ app.MapGet("/health", () => Results.Ok(new
     timestamp = DateTimeOffset.UtcNow
 }));
 
-// Readiness: verifica conectividad real con PostgreSQL. Devuelve 200 si la
-// API esta lista para recibir trafico y 503 si una dependencia critica (DB)
-// falla. No expone secretos ni connection strings; el chequeo usa el
-// NpgsqlDataSource singleton registrado.
 app.MapGet("/health/ready", async (NpgsqlDataSource dataSource) =>
 {
     try
