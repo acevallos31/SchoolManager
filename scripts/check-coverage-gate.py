@@ -85,7 +85,10 @@ def resolver_ruta(patron):
             f"[coverage-gate] multiples archivos coinciden con {patron}: {coincidencias}"
         )
 
-    return str(_ruta_segura(coincidencias[0]).relative_to(WORKSPACE))
+    # Path.glob() devuelve una ruta absoluta porque WORKSPACE es absoluto.
+    # La convertimos primero a relativa y reutilizamos la validacion central.
+    relativa = coincidencias[0].resolve().relative_to(WORKSPACE)
+    return str(_ruta_segura(relativa).relative_to(WORKSPACE))
 
 
 def main():
