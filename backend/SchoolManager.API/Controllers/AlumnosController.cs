@@ -12,8 +12,6 @@ namespace SchoolManager.API.Controllers;
 [Authorize]
 public class AlumnosController(NpgsqlDataSource dataSource) : ApiControllerBase(dataSource)
 {
-    // Lectura de un alumno con su Persona (identidad global) resuelta y su
-    // matrícula activa vigente (sección/grado/ciclo) para el listado completo.
     private const string LecturaBase = """
         select
           a.id,
@@ -45,9 +43,6 @@ public class AlumnosController(NpgsqlDataSource dataSource) : ApiControllerBase(
         ) ma on true
     """;
 
-    // Filtra cada fila contra el ámbito institucional real del usuario (igual
-    // que MatriculasController/ResponsablesController). Reutiliza la SECURITY
-    // DEFINER existente; no reimplementa RLS en C#.
     private const string FiltroContextoInstitucional =
         " and public.usuario_tiene_permiso_actual('academico.alumnos.ver', a.institucion_id)";
 
@@ -70,9 +65,6 @@ public class AlumnosController(NpgsqlDataSource dataSource) : ApiControllerBase(
         },
     };
 
-    // Listado completo (con matrícula activa) y búsqueda paginada server-side.
-    // Sin page/pageSize => listado completo; con page/pageSize => búsqueda
-    // paginada (PERF-02), que NO carga la matrícula actual (igual que el frontend).
     [HttpGet]
     [Authorize(Policy = Permisos.Alumnos.Ver)]
     public async Task<IActionResult> GetAll(
@@ -130,13 +122,9 @@ public class AlumnosController(NpgsqlDataSource dataSource) : ApiControllerBase(
                 return Ok(lista);
             }
 
-            // Recuento con los mismos filtros para totalPages. Solo fragmentos
-            // WHERE fijos se concatenan; los valores van por NpgsqlParameter.
             await using var countCmd = c1.CreateCommand();
             countCmd.Transaction = tx;
-            // Only fixed WHERE fragments are concatenated; all values go via
-            // NpgsqlParameter below — no user input is interpolated into SQL.
-            countCmd.CommandText = "select count(*) from public.alumnos a" // NOSONAR:csharpsquid:S2077 (fragmentos WHERE fijos; valores por NpgsqlParameter)
+            countCmd.CommandText = "select count(*) from public.alumnos a" // NOSONAR:csharpsquid:S2077
                 + " join public.personas p on p.id = a.persona_id" + where;
             countCmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
             if (!string.IsNullOrWhiteSpace(termino)) countCmd.Parameters.AddWithValue("termino", $"%{termino.Trim()}%");
@@ -167,7 +155,7 @@ public class AlumnosController(NpgsqlDataSource dataSource) : ApiControllerBase(
             await FijarClaimAsync(c2, tx, User.FindFirstValue("sub")!, ct);
             await using var cmd = c2.CreateCommand();
             cmd.Transaction = tx;
-            cmd.CommandText = LecturaBase + " where a.id = @id" + FiltroContextoInstitucional; // NOSONAR:csharpsquid:S2077 (query parameterizada, concatenación de constantes readonly)
+            cmd.CommandText = LecturaBase + " where a.id = @id" + FiltroContextoInstitucional; // NOSONAR:csharpsquid:S2077
             cmd.Parameters.AddWithValue("id", id);
             await using var r3 = await cmd.ExecuteReaderAsync(ct);
             AlumnoDto? dto = await r3.ReadAsync(ct) ? Leer(r3) : null;
@@ -182,7 +170,7 @@ public class AlumnosController(NpgsqlDataSource dataSource) : ApiControllerBase(
     [Authorize(Policy = Permisos.Alumnos.Crear)]
     public async Task<IActionResult> Create([FromBody] CrearAlumnoDto dto, CancellationToken ct)
     {
-        if (!dto.InstitucionId.HasValue || dto.InstitucionId == Guid.Empty
+        if (dto.InstitucionId.GetValueOrDefault() == Guid.Empty
             || string.IsNullOrWhiteSpace(dto.Nombres)
             || string.IsNullOrWhiteSpace(dto.Apellidos)
             || string.IsNullOrWhiteSpace(dto.TipoIdentificacion)
@@ -195,8 +183,6 @@ public class AlumnosController(NpgsqlDataSource dataSource) : ApiControllerBase(
             await FijarClaimAsync(c4, tx, User.FindFirstValue("sub")!, ct);
             await using var cmd = c4.CreateCommand();
             cmd.Transaction = tx;
-            // Reutiliza la RPC existente; NO se reimplementa la creación (persona
-            // + alumno + identificación normalizada) en C#.
             cmd.CommandText = "select public.rpc_crear_alumno_nueva_persona_con_documento("
                 + "@institucionId, @nombres, @apellidos, @tipo, @numero, @fechaNac, @rne, @codigoInterno)";
             cmd.Parameters.AddWithValue("institucionId", dto.InstitucionId.Value);
