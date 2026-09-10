@@ -149,13 +149,15 @@ jobs:
           ARGS="${ARGS} /d:sonar.host.url=https://sonarcloud.io"
           ARGS="${ARGS} /d:sonar.scanner.scanAll=true"
           ARGS="${ARGS} /d:sonar.sourceEncoding=UTF-8"
+          ARGS="${ARGS} /d:sonar.python.version=3.11"
           ARGS="${ARGS} /d:sonar.exclusions=**/node_modules/**,**/dist/**,**/bin/**,**/obj/**,**/coverage/**,**/*.min.js,coverage-backend/**,**/lcov.info,**/*.cobertura.xml,**/*.spec.ts,**/*.test.ts,e2e/**"
           # Script de tooling/CI: se analiza estáticamente, pero no forma parte del código
           # productivo instrumentado por Coverlet/LCOV, por lo que no debe penalizar cobertura.
           ARGS="${ARGS} /d:sonar.coverage.exclusions=scripts/check-coverage-gate.py"
-          # El baseline es un artefacto consolidado de bootstrap que replica migraciones
-          # ya analizadas. Se excluye únicamente de CPD para no inflar duplicación.
-          ARGS="${ARGS} /d:sonar.cpd.exclusions=database/baseline/**"
+          # Baseline y migraciones son artefactos SQL históricos/versionados: se conservan
+          # en el análisis estático, pero se excluyen únicamente del detector de duplicación
+          # para que CPD mida código mantenible y no repetición inherente a scripts append-only.
+          ARGS="${ARGS} /d:sonar.cpd.exclusions=database/baseline/**,database/migrations/**"
           ARGS="${ARGS} /d:sonar.cs.cobertura.reportsPaths=coverage-backend/**/coverage.cobertura.xml"
           ARGS="${ARGS} /d:sonar.typescript.lcov.reportPaths=frontend/schoolmanager-frontend/coverage/**/lcov.info"
           if [ -n "${PR}" ]; then
