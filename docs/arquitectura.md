@@ -1,37 +1,33 @@
 # Arquitectura de SchoolManager
 
 > Documento de arquitectura del Capstone de Ingeniería de Software 2.
-> Describe la arquitectura **real** del sistema tal como está implementada en
-> `main`, sin componentes inventados.
+> Describe la arquitectura real del sistema implementado actualmente.
 
 ## Propósito
 
 SchoolManager es un sistema de gestión escolar para administrar alumnos,
-matrículas, mensualidades, pagos y el acceso de padres de familia. Permite a una
-institución educativa llevar el registro académico y financiero de sus
-estudiantes, y permite a los padres consultar la información de sus
-representados.
+matrículas, mensualidades, pagos, configuración académica y el acceso de
+responsables. La institución educativa utiliza una aplicación web para operar
+los procesos académicos y financieros, mientras que los responsables consultan
+la información permitida de sus representados.
 
-La aplicación se construye como un **monolito modular**: un frontend Angular,
-una API ASP.NET Core y una base de datos PostgreSQL alojada en Supabase. Se
-evitan de forma deliberada microservicios, CQRS, MediatR, Generic Repository y
-UnitOfWork artificial, porque el dominio no lo justifica.
+La solución se mantiene como un **monolito modular** compuesto por un frontend
+Angular, una API ASP.NET Core y PostgreSQL administrado en Supabase. La lógica
+de negocio del frontend pasa por la API .NET; el acceso directo desde Angular a
+Supabase se conserva únicamente para autenticación.
 
 ## Decisiones de arquitectura registradas
 
-Las decisiones de persistencia y de autenticación/autorización están
-documentadas como ADR y enlazadas desde este documento:
-
 - [ADR-001 — Persistencia](adr/ADR-001-persistencia.md)
-- [ADR-002 — Autenticación y autorización](adr/ADR-002-autenticacion-autorizacion.md)
+- [ADR-002 — Autenticación y autorización](adr/ADR-002-auth.md)
 
 ## Modelo de despliegue
 
 | Capa | Tecnología | Despliegue |
 | --- | --- | --- |
 | Frontend | Angular 22 standalone + TypeScript | Vercel |
-| Backend | ASP.NET Core Web API (.NET) | Render (Docker) |
-| Base de datos | Supabase PostgreSQL 16 | Supabase Cloud |
+| Backend | ASP.NET Core Web API (.NET 10) | Render |
+| Base de datos | PostgreSQL 16 | Supabase Cloud |
 | Autenticación | Supabase Auth + JWT | Supabase Cloud |
 
 ---
@@ -40,37 +36,26 @@ documentadas como ADR y enlazadas desde este documento:
 
 ```mermaid
 flowchart LR
-    subgraph Usuarios["Actores"]
-        Admin["<b>Administrador</b><br/>Gestiona alumnos, matrículas,<br/>mensualidades, pagos y configuración"]
-        Operador["<b>Operador</b><br/>Operación académica cotidiana:<br/>alumnos y matrículas"]
-        Padre["<b>Padre / Responsable</b><br/>Consulta estado de cuenta y<br/>mensualidades de sus representados"]
-    end
+    Admin["Administrador\nGestiona configuración, alumnos, matrículas y finanzas"]
+    Operador["Operador\nRealiza operación académica cotidiana"]
+    Padre["Padre / Responsable\nConsulta información de sus representados"]
 
-    SM["<b>SchoolManager</b><br/>Sistema de gestión escolar"]
-
-    subgraph Ext["Servicios externos de Supabase"]
-        Auth["<b>Supabase Auth</b><br/>Identidad y emisión de JWT"]
-        Pg["<b>Supabase PostgreSQL</b><br/>Persistencia transaccional"]
-    end
+    SM["SchoolManager\nSistema de gestión escolar"]
+    Auth["Supabase Auth\nIdentidad y emisión de JWT"]
+    Pg["Supabase PostgreSQL\nPersistencia transaccional"]
 
     Admin --> SM
     Operador --> SM
     Padre --> SM
-
     SM --> Auth
     SM --> Pg
 ```
 
-**Explicación.** El usuario humano interactúa con el sistema a través de una
-aplicación web en el navegador. SchoolManager depende de dos servicios
-alojados en Supabase: **Auth**, que emite los JWT con los que se autentican las
-peticiones, y **PostgreSQL**, que es la fuente de verdad transaccional de todos
-los datos académicos y financieros. El backend nunca guarda identidad por su
-cuenta: delega el login en Supabase Auth.
-
-Los roles son `admin`, `operador`, `padre`, y se reservan `docente` y `cajero`
-para módulos futuros. `padre` es un rol de consulta vinculado a sus
-representados.
+**Explicación.** Los usuarios interactúan con SchoolManager desde el navegador.
+Supabase Auth administra la identidad y emite los JWT de sesión. PostgreSQL es
+la fuente de verdad para los datos académicos, financieros y de autorización.
+El sistema utiliza roles y permisos para limitar qué operaciones puede realizar
+cada usuario.
 
 ---
 
@@ -78,96 +63,87 @@ representados.
 
 ```mermaid
 flowchart LR
-    subgraph Browser["Navegador"]
-        Spa["<b>Angular SPA</b><br/>Angular 22 standalone + TypeScript<br/>Vercel"]
-    end
+    User["Usuario\nNavegador"]
 
-    Api["<b>ASP.NET Core API</b><br/>REST/JSON, .NET<br/>Render"]
+    Spa["Angular SPA\nAngular 22 + TypeScript\nVercel"]
+    Api["ASP.NET Core API\n.NET 10 REST/JSON\nRender"]
 
     subgraph Supabase["Supabase Cloud"]
-        Auth["<b>Supabase Auth</b><br/>Emisión y validación de JWT"]
-        Pg["<b>PostgreSQL</b><br/>Datos transaccionales + RLS/RPC"]
+        Auth["Supabase Auth\nLogin y emisión de JWT"]
+        Pg["PostgreSQL 16\nDatos + RLS + RPC"]
     end
 
-    Spa -- "HTTPS<br/>login / signInWithPassword" --> Auth
-    Spa -- "HTTPS + JWT (Authorization: Bearer)<br/>REST JSON" --> Api
-    Spa -- "HTTPS + JWT<br/>PostgREST (lecturas de alumnos)" --> Pg
-    Api -- "HTTPS<br/>/.well-known/openid-configuration<br/>validación de JWT" --> Auth
-    Api -- "TLS, Npgsql<br/>SQL + RPC SECURITY DEFINER" --> Pg
+    User -->|HTTPS| Spa
+    Spa -->|HTTPS / signInWithPassword| Auth
+    Spa -->|HTTPS + Bearer JWT / REST JSON| Api
+    Api -->|OpenID Connect / validación JWT| Auth
+    Api -->|TLS + Npgsql / SQL y RPC| Pg
 ```
 
-**Explicación.** Existen tres contenedores con protocolos distintos y reales:
+**Explicación.** La SPA Angular se publica en Vercel y presenta la interfaz al
+usuario. El login se realiza directamente contra Supabase Auth. Después de
+obtener la sesión, Angular adjunta el `access_token` como `Authorization:
+Bearer <JWT>` en las peticiones a la API.
 
-1. **Angular SPA** (alojada en Vercel) es la interfaz. Hace `signInWithPassword`
-   contra Supabase Auth para obtener una sesión (id_token + access_token), y
-   adjunta el `access_token` como `Authorization: Bearer <JWT>` en cada petición
-   a la API mediante un interceptor HTTP (`JwtInterceptor`). Además lee algunas
-   tablas (p. ej. alumnos) de forma directa vía PostgREST de Supabase, lo cual
-   está limitado por las políticas RLS del rol `authenticated`.
-2. **ASP.NET Core API** (alojada en Render) expone REST/JSON bajo `/api`
-   (`/api/auth`, `/api/alumnos`, `/api/matriculas`, `/api/conceptos-financieros`,
-   `/api/planes-pago`). Valida el JWT de cada petición contra el issuer de
-   Supabase Auth (JWT Bearer, algoritmo ECDSA ES256) y resuelve roles y
-   permisos del usuario consultando las tablas RBAC.
-3. **Supabase PostgreSQL** es la fuente de verdad. La API accede con Npgsql,
-   abre transacciones, fija el claim del JWT para que las políticas RLS
-   reconozcan al usuario (`set_config('request.jwt.claim.sub', ...)`) y ejecuta
-   funciones RPC `SECURITY DEFINER` para las escrituras críticas (matrículas,
-   cambios de estado, creación de alumnos, etc.). Las tablas tienen RLS
-   habilitada y los permisos SQL están revocados del rol `anon` y acotados para
-   `authenticated`.
+La API ASP.NET Core alojada en Render es la frontera de negocio del sistema.
+Expone los endpoints REST, valida el JWT, aplica las políticas de autorización
+y ejecuta las operaciones contra PostgreSQL mediante Npgsql. Las operaciones
+transaccionales críticas se apoyan en SQL y funciones RPC de PostgreSQL.
+
+Desde la migración de la capa de negocio a la API, Angular **no consulta tablas
+de negocio mediante PostgREST**. El SDK de Supabase permanece en el frontend
+solo para autenticación y manejo de sesión.
 
 ### Protocolos entre contenedores
 
 | Origen | Destino | Protocolo / medio |
 | --- | --- | --- |
-| Navegador | Angular SPA | HTTPS (Vercel) |
-| Angular SPA | Supabase Auth | HTTPS, SDK `@supabase/supabase-js` |
-| Angular SPA | ASP.NET API | HTTPS, REST/JSON, `Authorization: Bearer <JWT>` |
-| Angular SPA | Supabase PostgreSQL | HTTPS, PostgREST (lecturas con RLS) |
-| ASP.NET API | Supabase Auth | HTTPS, OpenID Configuration (issuer) |
-| ASP.NET API | Supabase PostgreSQL | TLS, Npgsql (SQL y RPC) |
+| Navegador | Angular SPA | HTTPS |
+| Angular SPA | Supabase Auth | HTTPS, `@supabase/supabase-js` |
+| Angular SPA | ASP.NET Core API | HTTPS, REST/JSON, Bearer JWT |
+| ASP.NET Core API | Supabase Auth | HTTPS, OpenID Connect / metadata JWT |
+| ASP.NET Core API | PostgreSQL | TLS, Npgsql, SQL y RPC |
 
 ---
 
-## Actores y permisos de aplicación
+## Seguridad y autorización
 
-Los permisos siguen un esquema RBAC de tres niveles
-`permisos → roles_permisos → usuarios_roles`, con códigos de la forma
-`<modulo>.<recurso>.<accion>`, por ejemplo `academico.matriculas.crear` o
-`configuracion.planes_pago.editar`. Cada endpoint de la API declara el permiso
-que exige con `[Authorize(Policy = ...)]`.
+La autenticación se delega en Supabase Auth. La API valida el JWT y resuelve la
+autorización con permisos de aplicación. Los permisos utilizan códigos como
+`academico.matriculas.crear` o `configuracion.planes_pago.editar`, y los
+endpoints protegidos declaran la política correspondiente.
 
-| Actor | Permisos típicos | Acceso |
-| --- | --- | --- |
-| `admin` | Todos los permisos (conjunto base completo) | Lectura y escritura |
-| `operador` | Núcleo académico: alumnos y matrículas | Lectura y escritura académica |
-| `padre` | Consulta vinculada a sus representados | Solo lectura de su ámbito |
+Los roles principales son `admin`, `operador` y `padre`. La autorización no se
+resuelve mediante condicionales de rol dispersos en la interfaz, sino mediante
+permisos y el ámbito institucional correspondiente.
 
-No hay checks hardcodeados por rol en el código; la autorización se basa en
-permisos, y cada fila leída se filtra además por el ámbito institucional del
-usuario que actúa (ver [ADR-002](adr/ADR-002-autenticacion-autorizacion.md)).
+## Persistencia
+
+PostgreSQL es la fuente de verdad del sistema. Se utilizan claves internas UUID,
+restricciones de integridad, transacciones, RLS y funciones RPC para proteger
+invariantes del dominio. La API .NET actúa como capa de acceso y orquestación;
+no se duplica la lógica transaccional que pertenece a la base de datos.
 
 ## Multiinstitución
 
-El modelo es multiinstitución: cada registro operativo (alumno, matrícula,
-sección, ciclo, responsable) tiene `institucion_id`. La asignación de un rol a
-un usuario puede ser global (`institucion_id NULL`) o específica de una
-institución. En modo **single** el sistema resuelve la institución activa; el
-modo **multi** con selector global de institución aún está pendiente. Toda
-lectura filtra cada fila contra el ámbito real del usuario
-(`usuario_tiene_permiso_actual(permiso, institucion_id)`).
+El modelo de datos contempla múltiples instituciones mediante
+`institucion_id`. En una instalación de una sola institución el contexto puede
+resolverse automáticamente. El selector global para operar varias instituciones
+desde la misma interfaz se considera una ampliación posterior y no modifica el
+modelo base descrito aquí.
 
 ---
 
-## Alcance (qué NO se documenta aquí)
+## Alcance del documento
 
-Este documento cubre C4 Nivel 1 y Nivel 2. No se incluyen los Niveles 3 y 4
-(componentes y código) porque para el propósito del Capstone los contenedores
-descritos son suficientes y evitan sobrearquitectura innecesaria.
+Para el Capstone se documentan los niveles **C4 Contexto (Nivel 1)** y
+**Contenedores (Nivel 2)**. No se agregan niveles 3 y 4 porque el objetivo es
+mostrar las fronteras y responsabilidades principales sin duplicar el detalle
+que ya existe en el código fuente.
 
 ## Referencias
 
-- [ADRs](adr/) — decisiones registradas.
-- [docs/AI_CONTEXT.md](AI_CONTEXT.md) — estado funcional y roadmap.
-- [README.md](../README.md) — guía de puesta en marcha y despliegue.
+- [ADR-001 — Persistencia](adr/ADR-001-persistencia.md)
+- [ADR-002 — Autenticación y autorización](adr/ADR-002-auth.md)
+- [Contexto técnico del proyecto](AI_CONTEXT.md)
+- [README](../README.md)
