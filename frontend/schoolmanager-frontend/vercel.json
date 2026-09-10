@@ -1,0 +1,28 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist/schoolmanager-frontend/browser",
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://pzhcpdznjoyukbhhodjz.supabase.co wss://pzhcpdznjoyukbhhodjz.supabase.co https://schoolmanager-xdxx.onrender.com https://api.schoolmanager.nocpbx.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'" }
+      ]
+    }
+  ],
+  "rewrites": [
+    { "source": "/login", "destination": "/index.html" },
+    { "source": "/dashboard", "destination": "/index.html" },
+    { "source": "/alumnos", "destination": "/index.html" },
+    { "source": "/matriculas", "destination": "/index.html" },
+    { "source": "/configuracion/:path*", "destination": "/index.html" },
+    { "source": "/responsables", "destination": "/index.html" },
+    { "source": "/cargos", "destination": "/index.html" },
+    { "source": "/pagos", "destination": "/index.html" },
+    { "source": "/portal-padre", "destination": "/index.html" },
+    { "source": "/home", "destination": "/index.html" }
+  ]
+}
