@@ -185,7 +185,7 @@ public class AlumnosController(NpgsqlDataSource dataSource) : ApiControllerBase(
             cmd.Transaction = tx;
             cmd.CommandText = "select public.rpc_crear_alumno_nueva_persona_con_documento("
                 + "@institucionId, @nombres, @apellidos, @tipo, @numero, @fechaNac, @rne, @codigoInterno)";
-            cmd.Parameters.AddWithValue("institucionId", dto.InstitucionId.Value);
+            cmd.Parameters.AddWithValue("institucionId", dto.InstitucionId.GetValueOrDefault());
             cmd.Parameters.AddWithValue("nombres", dto.Nombres.Trim());
             cmd.Parameters.AddWithValue("apellidos", dto.Apellidos.Trim());
             cmd.Parameters.AddWithValue("tipo", dto.TipoIdentificacion.Trim());
