@@ -191,6 +191,10 @@ jobs:
           ARGS="${ARGS} /d:sonar.host.url=https://sonarcloud.io"
           ARGS="${ARGS} /d:sonar.scanner.scanAll=true"
           ARGS="${ARGS} /d:sonar.sourceEncoding=UTF-8"
+          # SchoolManager usa PostgreSQL. Evitamos que los .sql entren al analizador
+          # Oracle PL/SQL y disparen el warning de Data Dictionary; PL/SQL queda
+          # reservado para extensiones Oracle reales si alguna vez se incorporan.
+          ARGS="${ARGS} /d:sonar.plsql.file.suffixes=.pks,.pkb,.pls,.plb"
           ARGS="${ARGS} /d:sonar.exclusions=**/node_modules/**,**/dist/**,**/bin/**,**/obj/**,**/coverage/**,**/*.min.js,coverage-backend/**,**/lcov.info,**/*.cobertura.xml,**/*.spec.ts,**/*.test.ts,e2e/**"
           ARGS="${ARGS} /d:sonar.cs.cobertura.reportsPaths=coverage-backend/**/coverage.cobertura.xml"
           ARGS="${ARGS} /d:sonar.typescript.lcov.reportPaths=frontend/schoolmanager-frontend/coverage/**/lcov.info"
