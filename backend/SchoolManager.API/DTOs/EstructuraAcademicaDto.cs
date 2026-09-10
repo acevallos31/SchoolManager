@@ -39,12 +39,12 @@ public class SeccionDto
     public string? MotivoDesactivacion { get; set; }
 }
 
-// Crear/actualizar un grado (nombre + orden). La institucion puede venir en el
-// body o resolverse del contexto; el controller la traduce a la RPC 016.
+// Crear/actualizar un grado (nombre + orden). Orden nullable distingue omission
+// de un cero explícito, que sigue siendo un valor válido para la RPC.
 public class GradoInputDto
 {
     public string Nombre { get; set; } = string.Empty;
-    public int Orden { get; set; } // NOSONAR:csharpsquid:S6964 (requerido; se valida en el controller)
+    public int? Orden { get; set; }
     public Guid? InstitucionId { get; set; }
 }
 
@@ -57,13 +57,11 @@ public class JornadaInputDto
 }
 
 // Crear/actualizar una seccion dentro de un ciclo. cicloId/gradoId son
-// obligatorios (el controller los valida antes de invocar la DB); jornadaId y
-// cupo son opcionales. La institucion puede venir en el body o resolverse del
-// contexto.
+// obligatorios; nullable permite detectar under-posting antes de invocar DB.
 public class SeccionInputDto
 {
-    public Guid CicloId { get; set; } // NOSONAR:csharpsquid:S6964 (requerido; se valida en el controller)
-    public Guid GradoId { get; set; } // NOSONAR:csharpsquid:S6964 (requerido; se valida en el controller)
+    public Guid? CicloId { get; set; }
+    public Guid? GradoId { get; set; }
     public Guid? JornadaId { get; set; }
     public string Nombre { get; set; } = string.Empty;
     public int? Cupo { get; set; }
