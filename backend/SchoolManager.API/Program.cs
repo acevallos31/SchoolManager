@@ -157,7 +157,7 @@ app.MapGet("/health/ready", async (NpgsqlDataSource dataSource) =>
 
 app.MapControllers();
 
-app.Run();
+await app.RunAsync();
 
 static bool IsAllowedFrontendOrigin(
     string origin,
