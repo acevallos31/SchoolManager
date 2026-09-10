@@ -69,7 +69,7 @@ public sealed class ResponsablesControllerTests : IClassFixture<MatriculasApiFac
         Assert.Equal(HttpStatusCode.Created, primero.StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, duplicado.StatusCode);
         using var json = JsonDocument.Parse(await duplicado.Content.ReadAsStringAsync());
-        Assert.Equal("Ya existe una persona con esa identificación.",
+        Assert.Equal("Esta persona ya está registrada como responsable en la institución.",
             json.RootElement.GetProperty("error").GetString());
     }
 
