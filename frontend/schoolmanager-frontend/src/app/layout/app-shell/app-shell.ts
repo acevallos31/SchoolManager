@@ -10,7 +10,6 @@ import {
 import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
 import { AuthService } from '../../core/services/auth';
-import { ConfiguracionService } from '../../core/services/configuracion.service';
 import { DebugStateService } from '../../core/services/debug-state.service';
 
 interface NavItem {
@@ -28,11 +27,11 @@ interface NavItem {
 })
 export class AppShell implements OnDestroy {
   private readonly navSubscription: Subscription;
-  private usuarioSubscription: Subscription;
+  private readonly usuarioSubscription: Subscription;
+  private readonly debugSubscription: Subscription;
   navAbierta = false;
   roles: string[] = [];
   debugActivo = false;
-  private debugCargado = false;
 
   readonly items: NavItem[] = [
     { etiqueta: 'Panel', ruta: '/dashboard' },
@@ -48,7 +47,6 @@ export class AppShell implements OnDestroy {
   constructor(
     private readonly auth: AuthService,
     private readonly router: Router,
-    private readonly configuracionService: ConfiguracionService,
     debugState: DebugStateService
   ) {
     this.navSubscription = this.router.events
@@ -59,13 +57,9 @@ export class AppShell implements OnDestroy {
 
     this.usuarioSubscription = this.auth.usuarioActual$.subscribe((usuario) => {
       this.roles = usuario?.roles ?? [];
-      if (usuario && !this.debugCargado && this.auth.tienePermiso('sistema.debug.ver')) {
-        this.debugCargado = true;
-        void this.configuracionService.obtenerDebug().catch(() => undefined);
-      }
     });
 
-    debugState.status$.subscribe(status => {
+    this.debugSubscription = debugState.status$.subscribe(status => {
       this.debugActivo = status.habilitado;
     });
   }
@@ -89,6 +83,7 @@ export class AppShell implements OnDestroy {
   ngOnDestroy(): void {
     this.navSubscription.unsubscribe();
     this.usuarioSubscription.unsubscribe();
+    this.debugSubscription.unsubscribe();
   }
 
   alternarNav(): void {
