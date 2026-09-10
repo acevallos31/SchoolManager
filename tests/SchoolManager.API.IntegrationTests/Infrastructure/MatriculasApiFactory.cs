@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
+using SchoolManager.API.Authorization;
 using SchoolManager.API.Identity;
 using SchoolManager.Database.IntegrationTests.Infrastructure;
 using Xunit;
@@ -212,18 +213,7 @@ public sealed class MatriculasApiFactory : IAsyncLifetime
                     Guid.NewGuid(),
                     Guid.NewGuid(),
                     ["admin"],
-                    [
-                        "academico.alumnos.ver",
-                        "academico.alumnos.crear",
-                        "academico.alumnos.editar",
-                        "academico.alumnos.desactivar",
-                        "academico.matriculas.ver",
-                        "academico.matriculas.crear",
-                        "academico.matriculas.cambiar_estado",
-                        "academico.responsables.ver",
-                        "academico.responsables.crear",
-                        "academico.responsables.editar"
-                    ]));
+                    [.. Permisos.Todos]));
             }
 
             return Task.FromResult(new UsuarioActual(
