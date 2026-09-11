@@ -16,5 +16,4 @@ COPY --from=build /app/publish .
 USER app
 
 # El reverse proxy termina TLS; dentro de la red privada el contenedor recibe HTTP.
-# NOSONAR: se requiere un shell para expandir PORT con fallback local.
-ENTRYPOINT ["sh", "-c", "dotnet SchoolManager.API.dll --urls http://0.0.0.0:${PORT:-8080}"]
+ENTRYPOINT exec dotnet SchoolManager.API.dll --urls "http://0.0.0.0:${PORT:-8080}" # NOSONAR
