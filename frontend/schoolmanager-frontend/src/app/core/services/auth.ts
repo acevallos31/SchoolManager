@@ -4,6 +4,7 @@ import { BehaviorSubject } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 const REQUEST_TIMEOUT_MS = 30000;
+const EDGE_SESSION_ENDPOINT = '/api/auth/session';
 
 function getBrowserStorage(): Storage | undefined {
   try {
@@ -69,10 +70,21 @@ export class AuthService {
     // asegurarUsuarioInicial(), invocada por provideAppInitializer antes de
     // que Angular resuelva las rutas. Así los guards disponen de sesión y
     // permisos ya cargados y no se evalúan contra estado sin poblar.
-    this.supabase.auth.onAuthStateChange((_, session) => {
+    this.supabase.auth.onAuthStateChange((event, session) => {
       this.sessionSubject.next(session);
       if (!session) {
         this.usuarioSubject.next(null);
+      }
+
+      // Login/restauración sincronizan la cookie explícitamente. Aquí solo
+      // reaccionamos a rotaciones y cierres espontáneos para evitar duplicar
+      // requests al endpoint edge durante el login normal.
+      if (event === 'TOKEN_REFRESHED') {
+        void this.sincronizarSesionEdge(session).catch(error => {
+          console.error('No se pudo sincronizar la sesion edge:', error);
+        });
+      } else if (event === 'SIGNED_OUT') {
+        void this.limpiarSesionEdgeBestEffort();
       }
     });
   }
@@ -122,6 +134,7 @@ export class AuthService {
 
       this.sessionSubject.next(data.session);
       const usuario = await this.getUsuarioActual(data.session);
+      await this.sincronizarSesionEdge(data.session);
       this.usuarioSubject.next(usuario);
       return usuario;
     } catch (error) {
@@ -144,6 +157,7 @@ export class AuthService {
     } finally {
       this.sessionSubject.next(null);
       this.usuarioSubject.next(null);
+      await this.limpiarSesionEdgeBestEffort();
     }
   }
 
@@ -202,10 +216,12 @@ export class AuthService {
     this.sessionSubject.next(session);
     if (!session) {
       this.usuarioSubject.next(null);
+      await this.limpiarSesionEdgeBestEffort();
       return;
     }
 
     this.usuarioSubject.next(await this.getUsuarioActual(session));
+    await this.sincronizarSesionEdge(session);
   }
 
   private async limpiarSesionInvalida(): Promise<void> {
@@ -214,6 +230,33 @@ export class AuthService {
     } finally {
       this.sessionSubject.next(null);
       this.usuarioSubject.next(null);
+      await this.limpiarSesionEdgeBestEffort();
+    }
+  }
+
+  private async limpiarSesionEdgeBestEffort(): Promise<void> {
+    try {
+      await this.sincronizarSesionEdge(null);
+    } catch (error) {
+      console.error('No se pudo limpiar la sesion edge:', error);
+    }
+  }
+
+  private async sincronizarSesionEdge(session: Session | null): Promise<void> {
+    const response = await fetch(EDGE_SESSION_ENDPOINT, {
+      method: session ? 'POST' : 'DELETE',
+      headers: session
+        ? { Authorization: `Bearer ${session.access_token}` }
+        : undefined,
+      credentials: 'same-origin',
+      cache: 'no-store'
+    });
+
+    if (!response.ok) {
+      throw new AuthAppError(
+        'No se pudo establecer la sesion segura del servidor.',
+        'SESSION_NOT_FOUND'
+      );
     }
   }
 

@@ -1,6 +1,13 @@
-import { ApplicationConfig, provideAppInitializer, provideBrowserGlobalErrorListeners, provideZoneChangeDetection } from '@angular/core';
-import { inject } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { HTTP_INTERCEPTORS, provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
+import {
+  ApplicationConfig,
+  inject,
+  PLATFORM_ID,
+  provideAppInitializer,
+  provideBrowserGlobalErrorListeners,
+  provideZoneChangeDetection
+} from '@angular/core';
 import { provideRouter } from '@angular/router';
 
 import { routes } from './app.routes';
@@ -25,8 +32,14 @@ export const appConfig: ApplicationConfig = {
     provideHttpClient(withInterceptorsFromDi()),
     { provide: HTTP_INTERCEPTORS, useClass: JwtInterceptor, multi: true },
     // Barrera de inicialización: carga la sesión persistida y los permisos
-    // (auth/me) ANTES de que Angular resuelva la primera ruta, de modo que los
-    // guards evalúen permisos ya poblados y no contra estado sin cargar.
-    provideAppInitializer(() => inject(AuthService).asegurarUsuarioInicial())
+    // (auth/me) ANTES de resolver la primera ruta en el navegador. Durante SSG
+    // no existe una sesión de usuario que restaurar y la inicialización termina
+    // inmediatamente, evitando llamadas browser-only en el prerender.
+    provideAppInitializer(() => {
+      const platformId = inject(PLATFORM_ID);
+      return isPlatformBrowser(platformId)
+        ? inject(AuthService).asegurarUsuarioInicial()
+        : Promise.resolve();
+    })
   ]
 };
