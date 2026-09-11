@@ -24,7 +24,7 @@ describe('AuthService', () => {
   }
 
   function llamadasA(fetchMock: ReturnType<typeof vi.spyOn>, fragmento: string) {
-    return fetchMock.mock.calls.filter(([input]) => String(input).includes(fragmento));
+    return fetchMock.mock.calls.filter(call => String(call[0]).includes(fragmento));
   }
 
   beforeEach(async () => {
