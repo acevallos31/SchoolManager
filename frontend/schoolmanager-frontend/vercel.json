@@ -15,16 +15,18 @@
       ]
     }
   ],
-  "rewrites": [
-    { "source": "/login", "destination": "/index.html" },
-    { "source": "/dashboard", "destination": "/index.html" },
-    { "source": "/alumnos", "destination": "/index.html" },
-    { "source": "/matriculas", "destination": "/index.html" },
-    { "source": "/configuracion/:path*", "destination": "/index.html" },
-    { "source": "/responsables", "destination": "/index.html" },
-    { "source": "/cargos", "destination": "/index.html" },
-    { "source": "/pagos", "destination": "/index.html" },
-    { "source": "/portal-padre", "destination": "/index.html" },
-    { "source": "/home", "destination": "/index.html" }
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "^/login/?$", "dest": "/index.html" },
+    { "src": "^/dashboard/?$", "dest": "/index.html" },
+    { "src": "^/alumnos/?$", "dest": "/index.html" },
+    { "src": "^/matriculas/?$", "dest": "/index.html" },
+    { "src": "^/configuracion(?:/.*)?$", "dest": "/index.html" },
+    { "src": "^/responsables/?$", "dest": "/index.html" },
+    { "src": "^/cargos/?$", "dest": "/index.html" },
+    { "src": "^/pagos/?$", "dest": "/index.html" },
+    { "src": "^/portal-padre/?$", "dest": "/index.html" },
+    { "src": "^/home/?$", "dest": "/index.html" },
+    { "src": "/.*", "status": 404, "dest": "/404.html" }
   ]
 }
