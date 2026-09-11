@@ -1,3 +1,7 @@
+declare const process: {
+  env: Record<string, string | undefined>;
+};
+
 export const SESSION_COOKIE = '__Host-schoolmanager-session';
 
 function authConfig(): { url: string; key: string } | null {
