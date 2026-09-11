@@ -92,6 +92,12 @@ jobs:
           cd frontend/schoolmanager-frontend
           npm run build -- --configuration production
 
+      - name: Verificar HTML inicial del login prerenderizado
+        run: |
+          PRERENDERED_LOGIN_HTML="frontend/schoolmanager-frontend/dist/schoolmanager-frontend/browser/login/index.html"
+          test -s "${PRERENDERED_LOGIN_HTML}"
+          grep -F 'type="password"' "${PRERENDERED_LOGIN_HTML}"
+
   sonarcloud:
     name: Análisis SonarCloud (CI Analysis)
     needs: validate-code
