@@ -1,4 +1,4 @@
-const SESSION_COOKIE = '__Host-schoolmanager-session';
+import { SESSION_COOKIE, tokenIsValid } from './edge/auth-shared';
 
 function getCookie(request: Request, name: string): string | null {
   const header = request.headers.get('cookie') ?? '';
@@ -12,41 +12,6 @@ function getCookie(request: Request, name: string): string | null {
   }
 
   return null;
-}
-
-function authConfig(): { url: string; key: string } | null {
-  const url = process.env['SUPABASE_URL']?.replace(/\/$/, '');
-  const key = process.env['SUPABASE_PUBLISHABLE_KEY'];
-
-  if (!url || !key) {
-    return null;
-  }
-
-  return { url, key };
-}
-
-async function tokenIsValid(accessToken: string): Promise<boolean> {
-  const config = authConfig();
-  if (!config) {
-    console.error('Faltan SUPABASE_URL/SUPABASE_PUBLISHABLE_KEY en Vercel.');
-    return false;
-  }
-
-  try {
-    const response = await fetch(`${config.url}/auth/v1/user`, {
-      method: 'GET',
-      headers: {
-        apikey: config.key,
-        Authorization: `Bearer ${accessToken}`
-      },
-      cache: 'no-store'
-    });
-
-    return response.ok;
-  } catch (error) {
-    console.error('No se pudo validar la sesion Supabase en middleware:', error);
-    return false;
-  }
 }
 
 function redirectToLogin(request: Request): Response {
@@ -89,7 +54,7 @@ export const config = {
 export default async function middleware(request: Request): Promise<Response> {
   const accessToken = getCookie(request, SESSION_COOKIE);
 
-  if (!accessToken || !(await tokenIsValid(accessToken))) {
+  if (!accessToken || !(await tokenIsValid(accessToken, 'middleware'))) {
     return redirectToLogin(request);
   }
 
