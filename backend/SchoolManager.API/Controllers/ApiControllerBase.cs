@@ -3,16 +3,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Npgsql;
+using SchoolManager.API.Diagnostics;
 
 namespace SchoolManager.API.Controllers;
 
-/// <summary>
-/// Base compartida para los controllers que acceden a Postgres como el
-/// usuario autenticado. Centraliza el boilerplate de conexion y la
-/// traduccion de errores SQL a respuestas HTTP, evitando la duplicacion
-/// y la deriva entre controllers (los codigos de contexto SM001/SM003
-/// deben mapearse igual en todas partes).
-/// </summary>
 [ApiController]
 public abstract class ApiControllerBase(NpgsqlDataSource dataSource) : ControllerBase
 {
@@ -39,9 +33,6 @@ public abstract class ApiControllerBase(NpgsqlDataSource dataSource) : Controlle
             ["ux_pagos_referencia_externa_institucion"] = "Ya existe un pago con esa referencia externa en la institución."
         };
 
-    // Centraliza el ciclo de vida repetido en las operaciones académicas.
-    // Cada callback conserva su SQL/RPC; errores y respuestas de rechazo
-    // disponen la transacción sin commit y el claim nunca sale de su ámbito.
     protected async Task<IActionResult> EnTransaccionComoUsuarioAsync(
         Func<NpgsqlConnection, NpgsqlTransaction, Task<IActionResult>> operacion,
         CancellationToken ct)
@@ -76,23 +67,44 @@ public abstract class ApiControllerBase(NpgsqlDataSource dataSource) : Controlle
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
-    protected static ObjectResult ToError(PostgresException ex) =>
-        new ObjectResult(new { error = MensajeError(ex) })
+    protected ObjectResult ToError(PostgresException ex, bool incluirCodigo = false)
+    {
+        var status = ex.SqlState switch
         {
-            // P0001 (raise_exception generico) no se trata como 403: cae en el default.
-            // "SM001"/"SM003" son codigos de contexto de la implementacion (validacion
-            // de negocio) y se mapean a 400, igual que los codigos 22023/23503.
-            StatusCode = ex.SqlState switch
-            {
-                "42501" => StatusCodes.Status403Forbidden,
-                "P0002" => StatusCodes.Status404NotFound,
-                "23505" or "23514" => StatusCodes.Status409Conflict,
-                "22023" or "23503" or "SM001" or "SM003" => StatusCodes.Status400BadRequest,
-                _ => StatusCodes.Status400BadRequest
-            }
+            "42501" => StatusCodes.Status403Forbidden,
+            "P0002" => StatusCodes.Status404NotFound,
+            "23505" or "23514" => StatusCodes.Status409Conflict,
+            "22023" or "23503" or "SM001" or "SM003" => StatusCodes.Status400BadRequest,
+            _ => StatusCodes.Status400BadRequest
         };
 
-    private static string MensajeError(PostgresException ex)
+        var payload = new Dictionary<string, object?>
+        {
+            ["error"] = MensajeError(ex),
+            ["requestId"] = HttpContext.TraceIdentifier
+        };
+        if (incluirCodigo) payload["code"] = ex.SqlState;
+
+        if (HttpContext.Items.TryGetValue(DebugContextMiddleware.DebugAllowedItem, out var allowed)
+            && allowed is true)
+        {
+            payload["debug"] = new
+            {
+                requestId = HttpContext.TraceIdentifier,
+                status,
+                sqlState = ex.SqlState,
+                constraint = ex.ConstraintName,
+                technicalMessage = ex.MessageText,
+                endpoint = $"{Request.Method} {Request.Path}",
+                source = "PostgreSQL/RPC",
+                timestamp = DateTimeOffset.UtcNow
+            };
+        }
+
+        return new ObjectResult(payload) { StatusCode = status };
+    }
+
+    protected static string MensajeError(PostgresException ex)
     {
         if (!string.IsNullOrWhiteSpace(ex.ConstraintName) &&
             MensajesRestricciones.TryGetValue(ex.ConstraintName, out var mensaje))
@@ -100,9 +112,6 @@ public abstract class ApiControllerBase(NpgsqlDataSource dataSource) : Controlle
             return mensaje;
         }
 
-        // Los RAISE de las RPC ya usan mensajes de negocio y normalmente no
-        // incluyen ConstraintName. Se conservan tal cual; solo se oculta el
-        // detalle tecnico de restricciones conocidas que PostgreSQL genera.
         return ex.MessageText ?? "Error en base de datos";
     }
 }

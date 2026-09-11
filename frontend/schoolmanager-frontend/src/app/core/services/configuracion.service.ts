@@ -2,6 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { DebugModeStatus, DebugStateService } from './debug-state.service';
 
 export interface InstitucionContexto {
   id: string;
@@ -59,6 +60,7 @@ export class ConfiguracionError extends Error {
 @Injectable({ providedIn: 'root' })
 export class ConfiguracionService {
   private readonly http = inject(HttpClient);
+  private readonly debugState = inject(DebugStateService);
   private readonly baseUrl = `${environment.apiUrl}/configuracion`;
 
   async obtenerContexto(): Promise<ContextoImplementacion> {
@@ -67,6 +69,19 @@ export class ConfiguracionService {
 
   async actualizarModo(multiplesInstituciones: boolean): Promise<ContextoImplementacion> {
     return this.validarContexto(await this.solicitar('PUT', '/modo', { multiplesInstituciones }));
+  }
+
+  async obtenerDebug(): Promise<DebugModeStatus> {
+    const status = this.validarDebug(await this.solicitar('GET', '/debug'));
+    this.debugState.setStatus(status);
+    return status;
+  }
+
+  async actualizarDebug(habilitado: boolean, minutos = 60): Promise<DebugModeStatus> {
+    const status = this.validarDebug(await this.solicitar('PUT', '/debug', { habilitado, minutos }));
+    this.debugState.setStatus(status);
+    if (!habilitado) this.debugState.clearDiagnostic();
+    return status;
   }
 
   async obtenerConfiguracionInstitucion(institucionId?: string): Promise<ConfiguracionInstitucion> {
@@ -102,6 +117,21 @@ export class ConfiguracionService {
       );
     }
     return contexto.institucion;
+  }
+
+  private validarDebug(data: unknown): DebugModeStatus {
+    if (!this.esRegistro(data) || typeof data['habilitado'] !== 'boolean') {
+      throw new ConfiguracionError('El estado de debug recibido no es válido.', 'INVALID_RESPONSE');
+    }
+    const expiraEn = data['expiraEn'];
+    if (expiraEn !== null && typeof expiraEn !== 'string') {
+      throw new ConfiguracionError('El vencimiento de debug recibido no es válido.', 'INVALID_RESPONSE');
+    }
+    return {
+      habilitado: data['habilitado'],
+      expiraEn,
+      requestId: typeof data['requestId'] === 'string' ? data['requestId'] : undefined
+    };
   }
 
   private validarContexto(data: unknown): ContextoImplementacion {
@@ -196,7 +226,7 @@ export class ConfiguracionService {
       case 'P0002':
         return new ConfiguracionError('El centro educativo no existe o está inactivo.', error.code);
       default:
-        return new ConfiguracionError('No se pudo obtener la configuración del sistema.', error.code ?? 'UNKNOWN');
+        return new ConfiguracionError(error.message || 'No se pudo obtener la configuración del sistema.', error.code ?? 'UNKNOWN');
     }
   }
 

@@ -1,9 +1,9 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth';
+import { DebugStateService } from '../../core/services/debug-state.service';
 import {
   ConfiguracionError,
   ConfiguracionIdentificadores,
@@ -35,6 +35,8 @@ export class Configuracion implements OnInit {
   cargando = false;
   guardando = false;
   editando = false;
+  debugGuardando = false;
+  debugMinutos = 60;
   mensaje = '';
   esError = false;
   readonly tiposDisponibles = ['identidad', 'pasaporte', 'otro'];
@@ -43,6 +45,7 @@ export class Configuracion implements OnInit {
     private readonly router: Router,
     private readonly auth: AuthService,
     private readonly configuracionService: ConfiguracionService,
+    readonly debugState: DebugStateService,
     private readonly cdr: ChangeDetectorRef
   ) {}
 
@@ -52,6 +55,10 @@ export class Configuracion implements OnInit {
 
   get puedeEditarModo(): boolean {
     return this.auth.tienePermiso('configuracion.sistema.editar');
+  }
+
+  get puedeUsarDebug(): boolean {
+    return this.auth.tienePermiso('sistema.debug.ver');
   }
 
   get puedeVerCiclos(): boolean {
@@ -78,6 +85,58 @@ export class Configuracion implements OnInit {
 
   async ngOnInit(): Promise<void> {
     await this.cargarConfiguracion();
+    if (this.puedeUsarDebug) await this.cargarDebug();
+  }
+
+  async cargarDebug(): Promise<void> {
+    try {
+      await this.configuracionService.obtenerDebug();
+    } catch (error) {
+      this.mostrarError(error, 'No se pudo cargar el estado del modo debug.');
+    } finally {
+      this.cdr.detectChanges();
+    }
+  }
+
+  async cambiarDebug(habilitado: boolean): Promise<void> {
+    if (!this.puedeUsarDebug || this.debugGuardando) return;
+    this.debugGuardando = true;
+    this.mensaje = '';
+    try {
+      const status = await this.configuracionService.actualizarDebug(habilitado, this.debugMinutos);
+      this.mensaje = status.habilitado
+        ? `Modo debug habilitado temporalmente hasta ${this.formatearFecha(status.expiraEn)}.`
+        : 'Modo debug deshabilitado.';
+      this.esError = false;
+    } catch (error) {
+      this.mostrarError(error, 'No se pudo actualizar el modo debug.');
+    } finally {
+      this.debugGuardando = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  async copiarDiagnostico(): Promise<void> {
+    const diagnostic = this.debugState.diagnostic;
+    if (!diagnostic) return;
+    const texto = [
+      `Request ID: ${diagnostic.requestId}`,
+      `HTTP: ${diagnostic.status}`,
+      `Origen: ${diagnostic.source ?? 'desconocido'}`,
+      `Endpoint: ${diagnostic.endpoint ?? 'desconocido'}`,
+      `SQLSTATE: ${diagnostic.sqlState ?? 'n/a'}`,
+      `Constraint: ${diagnostic.constraint ?? 'n/a'}`,
+      `Mensaje técnico: ${diagnostic.technicalMessage ?? 'n/a'}`,
+      `Timestamp: ${diagnostic.timestamp ?? 'n/a'}`
+    ].join('\n');
+
+    try {
+      await navigator.clipboard.writeText(texto);
+      this.mensaje = 'Diagnóstico copiado al portapapeles.';
+      this.esError = false;
+    } catch {
+      this.mostrarError(null, 'No se pudo copiar el diagnóstico.');
+    }
   }
 
   async cargarConfiguracion(): Promise<void> {
@@ -198,6 +257,10 @@ export class Configuracion implements OnInit {
 
   volver(): void {
     void this.router.navigate(['/dashboard']);
+  }
+
+  formatearFecha(value: string | null | undefined): string {
+    return value ? new Date(value).toLocaleString() : '—';
   }
 
   private formularioVacio(): InstitucionForm {

@@ -1,6 +1,4 @@
 <div class="sm-shell" (keydown.escape)="navAbierta && cerrarNav()">
-
-  <!-- Cabecera superior: siempre visible. Hamburguesa solo en móvil/tablet. -->
   <header class="sm-topbar">
     <button
       type="button"
@@ -16,6 +14,9 @@
     </div>
 
     <div class="sm-topbar__actions">
+      @if (debugActivo) {
+        <span class="sm-badge sm-badge--warning" title="Modo de diagnóstico técnico temporal activo">DEBUG</span>
+      }
       @if (roles.length > 0) {
         <span class="sm-badge sm-badge--info" [title]="roles.join(', ')">{{ roles[0] }}</span>
       }
@@ -25,7 +26,6 @@
     </div>
   </header>
 
-  <!-- Overlay que oscurece el contenido al abrir el drawer en móvil. -->
   @if (navAbierta) {
     <button
       type="button"
@@ -34,7 +34,6 @@
       (click)="cerrarNav()"></button>
   }
 
-  <!-- Sidebar: columna fija en escritorio; drawer deslizante en móvil/tablet. -->
   <aside class="sm-sidebar" [class.sm-sidebar--open]="navAbierta" aria-label="Secciones">
     <div class="sm-sidebar__brand">
       <p class="sm-eyebrow">SchoolManager</p>
@@ -71,9 +70,7 @@
     </div>
   </aside>
 
-  <!-- Contenido de la ruta hija. -->
   <main class="sm-content">
     <router-outlet></router-outlet>
   </main>
-
 </div>

@@ -49,6 +49,7 @@
         <a class="sm-btn sm-btn--primary sm-btn--sm configuration-link" routerLink="/configuracion/planes-pago">Gestionar planes de pago</a>
       </section>
     }
+
     <section class="sm-card">
       <div class="section-heading">
         <div>
@@ -113,6 +114,47 @@
         <div class="sm-state"><p>No hay un centro educativo configurado.</p></div>
       }
     </section>
+
+    @if (puedeUsarDebug) {
+      <section class="sm-card mode-card">
+        <div class="section-heading">
+          <div>
+            <p class="sm-eyebrow">Diagnóstico</p>
+            <h2 class="sm-section-title">Debug Mode</h2>
+            <p class="sm-helper">Muestra detalle técnico solo a usuarios autorizados. Se desactiva automáticamente.</p>
+          </div>
+          @if (debugState.status.habilitado) {
+            <span class="sm-badge sm-badge--warning">DEBUG ACTIVO</span>
+          }
+        </div>
+
+        <label class="sm-field">
+          <span class="sm-label">Duración</span>
+          <select class="sm-input" [(ngModel)]="debugMinutos" [disabled]="debugState.status.habilitado || debugGuardando">
+            <option [ngValue]="30">30 minutos</option>
+            <option [ngValue]="60">60 minutos</option>
+            <option [ngValue]="120">120 minutos</option>
+          </select>
+        </label>
+
+        <label class="toggle-row">
+          <input type="checkbox" [ngModel]="debugState.status.habilitado"
+            (ngModelChange)="cambiarDebug($event)" [disabled]="debugGuardando">
+          <span>
+            <strong>Habilitar detalle técnico temporal</strong>
+            <small>@if (debugState.status.habilitado) { Expira: {{ formatearFecha(debugState.status.expiraEn) }} } @else { Los usuarios normales siguen viendo mensajes amigables. }</small>
+          </span>
+        </label>
+
+        @if (debugState.diagnostic; as diagnostic) {
+          <div class="debug-diagnostic">
+            <p><strong>Último diagnóstico capturado</strong></p>
+            <code>{{ diagnostic.requestId }} · HTTP {{ diagnostic.status }} · {{ diagnostic.source || 'desconocido' }}</code>
+            <button type="button" class="sm-btn sm-btn--secondary sm-btn--sm" (click)="copiarDiagnostico()">Copiar diagnóstico</button>
+          </div>
+        }
+      </section>
+    }
 
     <section class="sm-card mode-card">
       <h2 class="sm-section-title">Modo de instituciones</h2>

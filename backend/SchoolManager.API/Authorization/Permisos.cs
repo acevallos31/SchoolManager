@@ -7,6 +7,7 @@ public static class Permisos
         public const string EditarSistema = "configuracion.sistema.editar";
         public const string VerInstituciones = "configuracion.instituciones.ver";
         public const string EditarInstituciones = "configuracion.instituciones.editar";
+        public const string Debug = "sistema.debug.ver";
     }
 
     public static class Alumnos
@@ -81,6 +82,7 @@ public static class Permisos
         Configuracion.EditarSistema,
         Configuracion.VerInstituciones,
         Configuracion.EditarInstituciones,
+        Configuracion.Debug,
         Alumnos.Ver,
         Alumnos.Crear,
         Alumnos.Editar,

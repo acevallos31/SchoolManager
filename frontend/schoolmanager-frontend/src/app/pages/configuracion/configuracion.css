@@ -144,10 +144,33 @@ hr {
   flex: 0 0 auto;
 }
 
+.debug-diagnostic {
+  margin-top: var(--sm-space-4);
+  padding: var(--sm-space-3);
+  border: 1px solid var(--sm-border);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-bg-soft);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sm-space-3);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.debug-diagnostic p {
+  margin: 0;
+}
+
+.debug-diagnostic code {
+  overflow-wrap: anywhere;
+  color: var(--sm-text-soft);
+}
+
 @media (max-width: 640px) {
   .page-header,
   .section-heading,
-  .navigation-card {
+  .navigation-card,
+  .debug-diagnostic {
     flex-direction: column;
     align-items: stretch;
   }
