@@ -16,4 +16,4 @@ COPY --from=build /app/publish .
 USER app
 
 # El reverse proxy termina TLS; dentro de la red privada el contenedor recibe HTTP.
-ENTRYPOINT ["sh", "-c", "dotnet SchoolManager.API.dll --urls http://0.0.0.0:${PORT:-8080}"] # NOSONAR
+ENTRYPOINT exec dotnet SchoolManager.API.dll --urls "http://0.0.0.0:${PORT:-8080}" # NOSONAR
