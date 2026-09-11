@@ -76,18 +76,15 @@ export class AuthService {
         this.usuarioSubject.next(null);
       }
 
-      // Mantiene la cookie HttpOnly de Vercel alineada con Supabase cuando
-      // rota el access token o se cierra la sesión. Es best-effort porque los
-      // flujos principales (login/restauración/logout) hacen la sincronización
-      // de forma explícita y esperada.
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+      // Login/restauración sincronizan la cookie explícitamente. Aquí solo
+      // reaccionamos a rotaciones y cierres espontáneos para evitar duplicar
+      // requests al endpoint edge durante el login normal.
+      if (event === 'TOKEN_REFRESHED') {
         void this.sincronizarSesionEdge(session).catch(error => {
           console.error('No se pudo sincronizar la sesion edge:', error);
         });
       } else if (event === 'SIGNED_OUT') {
-        void this.sincronizarSesionEdge(null).catch(error => {
-          console.error('No se pudo limpiar la sesion edge:', error);
-        });
+        void this.limpiarSesionEdgeBestEffort();
       }
     });
   }
@@ -158,9 +155,9 @@ export class AuthService {
     try {
       await this.supabase.auth.signOut();
     } finally {
-      await this.sincronizarSesionEdge(null);
       this.sessionSubject.next(null);
       this.usuarioSubject.next(null);
+      await this.limpiarSesionEdgeBestEffort();
     }
   }
 
@@ -219,7 +216,7 @@ export class AuthService {
     this.sessionSubject.next(session);
     if (!session) {
       this.usuarioSubject.next(null);
-      await this.sincronizarSesionEdge(null);
+      await this.limpiarSesionEdgeBestEffort();
       return;
     }
 
@@ -231,9 +228,17 @@ export class AuthService {
     try {
       await this.supabase.auth.signOut();
     } finally {
-      await this.sincronizarSesionEdge(null);
       this.sessionSubject.next(null);
       this.usuarioSubject.next(null);
+      await this.limpiarSesionEdgeBestEffort();
+    }
+  }
+
+  private async limpiarSesionEdgeBestEffort(): Promise<void> {
+    try {
+      await this.sincronizarSesionEdge(null);
+    } catch (error) {
+      console.error('No se pudo limpiar la sesion edge:', error);
     }
   }
 
