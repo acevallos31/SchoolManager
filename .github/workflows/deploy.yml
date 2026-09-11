@@ -152,9 +152,9 @@ jobs:
           ARGS="${ARGS} /d:sonar.python.version=3.11"
           ARGS="${ARGS} /d:sonar.plsql.file.suffixes=.pks,.pkb,.pls,.plb"
           ARGS="${ARGS} /d:sonar.exclusions=**/node_modules/**,**/dist/**,**/bin/**,**/obj/**,**/coverage/**,**/*.min.js,coverage-backend/**,**/lcov.info,**/*.cobertura.xml,**/*.spec.ts,**/*.test.ts,e2e/**"
-          # Tooling/CI y scripts estáticos PWA: se analizan estáticamente, pero no forman
-          # parte del código instrumentado por Coverlet/LCOV, por lo que no deben penalizar cobertura.
-          ARGS="${ARGS} /d:sonar.coverage.exclusions=scripts/check-coverage-gate.py,frontend/schoolmanager-frontend/public/sw.js,frontend/schoolmanager-frontend/public/register-sw.js"
+          # Tooling/CI, scripts PWA y adaptadores Vercel: se analizan estáticamente,
+          # pero no forman parte del código instrumentado por Coverlet/LCOV.
+          ARGS="${ARGS} /d:sonar.coverage.exclusions=scripts/check-coverage-gate.py,frontend/schoolmanager-frontend/public/sw.js,frontend/schoolmanager-frontend/public/register-sw.js,frontend/schoolmanager-frontend/middleware.ts,frontend/schoolmanager-frontend/api/**"
           # Baseline y migraciones son artefactos SQL históricos/versionados: se conservan
           # en el análisis estático, pero se excluyen únicamente del detector de duplicación
           # para que CPD mida código mantenible y no repetición inherente a scripts append-only.
