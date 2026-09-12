@@ -66,3 +66,17 @@ La sesión seguirá siendo administrada por Supabase Auth. El access token se re
 ## Siguiente paso
 
 Implementar el botón y el flujo Angular en `frontend/schoolmanager-frontend`, conservando `auth.ts` como servicio unificado y manteniendo el backend como autoridad final de roles y permisos.
+
+
+## Estado posterior de implementación
+
+Se implementó en la rama `docs/oauth-google-avance-040`:
+
+- Botón **Continuar con Google** en la pantalla de login.
+- Método `AuthService.loginWithGoogle()` usando `signInWithOAuth({ provider: 'google' })`.
+- Redirect dinámico a `${window.location.origin}/auth/callback`, compatible con producción y preview autorizado.
+- Ruta Angular `/auth/callback`.
+- Componente de callback que espera la restauración de sesión y redirige al dashboard o al portal responsable según los roles internos.
+- Se conserva la validación de permisos en backend y la sincronización server-side existente.
+
+Pendiente de validación: ejecutar pruebas frontend, build de producción, CI/Sonar y prueba manual del consentimiento de Google en producción y preview. El Client Secret no fue agregado al repositorio ni al código Angular.
