@@ -65,6 +65,7 @@ export class Login {
       await this.auth.loginWithGoogle();
     } catch (error: unknown) {
       this.error = this.obtenerMensajeError(error);
+    } finally {
       this.cargandoGoogle = false;
     }
   }
