@@ -1,6 +1,6 @@
 # SchoolManager — Avance OAuth con Google
 
-**Fecha:** 12 de septiembre de 2026  
+**Fecha:** 12 de septiembre de 2026
 **Estado:** configuración externa completada; implementación frontend pendiente.
 
 ## Arquitectura
