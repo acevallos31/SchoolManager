@@ -114,3 +114,25 @@ La investigación debe revisar el flujo completo con logs y trazas seguras, sin 
 - El middleware redirige por cookie ausente o inválida.
 - La URL de callback o el fallback de Vercel alteran el flujo.
 
+## Diagnóstico y parche del callback — 12 de septiembre de 2026
+
+Hermes confirmó dos bloqueos del despliegue:
+
+1. Vercel enviaba `/auth/callback` al catch-all 404 y servía una página estática sin JavaScript. El fragmento OAuth no podía ser procesado por Supabase Auth.
+2. `/api/auth/session` respondía 500 antes de validar el token. La función importaba el helper desde fuera de `api/`, por lo que no llegaba a emitir la cookie `__Host-schoolmanager-session`.
+
+Parche aplicado en el PR #89:
+
+- Regla explícita `^/auth/callback/?$ -> /index.html` antes del catch-all.
+- Validación del token contenida en `api/auth/session.ts`, sin importación entre directorios.
+- Pruebas de regresión para la ruta de Vercel y para POST/DELETE de la función de sesión.
+- Nuevo paso de CI `npm run test:vercel`.
+
+Estado posterior al parche:
+
+- Código y pruebas agregados en la rama del PR.
+- Pendiente: CI, SonarCloud y nuevo preview.
+- Pendiente: prueba manual OAuth en el preview.
+- Si `/api/auth/me` responde 403, comprobar en Supabase que `auth.users.id` esté vinculado con `public.usuarios.auth_user_id`, que el usuario esté activo y que tenga roles internos.
+- No fusionar hasta confirmar callback 200, función de sesión 204, cookie emitida y acceso al dashboard o portal correspondiente.
+

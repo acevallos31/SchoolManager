@@ -23,6 +23,10 @@
       "dest": "/login/index.html"
     },
     {
+      "src": "^/auth/callback/?$",
+      "dest": "/index.html"
+    },
+    {
       "src": "^/dashboard/?$",
       "dest": "/index.html"
     },

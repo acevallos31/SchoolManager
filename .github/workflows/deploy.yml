@@ -67,6 +67,11 @@ jobs:
           cd frontend/schoolmanager-frontend
           npm ci --ignore-scripts
 
+      - name: Ejecutar tests de rutas y funciones Vercel
+        run: |
+          cd frontend/schoolmanager-frontend
+          npm run test:vercel
+
       - name: Ejecutar tests unitarios del frontend (headless, con cobertura lcov)
         run: |
           cd frontend/schoolmanager-frontend
