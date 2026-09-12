@@ -17,7 +17,8 @@ having count(*) > 1;
 select '027_funcion_faltante' as error
 where to_regprocedure('public.vincular_identidad_usuario(uuid, uuid)') is null;
 
--- 3. Es SECURITY DEFINER y fija search_path (no hereda el del invocador).
+-- 3. Es SECURITY DEFINER y fija search_path VACIO (no hereda el del invocador
+--    ni resuelve nada por un esquema implicito).
 select '027_no_security_definer' as error
 where exists (
   select 1
@@ -38,7 +39,7 @@ where exists (
     and not exists (
       select 1
       from unnest(coalesce(p.proconfig, '{}'::text[])) as c
-      where c like 'search_path=%'
+      where c = 'search_path=""'
     )
 );
 

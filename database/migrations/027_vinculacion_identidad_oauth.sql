@@ -42,7 +42,11 @@ create or replace function public.vincular_identidad_usuario(
 ) returns text
 language plpgsql
 security definer
-set search_path = pg_catalog, public, pg_temp
+-- search_path vacio: el cuerpo solo usa nombres calificados (public.usuarios,
+-- public.schema_migrations) y tipos de pg_catalog, de modo que nada se resuelve
+-- a traves del search_path del invocador. Es la defensa recomendada para
+-- SECURITY DEFINER.
+set search_path = ''
 as $$
 declare
   v_usuario_id uuid;

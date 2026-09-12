@@ -113,6 +113,23 @@ public sealed class Migration027Tests(PostgreSqlFixture fixture) : IClassFixture
             """));
     }
 
+    [Fact]
+    public async Task La_funcion_fija_search_path_vacio()
+    {
+        // SECURITY DEFINER con search_path vacio: el cuerpo resuelve todo por
+        // nombre calificado, nada queda a merced del search_path del invocador.
+        Assert.True(await ScalarBoolAsync("""
+            select exists (
+              select 1
+              from pg_proc p
+              join pg_namespace n on n.oid = p.pronamespace
+              where n.nspname = 'public'
+                and p.proname = 'vincular_identidad_usuario'
+                and 'search_path=""' = any(coalesce(p.proconfig, '{}'::text[]))
+            )
+            """));
+    }
+
     private async Task<string> VincularAsync(Guid usuarioId, Guid authUserId)
     {
         await using var command = fixture.DataSource.CreateCommand(
