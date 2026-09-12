@@ -91,18 +91,21 @@
           </section>
 
           <!-- Pestañas: resumen / cargos / pagos. -->
-          <div class="sm-tabs portal-tabs" role="tablist" aria-label="Secciones financieras">
+          <div class="sm-tabs portal-tabs" role="group" aria-label="Secciones financieras">
             <button
               type="button"
               [class.sm-tab--active]="tab === 'resumen'"
+              [attr.aria-pressed]="tab === 'resumen'"
               (click)="cambiarTab('resumen')">Resumen</button>
             <button
               type="button"
               [class.sm-tab--active]="tab === 'cargos'"
+              [attr.aria-pressed]="tab === 'cargos'"
               (click)="cambiarTab('cargos')">Cargos ({{ cargos.length }})</button>
             <button
               type="button"
               [class.sm-tab--active]="tab === 'pagos'"
+              [attr.aria-pressed]="tab === 'pagos'"
               (click)="cambiarTab('pagos')">Pagos ({{ pagos.length }})</button>
           </div>
 
@@ -216,6 +219,7 @@
                             <button
                               type="button"
                               class="sm-btn sm-btn--ghost sm-btn--sm"
+                              [attr.aria-expanded]="pagoAbiertoId === pago.id"
                               (click)="alternarAplicaciones(pago)">
                               {{ pagoAbiertoId === pago.id ? 'Ocultar detalle' : 'Ver aplicaciones' }}
                             </button>
@@ -228,7 +232,7 @@
                                 <div class="sm-alert sm-alert--error" role="alert">
                                   No se pudieron cargar las aplicaciones: {{ aplicacionesErrorPorPago[pago.id] }}
                                 </div>
-                              } @else if (aplicacionesCargando && !(aplicacionesPorPago[pago.id] ?? []).length) {
+                              } @else if (aplicacionesCargandoPorPago[pago.id] && !(aplicacionesPorPago[pago.id] ?? []).length) {
                                 <div class="aplicaciones-cargando" role="status">
                                   <span class="sm-spinner sm-spinner--sm" aria-hidden="true"></span>
                                   <span>Cargando aplicaciones…</span>

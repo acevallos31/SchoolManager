@@ -31,7 +31,7 @@ export class PortalPadre implements OnInit {
   aplicacionesPorPago: Record<string, AplicacionPago[]> = {};
   aplicacionesErrorPorPago: Record<string, string> = {};
   pagoAbiertoId: string | null = null;
-  aplicacionesCargando = false;
+  aplicacionesCargandoPorPago: Record<string, boolean> = {};
 
   cargandoTab = false;
   errorTab: string | null = null;
@@ -84,7 +84,7 @@ export class PortalPadre implements OnInit {
     this.aplicacionesPorPago = {};
     this.aplicacionesErrorPorPago = {};
     this.pagoAbiertoId = null;
-    this.aplicacionesCargando = false;
+    this.aplicacionesCargandoPorPago = {};
     this.errorTab = null;
     await this.cargarAlumno();
   }
@@ -118,7 +118,7 @@ export class PortalPadre implements OnInit {
   async alternarAplicaciones(pago: Pago): Promise<void> {
     if (this.pagoAbiertoId === pago.id) {
       this.pagoAbiertoId = null;
-      this.aplicacionesCargando = false;
+      delete this.aplicacionesCargandoPorPago[pago.id];
       this.cdr.detectChanges();
       return;
     }
@@ -131,7 +131,7 @@ export class PortalPadre implements OnInit {
   }
 
   async cargarAplicaciones(pagoId: string): Promise<void> {
-    this.aplicacionesCargando = true;
+    this.aplicacionesCargandoPorPago[pagoId] = true;
     this.aplicacionesErrorPorPago[pagoId] = ''; // limpia error previo para reintentar
     try {
       this.aplicacionesPorPago[pagoId] = await this.portal.aplicacionesPago(pagoId);
@@ -141,7 +141,7 @@ export class PortalPadre implements OnInit {
       delete this.aplicacionesPorPago[pagoId];
       this.aplicacionesErrorPorPago[pagoId] = this.mensajeDe(e);
     } finally {
-      this.aplicacionesCargando = false;
+      delete this.aplicacionesCargandoPorPago[pagoId];
     }
   }
 
