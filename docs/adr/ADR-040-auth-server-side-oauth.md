@@ -144,3 +144,19 @@ Google y Microsoft se incorporarán después de estabilizar la protección serve
 - No mover autorización desde .NET a Vercel.
 - No tocar RLS ni base de datos.
 - No convertir Angular a SSR completo.
+
+
+## Implementación real verificada
+
+La implementación actual usa estos componentes concretos:
+
+- Angular `AuthService` ejecuta `signInWithPassword()`, restaura la sesión persistida y consulta `GET /api/auth/me`.
+- `jwt.interceptor.ts` agrega `Authorization: Bearer <access_token>` únicamente a las solicitudes cuyo destino comienza con `environment.apiUrl`.
+- `api/auth/session.ts` recibe el Bearer token, lo valida contra Supabase y crea la cookie `__Host-schoolmanager-session` con `HttpOnly`, `Secure`, `SameSite=Lax` y una duración de una hora.
+- `middleware.ts` lee esa cookie, vuelve a validar el token contra Supabase y redirige a `/login` cuando falta o es inválido.
+- El backend ASP.NET Core valida nuevamente el JWT mediante JWT Bearer; la cookie de Vercel no reemplaza esta validación.
+- `permissionGuard` controla la navegación, pero no es la autoridad de seguridad.
+
+Por tanto, el diseño actual conserva dos representaciones de la sesión: el almacenamiento gestionado por Supabase en el navegador y la cookie HttpOnly para el middleware server-side. La migración completa a cookies nativas mediante `@supabase/ssr` sigue siendo una posible fase posterior, no una funcionalidad ya implementada.
+
+Google y Microsoft todavía están documentados como preparación OAuth. No existen aún botones ni flujos sociales implementados en este bloque.
