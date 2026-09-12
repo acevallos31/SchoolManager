@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 describe('vercel.json', () => {
-  it('sirve la SPA Angular en /auth/callback antes del catch-all 404', () => {
+  it('sirve el shell público de Angular en /auth/callback antes del catch-all 404', () => {
     const config = JSON.parse(
       readFileSync(resolve(process.cwd(), 'vercel.json'), 'utf8')
     ) as {
@@ -19,8 +19,9 @@ describe('vercel.json', () => {
 
     expect(callbackIndex).toBeGreaterThanOrEqual(0);
     expect(config.routes[callbackIndex]).toMatchObject({
-      dest: '/index.html'
+      dest: '/'
     });
     expect(catchAllIndex).toBeGreaterThan(callbackIndex);
+    expect(config.routes.some(route => route.dest === '/index.html')).toBe(false);
   });
 });

@@ -20,7 +20,7 @@ function redirectToLogin(request: Request): Response {
 }
 
 async function serveAppShell(request: Request): Promise<Response> {
-  const indexUrl = new URL('/index.html', request.url);
+  const indexUrl = new URL('/', request.url);
   const upstream = await fetch(indexUrl, {
     method: 'GET',
     cache: 'no-store'
