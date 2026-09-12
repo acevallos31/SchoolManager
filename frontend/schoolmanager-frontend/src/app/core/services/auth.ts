@@ -151,6 +151,21 @@ export class AuthService {
     }
   }
 
+  async loginWithGoogle(): Promise<void> {
+    const redirectTo = `${window.location.origin}/auth/callback`;
+    const { error } = await this.supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo }
+    });
+
+    if (error) {
+      throw new AuthAppError(
+        'No se pudo iniciar el acceso con Google.',
+        'UNKNOWN'
+      );
+    }
+  }
+
   async logout() {
     try {
       await this.supabase.auth.signOut();
