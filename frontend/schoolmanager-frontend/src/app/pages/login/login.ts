@@ -16,6 +16,7 @@ export class Login {
   password = '';
   error = '';
   cargando = false;
+  cargandoGoogle = false;
 
   constructor(private auth: AuthService, private router: Router) {}
 
@@ -53,6 +54,18 @@ export class Login {
       }
     } finally {
       this.cargando = false;
+    }
+  }
+
+  async loginWithGoogle() {
+    this.error = '';
+    this.cargandoGoogle = true;
+
+    try {
+      await this.auth.loginWithGoogle();
+    } catch (error: unknown) {
+      this.error = this.obtenerMensajeError(error);
+      this.cargandoGoogle = false;
     }
   }
 
