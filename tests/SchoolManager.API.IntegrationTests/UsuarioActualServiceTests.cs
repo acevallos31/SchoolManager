@@ -76,24 +76,28 @@ public sealed class UsuarioActualServiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Rechaza_usuario_inexistente()
+    public async Task Rechaza_usuario_inexistente_como_identidad_no_vinculada()
     {
         var principal = CrearPrincipal(Guid.NewGuid().ToString());
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(
+        var excepcion = await Assert.ThrowsAsync<IdentidadNoVinculadaException>(
             () => _service.ObtenerAsync(principal)
         );
+
+        Assert.NotEqual(Guid.Empty, excepcion.AuthUserId);
     }
 
     [Fact]
-    public async Task Rechaza_usuario_inactivo()
+    public async Task Rechaza_usuario_inactivo_con_excepcion_especifica()
     {
         var authUserId = Guid.NewGuid();
-        await InsertarUsuarioAsync(authUserId, ["padre"], activo: false);
+        var esperado = await InsertarUsuarioAsync(authUserId, ["padre"], activo: false);
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(
+        var excepcion = await Assert.ThrowsAsync<UsuarioInactivoException>(
             () => _service.ObtenerAsync(CrearPrincipal(authUserId.ToString()))
         );
+
+        Assert.Equal(esperado.Id, excepcion.UsuarioId);
     }
 
     [Fact]

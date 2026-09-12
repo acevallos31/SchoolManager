@@ -181,7 +181,7 @@ describe('AuthService', () => {
     expect(llamadasA(fetchMock, '/api/auth/session')[0][1]).toMatchObject({ method: 'DELETE' });
   });
 
-  it('un error de /auth/me en asegurarUsuarioInicial no bloquea el bootstrap', async () => {
+  it('un error de /auth/me en asegurarUsuarioInicial no bloquea el bootstrap ni destruye la sesión', async () => {
     vi.spyOn(service.supabase.auth, 'getSession').mockResolvedValue({
       data: { session },
       error: null
@@ -196,7 +196,68 @@ describe('AuthService', () => {
     await expect(service.asegurarUsuarioInicial()).resolves.toBeUndefined();
 
     expect(service.isLoggedIn()).toBe(false);
-    expect(signOut).toHaveBeenCalled();
+    expect(signOut).not.toHaveBeenCalled();
+    expect(service.getToken()).toBe('access-token-prueba');
+  });
+
+  it('conserva la sesión y explica el motivo cuando la identidad no está vinculada', async () => {
+    vi.spyOn(service.supabase.auth, 'getSession').mockResolvedValue({
+      data: { session },
+      error: null
+    } as never);
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
+      if (esSesionEdge(input)) {
+        return new Response(null, { status: 204 });
+      }
+      return new Response(JSON.stringify({ codigo: 'IDENTIDAD_NO_VINCULADA', mensaje: 'x' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    });
+
+    await service.asegurarUsuarioInicial();
+
+    expect(service.isLoggedIn()).toBe(false);
+    expect(signOut).not.toHaveBeenCalled();
+    expect(service.getToken()).toBe('access-token-prueba');
+    expect(service.mensajeSesionInvalidaPendiente()).toContain('no esta vinculada');
+    expect(service.consumirMensajeSesionInvalida()).toContain('no esta vinculada');
+    expect(service.mensajeSesionInvalidaPendiente()).toBeNull();
+  });
+
+  it('distingue el usuario inactivo del error genérico de perfil', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
+      if (esSesionEdge(input)) {
+        return new Response(null, { status: 204 });
+      }
+      return new Response(JSON.stringify({ codigo: 'USUARIO_INACTIVO' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    });
+
+    await expect(service.login('padre@ejemplo.com', 'password')).rejects.toMatchObject({
+      code: 'USER_PROFILE_NOT_FOUND'
+    });
+
+    expect(service.isLoggedIn()).toBe(false);
+  });
+
+  it('mapea la identidad no vinculada al código USER_PROFILE_NOT_FOUND en login', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
+      if (esSesionEdge(input)) {
+        return new Response(null, { status: 204 });
+      }
+      return new Response(JSON.stringify({ codigo: 'IDENTIDAD_NO_VINCULADA' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    });
+
+    await expect(service.login('padre@ejemplo.com', 'password')).rejects.toMatchObject({
+      code: 'USER_PROFILE_NOT_FOUND'
+    });
+    expect(signOut).toHaveBeenCalledOnce();
   });
 
   it('un fallo al limpiar la cookie edge no deja sesión local activa', async () => {
@@ -208,7 +269,15 @@ describe('AuthService', () => {
       if (esSesionEdge(input)) {
         return new Response(null, { status: 500 });
       }
-      return new Response(null, { status: 500 });
+      return new Response(
+        JSON.stringify({
+          id: 'usuario-id',
+          personaId: 'persona-id',
+          roles: ['padre'],
+          permisos: []
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
     });
 
     await expect(service.asegurarUsuarioInicial()).resolves.toBeUndefined();

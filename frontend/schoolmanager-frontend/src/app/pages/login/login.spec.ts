@@ -8,7 +8,12 @@ import { Login } from './login';
 describe('Login', () => {
   let component: Login;
   let fixture: ComponentFixture<Login>;
-  let auth: { login: ReturnType<typeof vi.fn>; loginWithGoogle: ReturnType<typeof vi.fn>; logout: ReturnType<typeof vi.fn> };
+  let auth: {
+    login: ReturnType<typeof vi.fn>;
+    loginWithGoogle: ReturnType<typeof vi.fn>;
+    logout: ReturnType<typeof vi.fn>;
+    consumirMensajeSesionInvalida: ReturnType<typeof vi.fn>;
+  };
   let router: { navigate: ReturnType<typeof vi.fn> };
 
   const rolAdmin = { id: 'u1', personaId: 'p1', roles: ['admin'], permisos: [] };
@@ -18,7 +23,8 @@ describe('Login', () => {
     auth = {
       login: vi.fn(),
       loginWithGoogle: vi.fn().mockResolvedValue(undefined),
-      logout: vi.fn().mockResolvedValue(undefined)
+      logout: vi.fn().mockResolvedValue(undefined),
+      consumirMensajeSesionInvalida: vi.fn().mockReturnValue(null)
     };
     router = { navigate: vi.fn().mockResolvedValue(true) };
 
@@ -94,6 +100,29 @@ describe('Login', () => {
     expect(component.error).toBe('Ocurrio un error inesperado. Intenta nuevamente.');
     expect(component.error).not.toContain('network');
     expect(component.error).not.toContain('Supabase');
+    expect(auth.logout).toHaveBeenCalled();
+  });
+
+  it('muestra el motivo conservado por AuthService al volver de Google sin vínculo', () => {
+    auth.consumirMensajeSesionInvalida.mockReturnValue(
+      'Tu cuenta de Google no esta vinculada a un usuario de SchoolManager.'
+    );
+
+    component.ngOnInit();
+
+    expect(component.error).toContain('no esta vinculada');
+  });
+
+  it('explica la identidad no vinculada sin exponer detalles internos', async () => {
+    auth.login.mockRejectedValue(new AuthAppError('detalle interno', 'USER_PROFILE_NOT_FOUND'));
+
+    component.correo = 'padre@schoolmanager.com';
+    component.password = 'secreto';
+
+    await component.login();
+
+    expect(component.error).toContain('no esta vinculada a un usuario de SchoolManager');
+    expect(component.error).not.toContain('detalle interno');
     expect(auth.logout).toHaveBeenCalled();
   });
 

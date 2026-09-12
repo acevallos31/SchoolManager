@@ -21,6 +21,7 @@ public sealed class UsuarioActualService(NpgsqlDataSource dataSource) : IUsuario
             select
               u.id,
               u.persona_id,
+              u.activo,
               coalesce((
                 select array_agg(distinct r.codigo order by r.codigo)
                 from public.usuarios_roles ur
@@ -41,7 +42,6 @@ public sealed class UsuarioActualService(NpgsqlDataSource dataSource) : IUsuario
               ), '{}'::text[]) as permisos
             from public.usuarios u
             where u.auth_user_id = $1
-              and u.activo = true
             """);
         command.Parameters.AddWithValue(authUserId);
 
@@ -49,14 +49,21 @@ public sealed class UsuarioActualService(NpgsqlDataSource dataSource) : IUsuario
 
         if (!await reader.ReadAsync(cancellationToken))
         {
-            throw new UnauthorizedAccessException("No existe un usuario activo para la identidad autenticada.");
+            // El token es valido pero nadie lo vinculo a public.usuarios:
+            // caso propio de la vinculacion explicita pendiente (migracion 027).
+            throw new IdentidadNoVinculadaException(authUserId);
+        }
+
+        if (!reader.GetBoolean(2))
+        {
+            throw new UsuarioInactivoException(reader.GetGuid(0));
         }
 
         return new UsuarioActual(
             reader.GetGuid(0),
             reader.GetGuid(1),
-            Array.AsReadOnly(reader.GetFieldValue<string[]>(2)),
-            Array.AsReadOnly(reader.GetFieldValue<string[]>(3))
+            Array.AsReadOnly(reader.GetFieldValue<string[]>(3)),
+            Array.AsReadOnly(reader.GetFieldValue<string[]>(4))
         );
     }
 }

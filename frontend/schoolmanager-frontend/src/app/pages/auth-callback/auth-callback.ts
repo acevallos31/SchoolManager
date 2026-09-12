@@ -32,7 +32,12 @@ export class AuthCallback implements OnInit {
     await this.auth.asegurarUsuarioInicial();
 
     if (!this.auth.isLoggedIn()) {
-      this.mensaje = 'No se pudo validar la sesión. Regresando al login...';
+      // El motivo lo conserva AuthService (identidad de Google sin vincular,
+      // usuario inactivo o fallo de red) en lugar de limpiar la sesión en
+      // silencio. /login lo consume y lo muestra.
+      this.mensaje =
+        this.auth.mensajeSesionInvalidaPendiente() ??
+        'No se pudo validar la sesión. Regresando al login...';
       await this.router.navigate(['/login']);
       return;
     }
