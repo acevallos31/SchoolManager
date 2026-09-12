@@ -12,6 +12,7 @@ describe('AuthCallback', () => {
     asegurarUsuarioInicial: ReturnType<typeof vi.fn>;
     isLoggedIn: ReturnType<typeof vi.fn>;
     tieneRol: ReturnType<typeof vi.fn>;
+    mensajeSesionInvalidaPendiente: ReturnType<typeof vi.fn>;
   };
   let router: { navigate: ReturnType<typeof vi.fn> };
 
@@ -19,7 +20,8 @@ describe('AuthCallback', () => {
     auth = {
       asegurarUsuarioInicial: vi.fn().mockResolvedValue(undefined),
       isLoggedIn: vi.fn(),
-      tieneRol: vi.fn()
+      tieneRol: vi.fn(),
+      mensajeSesionInvalidaPendiente: vi.fn().mockReturnValue(null)
     };
     router = { navigate: vi.fn().mockResolvedValue(true) };
 
@@ -43,6 +45,18 @@ describe('AuthCallback', () => {
     expect(auth.asegurarUsuarioInicial).toHaveBeenCalledOnce();
     expect(router.navigate).toHaveBeenCalledWith(['/login']);
     expect(component.mensaje).toContain('No se pudo validar');
+  });
+
+  it('muestra el motivo conservado cuando la identidad no está vinculada', async () => {
+    auth.isLoggedIn.mockReturnValue(false);
+    auth.mensajeSesionInvalidaPendiente.mockReturnValue(
+      'Tu cuenta de Google no esta vinculada a un usuario de SchoolManager.'
+    );
+
+    await component.ngOnInit();
+
+    expect(component.mensaje).toContain('no esta vinculada');
+    expect(router.navigate).toHaveBeenCalledWith(['/login']);
   });
 
   it('redirige al portal cuando la sesión pertenece a un padre', async () => {

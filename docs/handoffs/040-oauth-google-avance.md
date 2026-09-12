@@ -135,3 +135,60 @@ Estado posterior al parche:
 - Pendiente: prueba manual OAuth en el preview.
 - Si `/api/auth/me` responde 403, comprobar en Supabase que `auth.users.id` esté vinculado con `public.usuarios.auth_user_id`, que el usuario esté activo y que tenga roles internos.
 - No fusionar hasta confirmar callback 200, función de sesión 204, cookie emitida y acceso al dashboard o portal correspondiente.
+
+## Cierre 040 — vinculación explícita de la identidad OAuth
+
+Implementado en la rama `fix/040-vinculacion-identidad-oauth` (PR #91):
+
+- **Migración 027** (`database/migrations/027_vinculacion_identidad_oauth.sql`): crea la RPC `SECURITY DEFINER`:
+
+  ```
+  public.vincular_identidad_usuario(p_usuario_id uuid, p_auth_user_id uuid) returns text
+  ```
+
+  Nombre real de la función: **`public.vincular_identidad_usuario(p_usuario_id, p_auth_user_id)`**. No existe `vincular_identidad_oauth`; ninguna referencia debe usar o invocar ese nombre.
+
+  Guardas (idempotente, auditable, no vincula por correo, no asigna roles ni permisos):
+  - `p_usuario_id` y `p_auth_user_id` obligatorios (`22004`).
+  - El destino `public.usuarios.id` debe existir (`P0002`) y estar activo (`P0001`).
+  - La identidad `auth_user_id` no puede estar ya vinculada a otro usuario (`23505`).
+  - No re-vincula una identidad ya tomada en el mismo usuario (`P0001`) ni reasigna en silencio.
+  - `EXECUTE` restringido: `revoke all` a `public/anon/authenticated`; solo `service_role`.
+  - Registro en `schema_migrations` (`version = '027'`).
+
+- **Backend:** `IdentidadNoVinculadaException` (incluye `UsuarioInactivoException`), `UsuarioActualService` distingue "identidad no vinculada" vs "usuario inactivo", `AuthController` responde `403` con `codigo: IDENTIDAD_NO_VINCULADA`.
+
+- **Frontend:** `core/services/auth.ts` (`mapearErrorPerfil`, `consumirMensajeSesionInvalida`), `pages/auth-callback` y `pages/login` muestran el mensaje de cuenta no vinculada.
+
+- **Validaciones:** Backend 177/177 · DB 168/168 · Frontend 322/322.
+
+### SQL manual post-merge — MANUAL Y NO EJECUTADO
+
+> Ninguna sentencia fue ejecutada. No se escribió nada en Supabase ni en producción. El operador autorizado las corre a mano después del merge.
+
+1) Aplicar la migración (crea la RPC):
+
+```
+database/migrations/027_vinculacion_identidad_oauth.sql
+```
+
+2) Vincular la identidad (reemplazar los UUID reales; obtenerlos de `auth.users` y `public.usuarios`):
+
+```sql
+select public.vincular_identidad_usuario(
+  p_usuario_id    := '<UUID de public.usuarios>',
+  p_auth_user_id  := '<UUID de auth.users>'
+);
+```
+
+Devuelve `vinculado` (escribe) o `ya_vinculado` (par ya coincidente, sin escritura).
+
+3) Verificar:
+
+```sql
+select id, activo, persona_id, auth_user_id from public.usuarios;
+```
+
+Rollback (si hiciera falta): `database/migrations/rollback/027_vinculacion_identidad_oauth.rollback.sql`.
+
+Verificación read-only tras la migración: `database/migrations/validation/027_vinculacion_identidad_oauth.validation.sql`.

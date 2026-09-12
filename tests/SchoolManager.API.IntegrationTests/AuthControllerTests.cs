@@ -85,6 +85,38 @@ public sealed class AuthControllerTests : IClassFixture<AuthControllerTests.ApiF
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Identidad_no_vinculada_devuelve_403_con_codigo_accionable()
+    {
+        var response = await GetMeAsync("no-vinculada");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal("IDENTIDAD_NO_VINCULADA", json.RootElement.GetProperty("codigo").GetString());
+        Assert.False(string.IsNullOrWhiteSpace(json.RootElement.GetProperty("mensaje").GetString()));
+    }
+
+    [Fact]
+    public async Task Usuario_inactivo_devuelve_403_con_codigo_propio()
+    {
+        var response = await GetMeAsync("inactivo");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal("USUARIO_INACTIVO", json.RootElement.GetProperty("codigo").GetString());
+    }
+
+    [Fact]
+    public async Task Error_de_identidad_no_expone_el_identificador_de_la_identidad()
+    {
+        var response = await GetMeAsync("no-vinculada");
+        var contenido = await response.Content.ReadAsStringAsync();
+
+        Assert.DoesNotContain("no-vinculada", contenido, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("token", contenido, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("auth_user_id", contenido, StringComparison.OrdinalIgnoreCase);
+    }
+
     private async Task<HttpResponseMessage> GetMeAsync(string identidad)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, "/api/auth/me");
@@ -126,6 +158,16 @@ public sealed class AuthControllerTests : IClassFixture<AuthControllerTests.ApiF
             if (identidad == "no-resoluble")
             {
                 throw new UnauthorizedAccessException();
+            }
+
+            if (identidad == "no-vinculada")
+            {
+                throw new IdentidadNoVinculadaException(Guid.NewGuid());
+            }
+
+            if (identidad == "inactivo")
+            {
+                throw new UsuarioInactivoException(Guid.NewGuid());
             }
 
             var rol = identidad == "padre" ? "padre" : "admin";
