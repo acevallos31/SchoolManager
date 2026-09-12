@@ -8,7 +8,7 @@ import { Login } from './login';
 describe('Login', () => {
   let component: Login;
   let fixture: ComponentFixture<Login>;
-  let auth: { login: ReturnType<typeof vi.fn>; logout: ReturnType<typeof vi.fn> };
+  let auth: { login: ReturnType<typeof vi.fn>; loginWithGoogle: ReturnType<typeof vi.fn>; logout: ReturnType<typeof vi.fn> };
   let router: { navigate: ReturnType<typeof vi.fn> };
 
   const rolAdmin = { id: 'u1', personaId: 'p1', roles: ['admin'], permisos: [] };
@@ -17,6 +17,7 @@ describe('Login', () => {
   beforeEach(async () => {
     auth = {
       login: vi.fn(),
+      loginWithGoogle: vi.fn().mockResolvedValue(undefined),
       logout: vi.fn().mockResolvedValue(undefined)
     };
     router = { navigate: vi.fn().mockResolvedValue(true) };
@@ -45,6 +46,14 @@ describe('Login', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/dashboard']);
     expect(component.error).toBe('');
     expect(component.cargando).toBe(false);
+  });
+
+  it('inicia el flujo OAuth con Google', async () => {
+    await component.loginWithGoogle();
+
+    expect(auth.loginWithGoogle).toHaveBeenCalledOnce();
+    expect(component.error).toBe('');
+    expect(component.cargandoGoogle).toBe(false);
   });
 
   it('inicia sesion como padre y navega al portal', async () => {
