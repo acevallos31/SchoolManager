@@ -24,43 +24,43 @@
     },
     {
       "src": "^/auth/callback/?$",
-      "dest": "/index.html"
+      "dest": "/"
     },
     {
       "src": "^/dashboard/?$",
-      "dest": "/index.html"
+      "dest": "/"
     },
     {
       "src": "^/alumnos/?$",
-      "dest": "/index.html"
+      "dest": "/"
     },
     {
       "src": "^/matriculas/?$",
-      "dest": "/index.html"
+      "dest": "/"
     },
     {
       "src": "^/configuracion(?:/.*)?$",
-      "dest": "/index.html"
+      "dest": "/"
     },
     {
       "src": "^/responsables/?$",
-      "dest": "/index.html"
+      "dest": "/"
     },
     {
       "src": "^/cargos/?$",
-      "dest": "/index.html"
+      "dest": "/"
     },
     {
       "src": "^/pagos/?$",
-      "dest": "/index.html"
+      "dest": "/"
     },
     {
       "src": "^/portal-padre/?$",
-      "dest": "/index.html"
+      "dest": "/"
     },
     {
       "src": "^/home/?$",
-      "dest": "/index.html"
+      "dest": "/"
     },
     {
       "src": "/.*",
