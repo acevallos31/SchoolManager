@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -11,13 +11,21 @@ import { AuthAppError, AuthService } from '../../core/services/auth';
   templateUrl: './login.html',
   styleUrl: './login.css'
 })
-export class Login {
+export class Login implements OnInit {
   correo = '';
   password = '';
   error = '';
   cargando = false;
+  cargandoGoogle = false;
 
   constructor(private auth: AuthService, private router: Router) {}
+
+  ngOnInit(): void {
+    // Motivo conservado por AuthService cuando había sesión pero el backend no
+    // reconoció el perfil (p. ej. identidad de Google aún no vinculada). Se
+    // muestra en lugar del genérico "no se pudo validar la sesión".
+    this.error = this.auth.consumirMensajeSesionInvalida() ?? '';
+  }
 
   async login() {
     this.error = '';
@@ -56,6 +64,19 @@ export class Login {
     }
   }
 
+  async loginWithGoogle() {
+    this.error = '';
+    this.cargandoGoogle = true;
+
+    try {
+      await this.auth.loginWithGoogle();
+    } catch (error: unknown) {
+      this.error = this.obtenerMensajeError(error);
+    } finally {
+      this.cargandoGoogle = false;
+    }
+  }
+
   private obtenerMensajeError(error: unknown): string {
     if (error instanceof AuthAppError) {
       switch (error.code) {
@@ -64,7 +85,7 @@ export class Login {
         case 'EMAIL_NOT_CONFIRMED':
           return 'Debes confirmar tu correo antes de iniciar sesion.';
         case 'USER_PROFILE_NOT_FOUND':
-          return 'Tu cuenta existe, pero no esta registrada en SchoolManager. Contacta al administrador.';
+          return 'Tu cuenta existe, pero no esta vinculada a un usuario de SchoolManager. Contacta al administrador para vincular tu identidad.';
         case 'USER_PROFILE_ERROR':
           return 'No se pudo validar tu perfil. Contacta al administrador.';
         case 'REQUEST_TIMEOUT':

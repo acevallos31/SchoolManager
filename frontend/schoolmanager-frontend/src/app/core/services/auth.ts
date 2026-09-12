@@ -65,6 +65,13 @@ export class AuthService {
 
   private inicializacionPromise: Promise<void> | null = null;
 
+  /**
+   * Motivo por el que la sesión existe pero no es utilizable (identidad no
+   * vinculada o usuario inactivo, informado por el backend). Se conserva para
+   * que /login lo muestre en lugar de destruir la sesión y perder la pista.
+   */
+  private mensajeSesionInvalida: string | null = null;
+
   constructor() {
     // La restauración de sesión NO se dispara fire-and-forget aquí: la hace
     // asegurarUsuarioInicial(), invocada por provideAppInitializer antes de
@@ -151,18 +158,54 @@ export class AuthService {
     }
   }
 
+  async loginWithGoogle(): Promise<void> {
+    const redirectTo = `${window.location.origin}/auth/callback`;
+    const { error } = await this.supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo }
+    });
+
+    if (error) {
+      throw new AuthAppError(
+        'No se pudo iniciar el acceso con Google.',
+        'UNKNOWN'
+      );
+    }
+  }
+
   async logout() {
     try {
       await this.supabase.auth.signOut();
     } finally {
       this.sessionSubject.next(null);
       this.usuarioSubject.next(null);
+      this.mensajeSesionInvalida = null;
       await this.limpiarSesionEdgeBestEffort();
     }
   }
 
+  /**
+   * «Sesión iniciada» exige sesión Y perfil reconocido por el backend. Una
+   * sesión sin perfil (identidad no vinculada) no debe abrir la aplicación:
+   * los guards la tratan como no autenticada y /login explica el motivo.
+   */
   isLoggedIn(): boolean {
-    return !!this.sessionSubject.value;
+    return !!this.sessionSubject.value && !!this.usuarioSubject.value;
+  }
+
+  /**
+   * Devuelve y limpia el motivo pendiente de sesión no utilizable. Lo consume
+   * /login al aterrizar desde /auth/callback.
+   */
+  consumirMensajeSesionInvalida(): string | null {
+    const mensaje = this.mensajeSesionInvalida;
+    this.mensajeSesionInvalida = null;
+    return mensaje;
+  }
+
+  /** Motivo pendiente sin consumirlo: lo muestra /auth/callback antes de navegar. */
+  mensajeSesionInvalidaPendiente(): string | null {
+    return this.mensajeSesionInvalida;
   }
 
   getToken(): string | null {
@@ -193,7 +236,7 @@ export class AuthService {
     );
 
     if (!response.ok) {
-      throw new AuthAppError('No se pudo consultar tu perfil de usuario.', 'USER_PROFILE_ERROR');
+      throw await this.mapearErrorPerfil(response);
     }
 
     const data = (await response.json()) as UsuarioActual;
@@ -212,16 +255,80 @@ export class AuthService {
     return data;
   }
 
+  /**
+   * Traduce la respuesta de /api/auth/me al error de la app. El backend marca
+   * con `codigo` el caso "identidad no vinculada" (migración 027) para no
+   * confundirlo con un fallo genérico de red o de servidor.
+   */
+  private async mapearErrorPerfil(response: Response): Promise<AuthAppError> {
+    if (response.status === 401) {
+      return new AuthAppError('Tu sesion expiro o no es valida.', 'SESSION_NOT_FOUND');
+    }
+
+    if (response.status === 403) {
+      const codigo = await this.leerCodigoDeError(response);
+
+      if (codigo === 'IDENTIDAD_NO_VINCULADA') {
+        return new AuthAppError(
+          'Tu cuenta de Google no esta vinculada a un usuario de SchoolManager. Solicita al administrador que vincule tu identidad.',
+          'USER_PROFILE_NOT_FOUND'
+        );
+      }
+
+      if (codigo === 'USUARIO_INACTIVO') {
+        return new AuthAppError(
+          'Tu usuario esta inactivo. Contacta al administrador.',
+          'USER_PROFILE_NOT_FOUND'
+        );
+      }
+
+      return new AuthAppError(
+        'Tu cuenta no tiene un perfil de usuario habilitado.',
+        'USER_PROFILE_NOT_FOUND'
+      );
+    }
+
+    return new AuthAppError('No se pudo consultar tu perfil de usuario.', 'USER_PROFILE_ERROR');
+  }
+
+  private async leerCodigoDeError(response: Response): Promise<string | null> {
+    try {
+      const cuerpo = (await response.json()) as { codigo?: unknown };
+      return typeof cuerpo.codigo === 'string' ? cuerpo.codigo : null;
+    } catch {
+      return null;
+    }
+  }
+
   private async restaurarSesion(session: Session | null): Promise<void> {
     this.sessionSubject.next(session);
+    this.mensajeSesionInvalida = null;
+
     if (!session) {
       this.usuarioSubject.next(null);
       await this.limpiarSesionEdgeBestEffort();
       return;
     }
 
-    this.usuarioSubject.next(await this.getUsuarioActual(session));
+    try {
+      this.usuarioSubject.next(await this.getUsuarioActual(session));
+    } catch (error) {
+      // No se destruye la sesión: el vínculo puede corregirse y basta con
+      // recargar. Se guarda el motivo para que /login lo muestre en lugar de
+      // perder la pista del problema real. isLoggedIn() quedará en false, así
+      // que los guards no dejan entrar a la aplicación sin perfil.
+      this.usuarioSubject.next(null);
+      this.mensajeSesionInvalida = this.mensajeDePerfil(error);
+      return;
+    }
+
     await this.sincronizarSesionEdge(session);
+  }
+
+  private mensajeDePerfil(error: unknown): string {
+    return error instanceof AuthAppError
+      ? error.message
+      : 'No se pudo validar la sesion. Regresando al login...';
   }
 
   private async limpiarSesionInvalida(): Promise<void> {

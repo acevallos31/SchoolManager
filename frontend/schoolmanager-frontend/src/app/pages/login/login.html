@@ -62,8 +62,21 @@
           <div class="error" role="alert" aria-live="assertive">{{ error }}</div>
         }
 
-        <button type="submit" [disabled]="cargando">
+        <button type="submit" [disabled]="cargando || cargandoGoogle">
           {{ cargando ? 'Validando acceso...' : 'Entrar al sistema' }}
+        </button>
+
+        <div class="login-divider" aria-hidden="true">
+          <span>o</span>
+        </div>
+
+        <button
+          type="button"
+          class="google-button"
+          (click)="loginWithGoogle()"
+          [disabled]="cargando || cargandoGoogle"
+        >
+          {{ cargandoGoogle ? 'Conectando con Google...' : 'Continuar con Google' }}
         </button>
       </form>
     </div>

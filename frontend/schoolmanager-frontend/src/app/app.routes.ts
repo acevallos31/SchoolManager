@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { Login } from './pages/login/login';
+import { AuthCallback } from './pages/auth-callback/auth-callback';
 import { Dashboard } from './pages/dashboard/dashboard';
 import { AppShell } from './layout/app-shell/app-shell';
 import { Alumnos } from './pages/alumnos/alumnos';
@@ -96,6 +97,7 @@ export const routes: Routes = [
 
   // Rutas fuera del shell admin.
   { path: 'login', component: Login },
+  { path: 'auth/callback', component: AuthCallback },
 
   // portal-padre (bloque 022): consume la API .NET (PortalResponsableController)
   // en modo lectura. Sin guard adicional: la autorización la valida el backend.
