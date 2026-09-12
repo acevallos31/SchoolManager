@@ -80,3 +80,37 @@ Se implementó en la rama `docs/oauth-google-avance-040`:
 - Se conserva la validación de permisos en backend y la sincronización server-side existente.
 
 Pendiente de validación: ejecutar pruebas frontend, build de producción, CI/Sonar y prueba manual del consentimiento de Google en producción y preview. El Client Secret no fue agregado al repositorio ni al código Angular.
+
+
+## Resultado de la prueba manual — 12 de septiembre de 2026
+
+CI/CD quedó verde después de corregir el espacio final del handoff y la prueba unitaria del estado `cargandoGoogle`. Sin embargo, la prueba manual del login OAuth continúa con este comportamiento:
+
+1. El usuario pulsa **Continuar con Google**.
+2. Google solicita la cuenta y muestra el consentimiento.
+3. Google completa la autorización.
+4. La aplicación regresa a `/login`.
+5. No queda una sesión visible ni se llega al dashboard.
+
+Esto indica que la configuración externa de Google/Supabase permite iniciar el flujo, pero todavía existe un problema en una etapa posterior: callback, restauración de sesión, sincronización server-side, resolución de `/api/auth/me`, cookie/middleware o asociación de la identidad Google con `public.usuarios.auth_user_id`.
+
+### Estado
+
+- Compilación: verde.
+- Tests frontend: verdes.
+- SonarCloud/Quality Gate: verde.
+- Vercel preview: disponible después del último commit.
+- Prueba manual OAuth: pendiente; vuelve a `/login`.
+- PR: abierto; no fusionar hasta encontrar la causa.
+
+### Investigación requerida
+
+La investigación debe revisar el flujo completo con logs y trazas seguras, sin imprimir access tokens, refresh tokens, Client Secret ni datos personales completos. Debe distinguir si:
+
+- Supabase no restaura la sesión en `/auth/callback`.
+- `asegurarUsuarioInicial()` falla al consultar `/api/auth/me`.
+- El usuario Google no está vinculado a `public.usuarios.auth_user_id`.
+- La sincronización `POST /api/auth/session` falla.
+- El middleware redirige por cookie ausente o inválida.
+- La URL de callback o el fallback de Vercel alteran el flujo.
+
