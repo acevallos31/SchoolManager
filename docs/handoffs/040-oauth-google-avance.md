@@ -135,4 +135,3 @@ Estado posterior al parche:
 - Pendiente: prueba manual OAuth en el preview.
 - Si `/api/auth/me` responde 403, comprobar en Supabase que `auth.users.id` esté vinculado con `public.usuarios.auth_user_id`, que el usuario esté activo y que tenga roles internos.
 - No fusionar hasta confirmar callback 200, función de sesión 204, cookie emitida y acceso al dashboard o portal correspondiente.
-
