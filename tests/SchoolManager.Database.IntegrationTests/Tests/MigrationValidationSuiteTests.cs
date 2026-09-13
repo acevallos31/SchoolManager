@@ -40,10 +40,16 @@ public sealed class MigrationValidationSuiteTests
             await MigrationRunner.ApplyActiveAsync(dataSource);
 
             // Hallazgo real: un rol de sistema no esperado en el estado canonico.
-            await using (var seed = dataSource.CreateCommand(
-                "insert into public.roles (codigo, nombre, descripcion, es_sistema) " +
-                "values ('cajero', 'Cajero', 'Reservado finanzas', true) " +
-                "on conflict (codigo) do nothing"))
+            // Desde 028 la unicidad de codigo depende del ambito; no se usa
+            // ON CONFLICT(codigo) porque ya no existe una restriccion global simple.
+            await using (var seed = dataSource.CreateCommand("""
+                insert into public.roles (codigo, nombre, descripcion, es_sistema)
+                select 'cajero', 'Cajero', 'Reservado finanzas', true
+                where not exists (
+                  select 1 from public.roles
+                  where codigo = 'cajero' and institucion_id is null
+                )
+                """))
             {
                 await seed.ExecuteNonQueryAsync();
             }
