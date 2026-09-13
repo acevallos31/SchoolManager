@@ -144,6 +144,13 @@ describe('AppShell', () => {
     expect(texto).not.toContain('Configuración');
   });
 
+  it('muestra Configuración a un gestor de roles institucionales', async () => {
+    permisos.add('identidad.roles.ver');
+    await recrearComponente();
+    expect(fixture.nativeElement.textContent).toContain('Configuración');
+    expect(component.puedeVerConfiguracion).toBe(true);
+  });
+
   it('muestra la única institución activa sin exigir selector', () => {
     usuario$.next({ ...usuarioBase, instituciones: [institucionA] });
     contexto$.next(institucionA);
