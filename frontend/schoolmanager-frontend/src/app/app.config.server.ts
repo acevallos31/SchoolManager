@@ -9,7 +9,12 @@ const serverConfig: ApplicationConfig = {
     provideServerRendering(withRoutes(serverRoutes)),
     // El login prerenderizado no restaura sesiones. Evita crear el cliente
     // Supabase y sus listeners durante SSG; el navegador usa AuthService real.
-    { provide: AuthService, useValue: {} }
+    {
+      provide: AuthService,
+      useValue: {
+        consumirMensajeSesionInvalida: () => null
+      } satisfies Pick<AuthService, 'consumirMensajeSesionInvalida'>
+    }
   ]
 };
 
