@@ -1,2 +1,0 @@
--- noop
-select 1;
