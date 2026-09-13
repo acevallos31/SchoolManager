@@ -122,6 +122,8 @@ frontend en cada push/PR; despliega a producción solo desde `main`
 - `docs/database/*.md` — ACID, ERD, RBAC, RLS/RPC, historial de normalización.
 - `docs/handoffs/` — estado por bloque/fase.
 - `docs/testing/e2e-staging-plan.md` — plan de E2E autenticado + staging.
+- `docs/AI_ASSISTANTS_SUPPORT_PLAN.md` — plan inicial para tickets, soporte y asistentes Hermes.
+- `docs/ROLES_PERMISOS_DINAMICOS.md` — diseño objetivo de roles institucionales configurables.
 
 ## Notas de mantenimiento
 

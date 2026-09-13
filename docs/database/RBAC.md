@@ -114,3 +114,19 @@ a un padre a consultar cualquier alumno.
   asignación tiene valor histórico y se desactiva lógicamente.
 - `roles_permisos -> roles`, `permisos`: `CASCADE`, porque es una composición
   vigente sin identidad ni histórico propio.
+
+## Evolución propuesta: roles institucionales dinámicos
+
+Este documento describe el modelo RBAC actualmente implementado. Para la siguiente
+etapa se propone que las instituciones puedan personalizar roles derivados de
+plantillas, manteniendo el catálogo global de permisos bajo control del producto.
+La propuesta no está aplicada todavía.
+
+- Las plantillas globales no se modificarán desde una institución.
+- Al activar una plantilla se creará una copia institucional editable.
+- Los roles personalizados quedarán limitados a su institución.
+- Los permisos seguirán siendo capacidades globales conocidas por el backend.
+- La cota de delegación, el alcance de datos, RLS y la API seguirán siendo
+  obligatorios.
+
+Detalle, matriz de migración y fases: [Diseño de roles y permisos dinámicos](../ROLES_PERMISOS_DINAMICOS.md).
