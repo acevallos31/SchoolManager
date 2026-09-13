@@ -16,8 +16,20 @@ describe('Login', () => {
   };
   let router: { navigate: ReturnType<typeof vi.fn> };
 
-  const rolAdmin = { id: 'u1', personaId: 'p1', roles: ['admin'], permisos: [] };
+  const rolAdmin = {
+    id: 'u1',
+    personaId: 'p1',
+    roles: ['admin'],
+    permisos: ['academico.alumnos.ver']
+  };
   const rolPadre = { id: 'u2', personaId: 'p2', roles: ['padre'], permisos: [] };
+  const rolDinamico = {
+    id: 'u3',
+    personaId: 'p3',
+    roles: ['secretaria'],
+    permisos: ['academico.matriculas.ver']
+  };
+  const rolSinDestino = { id: 'u4', personaId: 'p4', roles: ['student'], permisos: [] };
 
   beforeEach(async () => {
     auth = {
@@ -54,6 +66,17 @@ describe('Login', () => {
     expect(component.cargando).toBe(false);
   });
 
+  it('un rol institucional dinamico navega por permisos y no por nombre', async () => {
+    auth.login.mockResolvedValue(rolDinamico);
+    component.correo = 'secretaria@schoolmanager.com';
+    component.password = 'secreto';
+
+    await component.login();
+
+    expect(router.navigate).toHaveBeenCalledWith(['/dashboard']);
+    expect(component.error).toBe('');
+  });
+
   it('inicia el flujo OAuth con Google', async () => {
     await component.loginWithGoogle();
 
@@ -71,6 +94,18 @@ describe('Login', () => {
 
     expect(router.navigate).toHaveBeenCalledWith(['/portal-padre']);
     expect(component.error).toBe('');
+  });
+
+  it('un usuario valido sin destino muestra mensaje y conserva la sesion', async () => {
+    auth.login.mockResolvedValue(rolSinDestino);
+    component.correo = 'alumno@schoolmanager.com';
+    component.password = 'secreto';
+
+    await component.login();
+
+    expect(router.navigate).not.toHaveBeenCalled();
+    expect(auth.logout).not.toHaveBeenCalled();
+    expect(component.error).toContain('todavia no tiene una pantalla habilitada');
   });
 
   it('muestra mensaje seguro ante credenciales invalidas sin exponer Supabase', async () => {
@@ -140,7 +175,6 @@ describe('Login', () => {
 
     const promesa = component.login();
 
-    // Tras iniciar, el componente queda en loading (la promesa aun no resuelve).
     expect(component.cargando).toBe(true);
     expect(component.error).toBe('');
 
