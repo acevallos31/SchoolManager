@@ -17,7 +17,14 @@ public sealed class UsuarioActualService(NpgsqlDataSource dataSource) : IUsuario
             throw new UnauthorizedAccessException("El claim sub no contiene un UUID válido.");
         }
 
-        await using var command = dataSource.CreateCommand("""
+        Guid usuarioId;
+        Guid personaId;
+        string[] roles;
+        string[] permisos;
+        string[] rolesGlobales;
+        string[] permisosGlobales;
+
+        await using (var command = dataSource.CreateCommand("""
             select
               u.id,
               u.persona_id,
@@ -29,6 +36,15 @@ public sealed class UsuarioActualService(NpgsqlDataSource dataSource) : IUsuario
                 where ur.usuario_id = u.id
                   and ur.activo = true
                   and r.activo = true
+                  and (
+                    ur.institucion_id is null
+                    or exists (
+                      select 1
+                      from public.instituciones i
+                      where i.id = ur.institucion_id
+                        and i.activo = true
+                    )
+                  )
               ), '{}'::text[]) as roles,
               coalesce((
                 select array_agg(distinct p.codigo order by p.codigo)
@@ -39,31 +55,131 @@ public sealed class UsuarioActualService(NpgsqlDataSource dataSource) : IUsuario
                 where ur.usuario_id = u.id
                   and ur.activo = true
                   and r.activo = true
-              ), '{}'::text[]) as permisos
+                  and (
+                    ur.institucion_id is null
+                    or exists (
+                      select 1
+                      from public.instituciones i
+                      where i.id = ur.institucion_id
+                        and i.activo = true
+                    )
+                  )
+              ), '{}'::text[]) as permisos,
+              coalesce((
+                select array_agg(distinct r.codigo order by r.codigo)
+                from public.usuarios_roles ur
+                join public.roles r on r.id = ur.rol_id
+                where ur.usuario_id = u.id
+                  and ur.institucion_id is null
+                  and ur.activo = true
+                  and r.activo = true
+              ), '{}'::text[]) as roles_globales,
+              coalesce((
+                select array_agg(distinct p.codigo order by p.codigo)
+                from public.usuarios_roles ur
+                join public.roles r on r.id = ur.rol_id
+                join public.roles_permisos rp on rp.rol_id = r.id
+                join public.permisos p on p.id = rp.permiso_id
+                where ur.usuario_id = u.id
+                  and ur.institucion_id is null
+                  and ur.activo = true
+                  and r.activo = true
+              ), '{}'::text[]) as permisos_globales
             from public.usuarios u
             where u.auth_user_id = $1
-            """);
-        command.Parameters.AddWithValue(authUserId);
-
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-
-        if (!await reader.ReadAsync(cancellationToken))
+            """))
         {
-            // El token es valido pero nadie lo vinculo a public.usuarios:
-            // caso propio de la vinculacion explicita pendiente (migracion 027).
-            throw new IdentidadNoVinculadaException(authUserId);
+            command.Parameters.AddWithValue(authUserId);
+
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                // El token es valido pero nadie lo vinculo a public.usuarios:
+                // caso propio de la vinculacion explicita pendiente (migracion 027).
+                throw new IdentidadNoVinculadaException(authUserId);
+            }
+
+            if (!reader.GetBoolean(2))
+            {
+                throw new UsuarioInactivoException(reader.GetGuid(0));
+            }
+
+            usuarioId = reader.GetGuid(0);
+            personaId = reader.GetGuid(1);
+            roles = reader.GetFieldValue<string[]>(3);
+            permisos = reader.GetFieldValue<string[]>(4);
+            rolesGlobales = reader.GetFieldValue<string[]>(5);
+            permisosGlobales = reader.GetFieldValue<string[]>(6);
         }
 
-        if (!reader.GetBoolean(2))
-        {
-            throw new UsuarioInactivoException(reader.GetGuid(0));
-        }
+        var instituciones = await ObtenerInstitucionesAsync(usuarioId, cancellationToken);
 
         return new UsuarioActual(
-            reader.GetGuid(0),
-            reader.GetGuid(1),
-            Array.AsReadOnly(reader.GetFieldValue<string[]>(3)),
-            Array.AsReadOnly(reader.GetFieldValue<string[]>(4))
-        );
+            usuarioId,
+            personaId,
+            Array.AsReadOnly(roles),
+            Array.AsReadOnly(permisos)
+        )
+        {
+            AmbitoGlobal = new AmbitoGlobalAcceso(
+                Array.AsReadOnly(rolesGlobales),
+                Array.AsReadOnly(permisosGlobales)
+            ),
+            Instituciones = instituciones
+        };
+    }
+
+    private async Task<IReadOnlyList<InstitucionAcceso>> ObtenerInstitucionesAsync(
+        Guid usuarioId,
+        CancellationToken cancellationToken
+    )
+    {
+        await using var command = dataSource.CreateCommand("""
+            select
+              i.id,
+              i.nombre,
+              i.nombre_corto,
+              coalesce(
+                array_agg(distinct r.codigo order by r.codigo),
+                '{}'::text[]
+              ) as roles,
+              coalesce(
+                array_agg(distinct p.codigo order by p.codigo)
+                  filter (where p.codigo is not null),
+                '{}'::text[]
+              ) as permisos
+            from public.usuarios_roles ur
+            join public.roles r
+              on r.id = ur.rol_id
+             and r.activo = true
+            join public.instituciones i
+              on i.id = ur.institucion_id
+             and i.activo = true
+            left join public.roles_permisos rp on rp.rol_id = r.id
+            left join public.permisos p on p.id = rp.permiso_id
+            where ur.usuario_id = $1
+              and ur.institucion_id is not null
+              and ur.activo = true
+            group by i.id, i.nombre, i.nombre_corto
+            order by lower(i.nombre), i.id
+            """);
+        command.Parameters.AddWithValue(usuarioId);
+
+        var resultado = new List<InstitucionAcceso>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            resultado.Add(new InstitucionAcceso(
+                reader.GetGuid(0),
+                reader.GetString(1),
+                reader.IsDBNull(2) ? null : reader.GetString(2),
+                Array.AsReadOnly(reader.GetFieldValue<string[]>(3)),
+                Array.AsReadOnly(reader.GetFieldValue<string[]>(4))
+            ));
+        }
+
+        return resultado.AsReadOnly();
     }
 }
