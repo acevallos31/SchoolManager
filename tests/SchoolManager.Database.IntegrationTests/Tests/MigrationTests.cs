@@ -37,11 +37,12 @@ public sealed class MigrationTests(PostgreSqlFixture fixture) : IClassFixture<Po
             "028_roles_dinamicos_institucionales.sql",
             "029_operaciones_roles_institucionales.sql",
             "030_roles_institucionales_clonado_edicion.sql",
-            "031_roles_institucionales_invariantes.sql"
+            "031_roles_institucionales_invariantes.sql",
+            "032_roles_institucionales_reemplazar_permisos.sql"
     ];
 
     [Fact]
-    public void Migraciones_activas_estan_ordenadas_de_001_a_031()
+    public void Migraciones_activas_estan_ordenadas_de_001_a_032()
     {
         var names = MigrationRunner.GetActiveMigrationPaths().Select(Path.GetFileName).ToArray();
         Assert.Equal(MigracionesEsperadas, names);
