@@ -3,6 +3,13 @@ where not exists (
   select 1 from public.schema_migrations where version = '037'
 );
 
+select 'authenticated no puede ejecutar helper institucional estricto' as error
+where not has_function_privilege(
+  'authenticated',
+  'public.usuario_tiene_permiso_institucional_estricto(text,uuid)',
+  'EXECUTE'
+);
+
 select 'roles_select no usa autoridad institucional estricta' as error
 where not exists (
   select 1
