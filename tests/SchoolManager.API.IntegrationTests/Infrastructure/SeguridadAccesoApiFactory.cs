@@ -23,6 +23,7 @@ public sealed class SeguridadAccesoApiFactory : IAsyncLifetime
     public Guid AdministradorA { get; private set; }
     public Guid AdminGlobal { get; private set; }
     public Guid SinPermisos { get; private set; }
+    public Guid UsuarioDestinoId { get; private set; }
 
     public async Task InitializeAsync()
     {
@@ -47,6 +48,7 @@ public sealed class SeguridadAccesoApiFactory : IAsyncLifetime
         AdministradorA = await CrearAdministradorInstitucionalAsync(InstitucionA);
         AdminGlobal = await CrearAdminGlobalAsync();
         SinPermisos = (await CrearUsuarioAsync()).AuthUserId;
+        UsuarioDestinoId = (await CrearUsuarioAsync()).UsuarioId;
     }
 
     public HttpClient Cliente(Guid? identidad = null)
