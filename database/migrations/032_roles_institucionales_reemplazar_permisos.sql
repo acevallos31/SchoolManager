@@ -12,7 +12,9 @@ create or replace function public.rpc_reemplazar_permisos_rol_institucional(
   p_permiso_codigos text[]
 )
 returns void language plpgsql security definer set search_path=pg_catalog,public,pg_temp as $$
-declare v_inst uuid;
+declare
+  v_inst uuid;
+  v_codigos text[];
 begin
   select institucion_id into v_inst
   from public.roles
@@ -25,6 +27,13 @@ begin
      or not public.usuario_tiene_permiso_actual('identidad.roles.asignar_permisos',v_inst) then
     raise exception 'Permiso denegado.' using errcode='42501';
   end if;
+
+  select coalesce(array_agg(c order by c),'{}'::text[]) into v_codigos
+  from (
+    select distinct lower(btrim(x)) c
+    from unnest(coalesce(p_permiso_codigos,'{}'::text[])) t(x)
+    where x is not null and btrim(x)<>''
+  ) s;
 end $$;
 
 insert into public.schema_migrations(version,nombre,checksum)
