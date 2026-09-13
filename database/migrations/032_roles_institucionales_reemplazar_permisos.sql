@@ -15,6 +15,8 @@ returns void language plpgsql security definer set search_path=pg_catalog,public
 declare
   v_inst uuid;
   v_codigos text[];
+  v_antes integer;
+  v_despues integer;
 begin
   select institucion_id into v_inst
   from public.roles
@@ -54,6 +56,18 @@ begin
     where not public.usuario_tiene_permiso_actual(p.codigo,v_inst)
   ) then
     raise exception 'No se puede delegar un permiso que el usuario no posee.' using errcode='42501';
+  end if;
+
+  v_antes:=public.contar_admins_institucionales(v_inst);
+  delete from public.roles_permisos where rol_id=p_rol_id;
+  insert into public.roles_permisos(rol_id,permiso_id)
+  select p_rol_id,id from public.permisos where codigo=any(v_codigos)
+  on conflict do nothing;
+  update public.roles set updated_at=now() where id=p_rol_id;
+
+  v_despues:=public.contar_admins_institucionales(v_inst);
+  if v_antes>0 and v_despues=0 then
+    raise exception 'No se puede eliminar al ultimo administrador institucional activo.' using errcode='23514';
   end if;
 end $$;
 
