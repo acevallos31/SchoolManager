@@ -4,6 +4,7 @@ namespace SchoolManager.API.DTOs;
 
 public sealed class CrearRolInstitucionalDto
 {
+    [Required]
     public Guid InstitucionId { get; init; }
 
     [Required, MaxLength(80)]
@@ -18,6 +19,7 @@ public sealed class CrearRolInstitucionalDto
 
 public sealed class ClonarPlantillaRolDto
 {
+    [Required]
     public Guid InstitucionId { get; init; }
 
     [Required, MaxLength(80)]
@@ -50,6 +52,7 @@ public sealed class ReemplazarPermisosRolDto
 
 public sealed class AsignarRolInstitucionalDto
 {
+    [Required]
     public Guid UsuarioId { get; init; }
 }
 
