@@ -96,7 +96,7 @@ describe('ConfiguracionSeguridadAcceso', () => {
     expect(component.esError).toBe(true);
   });
 
-  it('crea un rol normalizando código, nombre y descripción', async () => {
+  it('crea un rol normalizando código, nombre y descripción y conserva la confirmación', async () => {
     await crearComponente();
     component.nuevoRol = { codigo: '  CAJA ', nombre: ' Caja ', descripcion: ' Cobranza ' };
     await component.crearRol();
@@ -105,6 +105,8 @@ describe('ConfiguracionSeguridadAcceso', () => {
     });
     expect(component.nuevoRol).toEqual({ codigo: '', nombre: '', descripcion: '' });
     expect(service['obtener']).toHaveBeenCalledTimes(2);
+    expect(component.mensaje).toBe('Rol institucional creado correctamente.');
+    expect(component.esError).toBe(false);
     expect(component.guardando).toBe(false);
   });
 
@@ -128,6 +130,7 @@ describe('ConfiguracionSeguridadAcceso', () => {
       codigo: 'secretaria', nombre: 'Secretaría', descripcion: null
     });
     expect(component.clonado).toEqual({ plantillaCodigo: '', codigo: '', nombre: '', descripcion: '' });
+    expect(component.mensaje).toBe('Plantilla clonada como rol institucional.');
   });
 
   it('selecciona rol, alterna permisos y guarda la selección', async () => {
@@ -145,6 +148,7 @@ describe('ConfiguracionSeguridadAcceso', () => {
     expect(service['reemplazarPermisos']).toHaveBeenCalledWith(
       'rol-1', ['academico.pagos.ver']
     );
+    expect(component.mensaje).toBe('Permisos del rol actualizados.');
   });
 
   it('desactiva un rol editable y limpia la selección activa', async () => {
@@ -156,6 +160,7 @@ describe('ConfiguracionSeguridadAcceso', () => {
     );
     expect(component.rolSeleccionadoId).toBe('');
     expect(component.permisosSeleccionados.size).toBe(0);
+    expect(component.mensaje).toBe('Rol desactivado correctamente.');
   });
 
   it('no muta permisos ni desactiva roles cuando la capacidad lo impide', async () => {
