@@ -1,4 +1,4 @@
-import { Component, OnDestroy } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
   Router,
@@ -53,7 +53,8 @@ export class AppShell implements OnDestroy {
   constructor(
     private readonly auth: AuthService,
     private readonly contextoInstitucion: ContextoInstitucionService,
-    private readonly router: Router
+    private readonly router: Router,
+    private readonly cdr: ChangeDetectorRef
   ) {
     this.navSubscription = this.router.events
       .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
@@ -64,10 +65,14 @@ export class AppShell implements OnDestroy {
     this.usuarioSubscription = this.auth.usuarioActual$.subscribe((usuario) => {
       this.roles = usuario?.roles ?? [];
       this.instituciones = usuario?.instituciones ?? [];
+      // En modo zoneless, una emisión RxJS no agenda por sí sola un refresco
+      // del template. Se marca el shell explícitamente sin forzar detectChanges().
+      this.cdr.markForCheck();
     });
 
     this.contextoSubscription = this.contextoInstitucion.institucionActual$.subscribe(institucion => {
       this.institucionActual = institucion;
+      this.cdr.markForCheck();
     });
   }
 
