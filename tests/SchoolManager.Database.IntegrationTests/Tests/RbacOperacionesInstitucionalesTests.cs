@@ -94,8 +94,8 @@ public sealed class RbacOperacionesInstitucionalesTests(PostgreSqlFixture fixtur
 
         var ex = await Assert.ThrowsAsync<PostgresException>(() => AuthExecuteAsync(
             adminA.AuthUserId,
-            "select public.rpc_editar_rol_institucional($1,$2,$3)",
-            rolB, "Intento cruzado", null!));
+            "select public.rpc_editar_rol_institucional($1,$2,null)",
+            rolB, "Intento cruzado"));
 
         Assert.Equal("42501", ex.SqlState);
     }
@@ -240,7 +240,7 @@ public sealed class RbacOperacionesInstitucionalesTests(PostgreSqlFixture fixtur
     {
         await using var command = fixture.DataSource.CreateCommand(sql);
         AddParameters(command, values);
-        return (long)(await command.ExecuteScalarAsync())!;
+        return Convert.ToInt64(await command.ExecuteScalarAsync());
     }
 
     private static void AddParameters(NpgsqlCommand command, IEnumerable<object> values)
