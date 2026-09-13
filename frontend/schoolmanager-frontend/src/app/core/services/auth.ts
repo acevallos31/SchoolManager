@@ -31,11 +31,30 @@ export const SUPABASE_CLIENT = new InjectionToken<SupabaseClient>('SUPABASE_CLIE
   }
 });
 
+export interface AmbitoGlobalAcceso {
+  roles: string[];
+  permisos: string[];
+}
+
+export interface InstitucionAcceso {
+  id: string;
+  nombre: string;
+  nombreCorto: string | null;
+  roles: string[];
+  permisos: string[];
+}
+
 export interface UsuarioActual {
   id: string;
   personaId: string;
   roles: string[];
   permisos: string[];
+  /**
+   * Contrato 042E. Opcional temporalmente para permitir rollout compatible
+   * con un backend anterior mientras se despliegan frontend/backend juntos.
+   */
+  ambitoGlobal?: AmbitoGlobalAcceso;
+  instituciones?: InstitucionAcceso[];
 }
 
 export class AuthAppError extends Error {
@@ -199,6 +218,39 @@ export class AuthService {
   }
 
   /**
+   * Asignaciones explícitamente globales. No se reemplazan con la unión legacy:
+   * si un backend anterior todavía no envía 042E, se devuelve un ámbito vacío.
+   */
+  ambitoGlobal(): AmbitoGlobalAcceso {
+    return this.usuarioSubject.value?.ambitoGlobal ?? { roles: [], permisos: [] };
+  }
+
+  /** Instituciones expresamente asignadas por usuarios_roles.institucion_id. */
+  institucionesDisponibles(): readonly InstitucionAcceso[] {
+    return this.usuarioSubject.value?.instituciones ?? [];
+  }
+
+  tieneRolEnInstitucion(rol: string, institucionId: string): boolean {
+    return this.institucionesDisponibles()
+      .find(institucion => institucion.id === institucionId)
+      ?.roles.includes(rol) ?? false;
+  }
+
+  tienePermisoEnInstitucion(permiso: string, institucionId: string): boolean {
+    return this.institucionesDisponibles()
+      .find(institucion => institucion.id === institucionId)
+      ?.permisos.includes(permiso) ?? false;
+  }
+
+  /** platform_admin es global y protegido por diseño; no se infiere por permiso institucional. */
+  esSuperadministrador(): boolean {
+    const global = this.usuarioSubject.value?.ambitoGlobal;
+    return global
+      ? global.roles.includes('platform_admin')
+      : this.tieneRol('platform_admin');
+  }
+
+  /**
    * Devuelve y limpia el motivo pendiente de sesión no utilizable. Lo consume
    * /login al aterrizar desde /auth/callback.
    */
@@ -246,18 +298,43 @@ export class AuthService {
 
     const data = (await response.json()) as UsuarioActual;
 
-    if (
-      !data.id ||
-      !data.personaId ||
-      !Array.isArray(data.roles) ||
-      !data.roles.every(rol => typeof rol === 'string') ||
-      !Array.isArray(data.permisos) ||
-      !data.permisos.every(permiso => typeof permiso === 'string')
-    ) {
+    if (!this.esUsuarioActualValido(data)) {
       throw new AuthAppError('El perfil de usuario recibido no es valido.', 'USER_PROFILE_ERROR');
     }
 
     return data;
+  }
+
+  private esUsuarioActualValido(data: UsuarioActual): boolean {
+    const listaStringsValida = (valor: unknown): valor is string[] =>
+      Array.isArray(valor) && valor.every(item => typeof item === 'string');
+
+    const ambitoGlobalValido = data.ambitoGlobal === undefined || (
+      data.ambitoGlobal !== null &&
+      listaStringsValida(data.ambitoGlobal.roles) &&
+      listaStringsValida(data.ambitoGlobal.permisos)
+    );
+
+    const institucionesValidas = data.instituciones === undefined || (
+      Array.isArray(data.instituciones) &&
+      data.instituciones.every(institucion =>
+        !!institucion &&
+        typeof institucion.id === 'string' &&
+        institucion.id.length > 0 &&
+        typeof institucion.nombre === 'string' &&
+        institucion.nombre.length > 0 &&
+        (institucion.nombreCorto === null || typeof institucion.nombreCorto === 'string') &&
+        listaStringsValida(institucion.roles) &&
+        listaStringsValida(institucion.permisos)
+      )
+    );
+
+    return !!data.id &&
+      !!data.personaId &&
+      listaStringsValida(data.roles) &&
+      listaStringsValida(data.permisos) &&
+      ambitoGlobalValido &&
+      institucionesValidas;
   }
 
   /**
