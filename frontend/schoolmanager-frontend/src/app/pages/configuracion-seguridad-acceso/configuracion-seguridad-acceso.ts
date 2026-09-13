@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ContextoInstitucionService } from '../../core/services/contexto-institucion.service';
 import {
+  AsignacionRolSeguridad,
   PermisoDelegableSeguridad,
   RolInstitucionalSeguridad,
   SeguridadAccesoError,
@@ -27,6 +28,7 @@ export class ConfiguracionSeguridadAcceso implements OnInit {
 
   nuevoRol = { codigo: '', nombre: '', descripcion: '' };
   clonado = { plantillaCodigo: '', codigo: '', nombre: '', descripcion: '' };
+  edicionRol = { nombre: '', descripcion: '' };
   rolSeleccionadoId = '';
   permisosSeleccionados = new Set<string>();
 
@@ -61,6 +63,10 @@ export class ConfiguracionSeguridadAcceso implements OnInit {
     return this.snapshot?.capacidades.rolesAsignarPermisos ?? false;
   }
 
+  get puedeGestionarAsignaciones(): boolean {
+    return this.snapshot?.capacidades.usuariosAsignarRoles ?? false;
+  }
+
   async ngOnInit(): Promise<void> {
     await this.cargar();
   }
@@ -78,9 +84,14 @@ export class ConfiguracionSeguridadAcceso implements OnInit {
     if (!preservarMensaje) this.mensaje = '';
     try {
       this.snapshot = await this.seguridad.obtener(institucionId);
-      if (this.rolSeleccionadoId && !this.rolSeleccionado) {
-        this.rolSeleccionadoId = '';
-        this.permisosSeleccionados.clear();
+      const rol = this.rolSeleccionado;
+      if (this.rolSeleccionadoId && !rol) {
+        this.limpiarSeleccionRol();
+      } else if (rol) {
+        this.edicionRol = {
+          nombre: rol.nombre,
+          descripcion: rol.descripcion ?? ''
+        };
       }
     } catch (error) {
       this.snapshot = null;
@@ -135,6 +146,29 @@ export class ConfiguracionSeguridadAcceso implements OnInit {
   seleccionarRol(rol: RolInstitucionalSeguridad): void {
     this.rolSeleccionadoId = rol.id;
     this.permisosSeleccionados = new Set(rol.permisos);
+    this.edicionRol = {
+      nombre: rol.nombre,
+      descripcion: rol.descripcion ?? ''
+    };
+  }
+
+  async guardarRol(): Promise<void> {
+    const rol = this.rolSeleccionado;
+    if (!rol || !this.puedeEditar || !rol.activo || rol.protegido || this.guardando) return;
+    const nombre = this.edicionRol.nombre.trim();
+    if (!nombre) {
+      this.mostrarError('El nombre del rol es obligatorio.');
+      return;
+    }
+
+    await this.ejecutar(async () => {
+      await this.seguridad.editarRol(
+        rol.id,
+        nombre,
+        this.edicionRol.descripcion.trim() || null
+      );
+      this.mostrarExito('Definición del rol actualizada.');
+    });
   }
 
   alternarPermiso(codigo: string, habilitado: boolean): void {
@@ -162,16 +196,30 @@ export class ConfiguracionSeguridadAcceso implements OnInit {
     if (!this.puedeEditar || !rol.activo || rol.protegido || this.guardando) return;
     await this.ejecutar(async () => {
       await this.seguridad.desactivarRol(rol.id, 'Desactivado desde Configuración > Seguridad y acceso');
-      if (this.rolSeleccionadoId === rol.id) {
-        this.rolSeleccionadoId = '';
-        this.permisosSeleccionados.clear();
-      }
+      if (this.rolSeleccionadoId === rol.id) this.limpiarSeleccionRol();
       this.mostrarExito('Rol desactivado correctamente.');
+    });
+  }
+
+  async retirarAsignacion(asignacion: AsignacionRolSeguridad): Promise<void> {
+    if (!this.puedeGestionarAsignaciones || !asignacion.activo || this.guardando) return;
+    await this.ejecutar(async () => {
+      await this.seguridad.desactivarAsignacion(
+        asignacion.id,
+        'Asignación retirada desde Configuración > Seguridad y acceso'
+      );
+      this.mostrarExito('Asignación retirada correctamente.');
     });
   }
 
   volver(): void {
     void this.router.navigate(['/configuracion']);
+  }
+
+  private limpiarSeleccionRol(): void {
+    this.rolSeleccionadoId = '';
+    this.permisosSeleccionados.clear();
+    this.edicionRol = { nombre: '', descripcion: '' };
   }
 
   private async ejecutar(operacion: () => Promise<void>): Promise<void> {
