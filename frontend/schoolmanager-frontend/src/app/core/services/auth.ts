@@ -193,6 +193,11 @@ export class AuthService {
     return !!this.sessionSubject.value && !!this.usuarioSubject.value;
   }
 
+  /** Perfil ya cargado durante login/bootstrap, sin una segunda petición. */
+  usuarioActual(): UsuarioActual | null {
+    return this.usuarioSubject.value;
+  }
+
   /**
    * Devuelve y limpia el motivo pendiente de sesión no utilizable. Lo consume
    * /login al aterrizar desde /auth/callback.
