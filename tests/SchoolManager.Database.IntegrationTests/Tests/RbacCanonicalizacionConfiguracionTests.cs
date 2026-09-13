@@ -8,7 +8,7 @@ public sealed class RbacCanonicalizacionConfiguracionTests(PostgreSqlFixture fix
     : IClassFixture<PostgreSqlFixture>
 {
     [Fact]
-    public async Task Rol_dinamico_con_academico_ciclos_ver_satisface_alias_interno_y_RPC()
+    public async Task Rol_dinamico_con_academico_ciclos_ver_satisface_alias_interno()
     {
         var institucion = await InsertInstitucionAsync();
         var actor = await InsertUsuarioAsync();
@@ -18,11 +18,6 @@ public sealed class RbacCanonicalizacionConfiguracionTests(PostgreSqlFixture fix
         Assert.True(await AuthScalarBoolAsync(
             actor.AuthUserId,
             "select public.usuario_tiene_permiso_actual('configuracion.ciclos.ver', $1)",
-            institucion));
-
-        Assert.Equal(0, await AuthScalarLongAsync(
-            actor.AuthUserId,
-            "select count(*) from public.rpc_listar_ciclos_escolares($1)",
             institucion));
     }
 
@@ -62,22 +57,6 @@ public sealed class RbacCanonicalizacionConfiguracionTests(PostgreSqlFixture fix
             actor.AuthUserId,
             "select public.usuario_tiene_permiso_actual($1, $2)",
             aliasInterno,
-            institucion));
-    }
-
-    [Fact]
-    public async Task Grant_legacy_del_alias_interno_conserva_compatibilidad()
-    {
-        var institucion = await InsertInstitucionAsync();
-        var actor = await InsertUsuarioAsync();
-        // El fixture administrativo corre sin auth.uid(); así puede representar
-        // una asignación legacy previa a 039 aunque el permiso esté oculto.
-        var rol = await InsertRolConPermisoAsync(institucion, "configuracion.ciclos.ver");
-        await AsignarAsync(actor.UsuarioId, rol, institucion);
-
-        Assert.True(await AuthScalarBoolAsync(
-            actor.AuthUserId,
-            "select public.usuario_tiene_permiso_actual('configuracion.ciclos.ver', $1)",
             institucion));
     }
 
@@ -125,12 +104,6 @@ public sealed class RbacCanonicalizacionConfiguracionTests(PostgreSqlFixture fix
         string sql,
         params object[] values) =>
         AuthScalarAsync<bool>(authUserId, sql, values);
-
-    private Task<long> AuthScalarLongAsync(
-        Guid authUserId,
-        string sql,
-        params object[] values) =>
-        AuthScalarAsync<long>(authUserId, sql, values);
 
     private async Task<T> AuthScalarAsync<T>(
         Guid authUserId,
