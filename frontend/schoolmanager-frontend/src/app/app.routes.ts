@@ -11,18 +11,17 @@ import { ConfiguracionCiclos } from './pages/configuracion-ciclos/configuracion-
 import { ConfiguracionEstructuraAcademica } from './pages/configuracion-estructura-academica/configuracion-estructura-academica';
 import { permissionGuard } from './core/guards/permission.guard';
 
-// Ruta de panel usada como destino cuando el guard niega un permiso.
+// Ruta de panel usada como destino de compatibilidad para URLs legacy.
 const PANEL = '/dashboard';
 
 /**
  * Rutas de área autenticada de administración: todas las secciones cuelgan del
  * AppShell global (topbar + sidebar + drawer responsive). El guard en la ruta
- * padre exige sesión; los guards en las rutas hijas exigen permisos concretos.
- * /portal-padre (responsable) y /login quedan fuera del shell por diseño.
+ * padre exige sesión y una capacidad administrativa; los guards en las rutas
+ * hijas exigen permisos concretos. /portal-padre, /acceso-pendiente y /login
+ * quedan fuera del shell por diseño.
  */
 export const routes: Routes = [
-  // AppShell padre de todas las rutas admin (dashboard, alumnos, matriculas,
-  // responsables, cargos, pagos, configuracion y subvistas).
   {
     path: '',
     component: AppShell,
@@ -30,7 +29,6 @@ export const routes: Routes = [
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
 
-      // Dashboard: autenticación pura (sin permiso concreto).
       { path: 'dashboard', component: Dashboard },
 
       {
@@ -47,8 +45,6 @@ export const routes: Routes = [
         data: { permiso: 'academico.matriculas.ver' }
       },
 
-      // Configuración raíz mantiene autenticación pura; cada submódulo con
-      // permiso de aplicación conocido protege su ruta de forma explícita.
       { path: 'configuracion', component: Configuracion },
       {
         path: 'configuracion/ciclos',
@@ -95,13 +91,18 @@ export const routes: Routes = [
     ]
   },
 
-  // Rutas fuera del shell admin.
   { path: 'login', component: Login },
   { path: 'auth/callback', component: AuthCallback },
 
-  // portal-padre (bloque 022): consume la API .NET (PortalResponsableController)
-  // en modo lectura. Sin guard adicional: la autorización la valida el backend.
+  // Portal responsable en modo lectura. La autorización funcional la valida
+  // el backend y permanece fuera del AppShell administrativo.
   { path: 'portal-padre', component: PortalPadre },
+
+  // Perfil autenticado y válido, pero sin una sección disponible todavía.
+  {
+    path: 'acceso-pendiente',
+    loadComponent: () => import('./pages/acceso-pendiente/acceso-pendiente').then(m => m.AccesoPendiente)
+  },
 
   { path: 'home', redirectTo: 'dashboard', pathMatch: 'full' },
   { path: '**', redirectTo: PANEL }
