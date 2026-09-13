@@ -15,6 +15,31 @@
       <span class="sm-topbar__brand-sub">Panel escolar</span>
     </div>
 
+    @if (instituciones.length === 1 && institucionActual) {
+      <div class="sm-contexto" aria-label="Institución activa">
+        <span class="sm-contexto__label">Institución</span>
+        <strong class="sm-contexto__value">
+          {{ institucionActual.nombreCorto || institucionActual.nombre }}
+        </strong>
+      </div>
+    } @else if (instituciones.length > 1) {
+      <label class="sm-contexto sm-contexto--select">
+        <span class="sm-contexto__label">Institución</span>
+        <select
+          class="sm-contexto__select"
+          aria-label="Seleccionar institución activa"
+          [value]="institucionActual?.id || ''"
+          (change)="seleccionarInstitucion($event)">
+          <option value="" disabled>Selecciona una institución</option>
+          @for (institucion of instituciones; track institucion.id) {
+            <option [value]="institucion.id">
+              {{ institucion.nombreCorto || institucion.nombre }}
+            </option>
+          }
+        </select>
+      </label>
+    }
+
     <div class="sm-topbar__actions">
       @if (roles.length > 0) {
         <span class="sm-badge sm-badge--info" [title]="roles.join(', ')">{{ roles[0] }}</span>
@@ -39,7 +64,18 @@
     <div class="sm-sidebar__brand">
       <p class="sm-eyebrow">SchoolManager</p>
       <span class="sm-sidebar__brand-name">Panel escolar</span>
+      @if (institucionActual) {
+        <span class="sm-sidebar__contexto">
+          {{ institucionActual.nombreCorto || institucionActual.nombre }}
+        </span>
+      }
     </div>
+
+    @if (requiereSeleccionInstitucion) {
+      <div class="sm-sidebar__notice" role="status">
+        Selecciona una institución en la barra superior para establecer el contexto de trabajo.
+      </div>
+    }
 
     <nav class="sm-sidebar__nav" id="sidebar-nav">
       @for (item of items; track item.ruta) {
