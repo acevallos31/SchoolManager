@@ -50,19 +50,38 @@ public sealed class AuthControllerTests : IClassFixture<AuthControllerTests.ApiF
     }
 
     [Fact]
-    public async Task Respuesta_contiene_id_personaId_roles_y_permisos_sin_rol_legacy()
+    public async Task Respuesta_contiene_contrato_legacy_y_ambitos_explicitos()
     {
         var response = await GetMeAsync("admin");
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var propiedades = json.RootElement.EnumerateObject().Select(x => x.Name).Order().ToArray();
 
-        Assert.Equal(["id", "permisos", "personaId", "roles"], propiedades);
+        Assert.Equal(
+            ["ambitoGlobal", "id", "instituciones", "permisos", "personaId", "roles"],
+            propiedades
+        );
         Assert.Equal("admin", json.RootElement.GetProperty("roles")[0].GetString());
         Assert.Contains(
             json.RootElement.GetProperty("permisos").EnumerateArray(),
             permiso => permiso.GetString() == "academico.alumnos.ver"
         );
+        Assert.True(json.RootElement.GetProperty("ambitoGlobal").TryGetProperty("roles", out _));
+        Assert.True(json.RootElement.GetProperty("ambitoGlobal").TryGetProperty("permisos", out _));
+        Assert.Equal(JsonValueKind.Array, json.RootElement.GetProperty("instituciones").ValueKind);
         Assert.False(json.RootElement.TryGetProperty("rol", out _));
+    }
+
+    [Fact]
+    public async Task Respuesta_serializa_un_contexto_institucional_explicito()
+    {
+        var response = await GetMeAsync("admin-contexto");
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        var institucion = Assert.Single(json.RootElement.GetProperty("instituciones").EnumerateArray());
+        Assert.Equal("Colegio Prueba", institucion.GetProperty("nombre").GetString());
+        Assert.Equal("CP", institucion.GetProperty("nombreCorto").GetString());
+        Assert.Equal("school_admin", institucion.GetProperty("roles")[0].GetString());
+        Assert.Equal("academico.alumnos.ver", institucion.GetProperty("permisos")[0].GetString());
     }
 
     [Fact]
@@ -73,7 +92,6 @@ public sealed class AuthControllerTests : IClassFixture<AuthControllerTests.ApiF
 
         Assert.DoesNotContain("auth_user_id", contenido, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("correo", contenido, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("nombre", contenido, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("claims", contenido, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -171,12 +189,32 @@ public sealed class AuthControllerTests : IClassFixture<AuthControllerTests.ApiF
             }
 
             var rol = identidad == "padre" ? "padre" : "admin";
-            return Task.FromResult(new UsuarioActual(
+            var usuario = new UsuarioActual(
                 Guid.NewGuid(),
                 Guid.NewGuid(),
                 [rol],
                 rol == "admin" ? ["academico.alumnos.ver"] : []
-            ));
+            );
+
+            if (identidad == "admin-contexto")
+            {
+                usuario = usuario with
+                {
+                    AmbitoGlobal = new AmbitoGlobalAcceso(["admin"], ["academico.alumnos.ver"]),
+                    Instituciones =
+                    [
+                        new InstitucionAcceso(
+                            Guid.NewGuid(),
+                            "Colegio Prueba",
+                            "CP",
+                            ["school_admin"],
+                            ["academico.alumnos.ver"]
+                        )
+                    ]
+                };
+            }
+
+            return Task.FromResult(usuario);
         }
     }
 
