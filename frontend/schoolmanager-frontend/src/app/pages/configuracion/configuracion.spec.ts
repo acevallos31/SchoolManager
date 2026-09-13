@@ -121,8 +121,8 @@ describe('Configuracion', () => {
     await crearComponente();
 
     expect(service['obtenerConfiguracionInstitucion']).not.toHaveBeenCalled();
-    const enlace = Array.from(fixture.nativeElement.querySelectorAll('a'))
-      .find((item: Element) => item.getAttribute('href') === '/configuracion/seguridad-acceso');
+    const enlaces = Array.from(fixture.nativeElement.querySelectorAll('a')) as HTMLAnchorElement[];
+    const enlace = enlaces.find(item => item.getAttribute('href') === '/configuracion/seguridad-acceso');
     expect(enlace).toBeTruthy();
     expect(fixture.nativeElement.textContent).toContain('Seguridad y acceso');
     expect(fixture.nativeElement.textContent).not.toContain('Centro educativo');
