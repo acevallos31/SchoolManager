@@ -19,6 +19,8 @@ create table if not exists public.seguridad_auditoria (
 );
 create index if not exists ix_seguridad_auditoria_institucion_fecha on public.seguridad_auditoria(institucion_id,created_at desc);
 alter table public.seguridad_auditoria enable row level security;
+revoke all on table public.seguridad_auditoria from public,anon,authenticated;
+grant select,insert on table public.seguridad_auditoria to service_role;
 
 create or replace function public.usuario_es_admin_institucional(p_usuario_id uuid,p_institucion_id uuid)
 returns boolean language sql stable security definer set search_path=pg_catalog,public,pg_temp as $$
@@ -38,6 +40,8 @@ returns boolean language sql stable security definer set search_path=pg_catalog,
     where u.id=p_usuario_id and u.activo and p.codigo='identidad.usuarios.asignar_roles' and p.estado='vigente'
   );
 $$;
+revoke all on function public.usuario_es_admin_institucional(uuid,uuid) from public,anon,authenticated;
+grant execute on function public.usuario_es_admin_institucional(uuid,uuid) to service_role;
 
 create or replace function public.rpc_crear_rol_institucional(
   p_institucion_id uuid,p_codigo text,p_nombre text,p_descripcion text default null
