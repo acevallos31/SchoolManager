@@ -24,6 +24,7 @@ function runCompiledHandler(packageType?: string) {
       delete process.env.SUPABASE_URL;
       delete process.env.SUPABASE_PUBLISHABLE_KEY;
       globalThis.fetch = () => { throw new Error('Unexpected network call'); };
+      console.error = () => {};
       for (const [method, expected] of [['DELETE', 204], ['POST', 401], ['GET', 405]]) {
         const headers = {};
         const response = {
