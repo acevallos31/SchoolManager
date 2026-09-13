@@ -62,7 +62,16 @@ begin
       raise exception 'No se puede retirar al ultimo administrador institucional activo.' using errcode='23514';
     end if;
   end if;
+
+  insert into public.seguridad_auditoria(actor_usuario_id,institucion_id,accion,entidad_tipo,entidad_id,detalle)
+  values(
+    public.usuario_actual_id(),v_inst,'rol_usuario.desactivar','usuario_rol',p_usuario_rol_id,
+    jsonb_build_object('usuario_id',v_usuario,'rol_codigo',v_codigo,'motivo',btrim(p_motivo))
+  );
 end $$;
+
+revoke execute on function public.rpc_desactivar_rol_usuario(uuid,text) from public,anon;
+grant execute on function public.rpc_desactivar_rol_usuario(uuid,text) to authenticated,service_role;
 
 insert into public.schema_migrations(version,nombre,checksum)
 values('035','roles_usuario_proteccion_ultimo_admin',null)
