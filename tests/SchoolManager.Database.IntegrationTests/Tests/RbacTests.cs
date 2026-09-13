@@ -14,14 +14,64 @@ public sealed class RbacTests(PostgreSqlFixture fixture) : IClassFixture<Postgre
     }
 
     [Fact]
-    public async Task Codigo_de_rol_es_unico()
+    public async Task Codigo_de_rol_global_sigue_siendo_unico()
     {
         var codigo = Codigo("rol_unico");
         await InsertRolAsync(codigo);
 
         var exception = await Assert.ThrowsAsync<PostgresException>(() => InsertRolAsync(codigo));
         Assert.Equal("23505", exception.SqlState);
-        Assert.Equal("uq_roles_codigo", exception.ConstraintName);
+        Assert.Equal("ux_roles_codigo_global", exception.ConstraintName);
+    }
+
+    [Fact]
+    public async Task Mismo_codigo_institucional_puede_existir_en_instituciones_distintas()
+    {
+        var codigo = Codigo("secretaria");
+        var institucionA = await InsertInstitucionAsync();
+        var institucionB = await InsertInstitucionAsync();
+
+        var rolA = await InsertRolInstitucionalAsync(codigo, institucionA);
+        var rolB = await InsertRolInstitucionalAsync(codigo, institucionB);
+
+        Assert.NotEqual(rolA, rolB);
+    }
+
+    [Fact]
+    public async Task Mismo_codigo_institucional_duplicado_en_una_institucion_es_rechazado()
+    {
+        var codigo = Codigo("secretaria_unica");
+        var institucion = await InsertInstitucionAsync();
+        await InsertRolInstitucionalAsync(codigo, institucion);
+
+        var exception = await Assert.ThrowsAsync<PostgresException>(() =>
+            InsertRolInstitucionalAsync(codigo, institucion));
+        Assert.Equal("23505", exception.SqlState);
+        Assert.Equal("ux_roles_institucion_codigo", exception.ConstraintName);
+    }
+
+    [Fact]
+    public async Task Plantilla_no_puede_asignarse_directamente()
+    {
+        var usuario = await InsertUsuarioAsync();
+        var institucion = await InsertInstitucionAsync();
+        var plantillaId = await GetRolIdAsync("school_admin");
+
+        var exception = await Assert.ThrowsAsync<PostgresException>(() =>
+            AssignRolAsync(usuario.Id, plantillaId, institucion));
+        Assert.Equal("23514", exception.SqlState);
+    }
+
+    [Fact]
+    public async Task Rol_de_plataforma_no_puede_asignarse_a_una_institucion()
+    {
+        var usuario = await InsertUsuarioAsync();
+        var institucion = await InsertInstitucionAsync();
+        var platformAdminId = await GetRolIdAsync("platform_admin");
+
+        var exception = await Assert.ThrowsAsync<PostgresException>(() =>
+            AssignRolAsync(usuario.Id, platformAdminId, institucion));
+        Assert.Equal("23514", exception.SqlState);
     }
 
     [Fact]
@@ -93,7 +143,7 @@ public sealed class RbacTests(PostgreSqlFixture fixture) : IClassFixture<Postgre
     }
 
     [Fact]
-    public async Task Mismo_rol_global_e_institucional_pueden_coexistir()
+    public async Task Mismo_rol_global_e_institucional_pueden_coexistir_para_legacy()
     {
         var usuario = await InsertUsuarioAsync();
         var rolId = await GetRolIdAsync("consulta");
@@ -208,6 +258,14 @@ public sealed class RbacTests(PostgreSqlFixture fixture) : IClassFixture<Postgre
         "insert into public.roles (codigo, nombre, activo) values ($1, $2, $3) returning id",
         codigo, $"Rol {codigo}", activo);
 
+    private Task<Guid> InsertRolInstitucionalAsync(string codigo, Guid institucionId) => ScalarGuidAsync(
+        """
+        insert into public.roles (codigo, nombre, activo, tipo, institucion_id)
+        values ($1, $2, true, 'institucional', $3)
+        returning id
+        """,
+        codigo, $"Rol {codigo}", institucionId);
+
     private Task<Guid> InsertPermisoAsync(string codigo) => ScalarGuidAsync(
         "insert into public.permisos (codigo, modulo, nombre) values ($1, 'pruebas', $2) returning id",
         codigo, $"Permiso {codigo}");
@@ -217,7 +275,7 @@ public sealed class RbacTests(PostgreSqlFixture fixture) : IClassFixture<Postgre
         $"Institucion {Guid.NewGuid():N}");
 
     private Task<Guid> GetRolIdAsync(string codigo) => ScalarGuidAsync(
-        "select id from public.roles where codigo = $1", codigo);
+        "select id from public.roles where codigo = $1 and institucion_id is null", codigo);
 
     private Task AssignRolAsync(Guid usuarioId, Guid rolId, Guid? institucionId = null) =>
         institucionId.HasValue
