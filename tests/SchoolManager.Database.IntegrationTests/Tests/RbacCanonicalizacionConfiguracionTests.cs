@@ -12,9 +12,7 @@ public sealed class RbacCanonicalizacionConfiguracionTests(PostgreSqlFixture fix
     {
         var institucion = await InsertInstitucionAsync();
         var actor = await InsertUsuarioAsync();
-        var rol = await InsertRolConPermisosAsync(
-            institucion,
-            "academico.ciclos.ver");
+        var rol = await InsertRolConPermisoAsync(institucion, "academico.ciclos.ver");
         await AsignarAsync(actor.UsuarioId, rol, institucion);
 
         Assert.True(await AuthScalarBoolAsync(
@@ -34,9 +32,7 @@ public sealed class RbacCanonicalizacionConfiguracionTests(PostgreSqlFixture fix
         var institucionA = await InsertInstitucionAsync();
         var institucionB = await InsertInstitucionAsync();
         var actor = await InsertUsuarioAsync();
-        var rol = await InsertRolConPermisosAsync(
-            institucionA,
-            "academico.ciclos.ver");
+        var rol = await InsertRolConPermisoAsync(institucionA, "academico.ciclos.ver");
         await AsignarAsync(actor.UsuarioId, rol, institucionA);
 
         Assert.False(await AuthScalarBoolAsync(
@@ -59,7 +55,7 @@ public sealed class RbacCanonicalizacionConfiguracionTests(PostgreSqlFixture fix
     {
         var institucion = await InsertInstitucionAsync();
         var actor = await InsertUsuarioAsync();
-        var rol = await InsertRolConPermisosAsync(institucion, permisoCanonico);
+        var rol = await InsertRolConPermisoAsync(institucion, permisoCanonico);
         await AsignarAsync(actor.UsuarioId, rol, institucion);
 
         Assert.True(await AuthScalarBoolAsync(
@@ -74,10 +70,9 @@ public sealed class RbacCanonicalizacionConfiguracionTests(PostgreSqlFixture fix
     {
         var institucion = await InsertInstitucionAsync();
         var actor = await InsertUsuarioAsync();
-        var rol = await InsertRolConPermisosAsync(
-            institucion,
-            "configuracion.ciclos.ver",
-            permitirNoDelegable: true);
+        // El fixture administrativo corre sin auth.uid(); así puede representar
+        // una asignación legacy previa a 039 aunque el permiso esté oculto.
+        var rol = await InsertRolConPermisoAsync(institucion, "configuracion.ciclos.ver");
         await AsignarAsync(actor.UsuarioId, rol, institucion);
 
         Assert.True(await AuthScalarBoolAsync(
@@ -86,10 +81,7 @@ public sealed class RbacCanonicalizacionConfiguracionTests(PostgreSqlFixture fix
             institucion));
     }
 
-    private async Task<Guid> InsertRolConPermisosAsync(
-        Guid institucionId,
-        string permisoCodigo,
-        bool permitirNoDelegable = false)
+    private async Task<Guid> InsertRolConPermisoAsync(Guid institucionId, string permisoCodigo)
     {
         var rolId = await ScalarGuidAsync("""
             insert into public.roles(codigo, nombre, activo, tipo, institucion_id)
@@ -97,22 +89,10 @@ public sealed class RbacCanonicalizacionConfiguracionTests(PostgreSqlFixture fix
             returning id
             """, $"canon_{Guid.NewGuid():N}", institucionId);
 
-        if (permitirNoDelegable)
-        {
-            // Fixtures administrativos se ejecutan sin auth.uid(); 036 permite
-            // preparar escenarios legacy sin relajar el trigger en sesiones reales.
-            await ExecuteAsync("""
-                insert into public.roles_permisos(rol_id, permiso_id)
-                select $1, id from public.permisos where codigo = $2
-                """, rolId, permisoCodigo);
-        }
-        else
-        {
-            await ExecuteAsync("""
-                insert into public.roles_permisos(rol_id, permiso_id)
-                select $1, id from public.permisos where codigo = $2
-                """, rolId, permisoCodigo);
-        }
+        await ExecuteAsync("""
+            insert into public.roles_permisos(rol_id, permiso_id)
+            select $1, id from public.permisos where codigo = $2
+            """, rolId, permisoCodigo);
 
         return rolId;
     }
@@ -140,17 +120,17 @@ public sealed class RbacCanonicalizacionConfiguracionTests(PostgreSqlFixture fix
         "insert into public.instituciones(nombre) values ($1) returning id",
         $"Institucion {Guid.NewGuid():N}");
 
-    private async Task<bool> AuthScalarBoolAsync(
+    private Task<bool> AuthScalarBoolAsync(
         Guid authUserId,
         string sql,
         params object[] values) =>
-        await AuthScalarAsync<bool>(authUserId, sql, values);
+        AuthScalarAsync<bool>(authUserId, sql, values);
 
-    private async Task<long> AuthScalarLongAsync(
+    private Task<long> AuthScalarLongAsync(
         Guid authUserId,
         string sql,
         params object[] values) =>
-        await AuthScalarAsync<long>(authUserId, sql, values);
+        AuthScalarAsync<long>(authUserId, sql, values);
 
     private async Task<T> AuthScalarAsync<T>(
         Guid authUserId,
