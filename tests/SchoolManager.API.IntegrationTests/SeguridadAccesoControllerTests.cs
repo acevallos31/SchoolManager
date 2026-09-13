@@ -65,4 +65,96 @@ public sealed class SeguridadAccesoControllerTests(SeguridadAccesoApiFactory fac
             $"/api/configuracion/seguridad?institucionId={factory.InstitucionA}");
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
+
+    [Fact]
+    public async Task Administrador_explicito_gestiona_rol_y_asignacion_de_extremo_a_extremo()
+    {
+        using var client = factory.Cliente(factory.AdministradorA);
+        var codigo = $"secretaria_{Guid.NewGuid():N}";
+
+        var crear = await client.PostAsJsonAsync("/api/configuracion/seguridad/roles", new
+        {
+            institucionId = factory.InstitucionA,
+            codigo,
+            nombre = "Secretaría",
+            descripcion = "Rol de prueba"
+        });
+        Assert.Equal(HttpStatusCode.OK, crear.StatusCode);
+        var rolId = (await crear.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("id").GetGuid();
+
+        var editar = await client.PutAsJsonAsync(
+            $"/api/configuracion/seguridad/roles/{rolId}",
+            new { nombre = "Secretaría académica", descripcion = "Actualizado" });
+        Assert.Equal(HttpStatusCode.NoContent, editar.StatusCode);
+
+        var permisos = await client.PutAsJsonAsync(
+            $"/api/configuracion/seguridad/roles/{rolId}/permisos",
+            new { permisos = new[] { "identidad.roles.ver" } });
+        Assert.Equal(HttpStatusCode.NoContent, permisos.StatusCode);
+
+        var asignar = await client.PostAsJsonAsync(
+            $"/api/configuracion/seguridad/roles/{rolId}/asignaciones",
+            new { usuarioId = factory.UsuarioDestinoId });
+        Assert.Equal(HttpStatusCode.OK, asignar.StatusCode);
+        var asignacionId = (await asignar.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("id").GetGuid();
+
+        var snapshot = await client.GetFromJsonAsync<JsonElement>(
+            $"/api/configuracion/seguridad?institucionId={factory.InstitucionA}");
+        Assert.Contains(snapshot.GetProperty("roles").EnumerateArray(),
+            r => r.GetProperty("id").GetGuid() == rolId
+                 && r.GetProperty("nombre").GetString() == "Secretaría académica");
+        Assert.Contains(snapshot.GetProperty("asignaciones").EnumerateArray(),
+            a => a.GetProperty("id").GetGuid() == asignacionId);
+
+        var retirar = await client.PostAsJsonAsync(
+            $"/api/configuracion/seguridad/asignaciones/{asignacionId}/desactivar",
+            new { motivo = "Fin de prueba" });
+        Assert.Equal(HttpStatusCode.NoContent, retirar.StatusCode);
+
+        var desactivar = await client.PostAsJsonAsync(
+            $"/api/configuracion/seguridad/roles/{rolId}/desactivar",
+            new { motivo = "Fin de prueba" });
+        Assert.Equal(HttpStatusCode.NoContent, desactivar.StatusCode);
+    }
+
+    [Fact]
+    public async Task Admin_global_legacy_no_puede_crear_rol_institucional_por_API()
+    {
+        using var client = factory.Cliente(factory.AdminGlobal);
+        var response = await client.PostAsJsonAsync("/api/configuracion/seguridad/roles", new
+        {
+            institucionId = factory.InstitucionA,
+            codigo = $"bloqueado_{Guid.NewGuid():N}",
+            nombre = "Bloqueado"
+        });
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Administrador_de_A_no_puede_crear_rol_en_B()
+    {
+        using var client = factory.Cliente(factory.AdministradorA);
+        var response = await client.PostAsJsonAsync("/api/configuracion/seguridad/roles", new
+        {
+            institucionId = factory.InstitucionB,
+            codigo = $"ajeno_{Guid.NewGuid():N}",
+            nombre = "Ajeno"
+        });
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CrearRol_con_nombre_vacio_Devuelve400_por_contrato_API()
+    {
+        using var client = factory.Cliente(factory.AdministradorA);
+        var response = await client.PostAsJsonAsync("/api/configuracion/seguridad/roles", new
+        {
+            institucionId = factory.InstitucionA,
+            codigo = $"invalido_{Guid.NewGuid():N}",
+            nombre = ""
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
 }
