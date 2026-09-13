@@ -47,6 +47,12 @@ export const routes: Routes = [
 
       { path: 'configuracion', component: Configuracion },
       {
+        path: 'configuracion/seguridad-acceso',
+        canActivate: [permissionGuard],
+        data: { permiso: 'identidad.roles.ver' },
+        loadComponent: () => import('./pages/configuracion-seguridad-acceso/configuracion-seguridad-acceso').then(m => m.ConfiguracionSeguridadAcceso)
+      },
+      {
         path: 'configuracion/ciclos',
         component: ConfiguracionCiclos,
         canActivate: [permissionGuard],
