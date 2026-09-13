@@ -78,7 +78,9 @@ export class AppShell implements OnDestroy {
 
   get puedeVerConfiguracion(): boolean {
     return this.auth.tienePermiso('configuracion.sistema.ver')
-      || this.auth.tienePermiso('configuracion.instituciones.ver');
+      || this.auth.tienePermiso('configuracion.instituciones.ver')
+      || this.auth.tienePermiso('identidad.roles.ver')
+      || this.auth.tienePermiso('identidad.usuarios.ver');
   }
 
   get requiereSeleccionInstitucion(): boolean {
