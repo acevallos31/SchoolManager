@@ -227,3 +227,31 @@ Estado del PR #94:
 - El endpoint deja de construir objetos Web `Request`/`Response`; escribe estado, cabeceras y finalización directamente sobre la respuesta Node de Vercel.
 - Las reglas de seguridad no cambian: POST valida el bearer token contra `/auth/v1/user`, DELETE expira la cookie y los demás métodos reciben 405.
 - Pendiente antes del merge: nuevo CI/Sonar, despliegue del preview y repetición de las pruebas DELETE=204 y POST inválido=401.
+
+### Causa de carga confirmada — Codex, 2026-09-13, PR #94
+
+Esta evidencia sustituye las atribuciones anteriores al import externo o a la firma
+del handler: ambas eran hipótesis, no causas demostradas mediante logs.
+
+El log aportado por el operador muestra que Node intenta cargar
+`api/auth/session.js:62`, encuentra `export default async function handler` y
+advierte que falta `"type": "module"` en el package.json más cercano.
+TypeScript emite ES2022, pero el paquete no declaraba ESM. El proceso falla
+antes de ejecutar el endpoint; cambiar únicamente la firma no lo solucionaba.
+
+- Corrección: declarar `"type": "module"` en el package.json del frontend,
+  manteniendo el handler Node del commit `6a48e92` sin cambios.
+- Regresión: `api/session-runtime.spec.ts` transpila el archivo real con las
+  opciones del proyecto y lo carga en un proceso Node separado, sin detección
+  automática de módulos ni require(esm). Antes del cambio reproduce exactamente
+  el warning y `SyntaxError: Unexpected token 'export'` en la línea 62.
+- Con el cambio, la misma prueba carga correctamente y verifica DELETE=204,
+  POST sin bearer=401 y GET=405, sin acceso a red ni credenciales reales.
+- Suite local de Vercel: 10/10. El lockfile fue regenerado con npm 11.13.0;
+  no cambió su contenido porque no se modificaron dependencias.
+- Pendiente: CI/Sonar del nuevo commit y validación del deployment real.
+  La reproducción local no sustituye la prueba HTTP ni el login Google completo.
+- No se fusiona el PR ni se modifican datos, roles, RLS, secretos o CSP.
+- Frontend local: 322/322 tests. Build termina con código 0, pero conserva
+  el error de prerender preexistente `consumirMensajeSesionInvalida is not a function`
+  y el warning de `/responsive.css`; no se consideran resueltos por este cambio.
