@@ -96,16 +96,16 @@ describe('Login', () => {
     expect(component.error).toBe('');
   });
 
-  it('un usuario valido sin destino muestra mensaje y conserva la sesion', async () => {
+  it('un usuario valido sin destino conserva la sesion y navega a acceso pendiente', async () => {
     auth.login.mockResolvedValue(rolSinDestino);
     component.correo = 'alumno@schoolmanager.com';
     component.password = 'secreto';
 
     await component.login();
 
-    expect(router.navigate).not.toHaveBeenCalled();
+    expect(router.navigate).toHaveBeenCalledWith(['/acceso-pendiente']);
     expect(auth.logout).not.toHaveBeenCalled();
-    expect(component.error).toContain('todavia no tiene una pantalla habilitada');
+    expect(component.error).toBe('');
   });
 
   it('muestra mensaje seguro ante credenciales invalidas sin exponer Supabase', async () => {
