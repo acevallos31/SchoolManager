@@ -9,7 +9,8 @@ import {
 } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
-import { AuthService } from '../../core/services/auth';
+import { AuthService, InstitucionAcceso } from '../../core/services/auth';
+import { ContextoInstitucionService } from '../../core/services/contexto-institucion.service';
 
 /** Enlace de navegación primario del shell. `permiso` opcional: cuando se
  *  indica, el enlace se oculta sin ese permiso; el guard de ruta sigue siendo
@@ -29,9 +30,12 @@ interface NavItem {
 })
 export class AppShell implements OnDestroy {
   private readonly navSubscription: Subscription;
-  private usuarioSubscription: Subscription;
+  private readonly usuarioSubscription: Subscription;
+  private readonly contextoSubscription: Subscription;
   navAbierta = false;
   roles: string[] = [];
+  instituciones: readonly InstitucionAcceso[] = [];
+  institucionActual: InstitucionAcceso | null = null;
 
   // Enlaces con el permiso real que exige cada ruta; el guard sigue siendo la
   // autoridad para navegación directa por URL. Panel: sin permiso concreto.
@@ -48,6 +52,7 @@ export class AppShell implements OnDestroy {
 
   constructor(
     private readonly auth: AuthService,
+    private readonly contextoInstitucion: ContextoInstitucionService,
     private readonly router: Router
   ) {
     this.navSubscription = this.router.events
@@ -58,6 +63,11 @@ export class AppShell implements OnDestroy {
 
     this.usuarioSubscription = this.auth.usuarioActual$.subscribe((usuario) => {
       this.roles = usuario?.roles ?? [];
+      this.instituciones = usuario?.instituciones ?? [];
+    });
+
+    this.contextoSubscription = this.contextoInstitucion.institucionActual$.subscribe(institucion => {
+      this.institucionActual = institucion;
     });
   }
 
@@ -66,11 +76,27 @@ export class AppShell implements OnDestroy {
       || this.auth.tienePermiso('configuracion.instituciones.ver');
   }
 
+  get requiereSeleccionInstitucion(): boolean {
+    return this.instituciones.length > 1 && this.institucionActual === null;
+  }
+
   mostrarItem(item: NavItem): boolean {
     // Panel (sin permiso) siempre visible para autenticados; el resto exige el
-    // mismo permiso que su ruta.
+    // mismo permiso que su ruta. En 042F aún se conserva la unión compatible
+    // de /auth/me: el selector no reemplaza autorización backend/RLS.
     if (!item.permiso) return true;
     return this.auth.tienePermiso(item.permiso);
+  }
+
+  seleccionarInstitucion(event: Event): void {
+    const select = event.target as HTMLSelectElement | null;
+    const institucionId = select?.value ?? '';
+    if (!institucionId) {
+      this.contextoInstitucion.limpiar();
+      return;
+    }
+
+    this.contextoInstitucion.seleccionar(institucionId);
   }
 
   /** Activa el enlace del panel solo en su ruta exacta; el resto, por prefijo. */
@@ -83,6 +109,7 @@ export class AppShell implements OnDestroy {
   ngOnDestroy(): void {
     this.navSubscription.unsubscribe();
     this.usuarioSubscription.unsubscribe();
+    this.contextoSubscription.unsubscribe();
   }
 
   alternarNav(): void {
@@ -94,6 +121,7 @@ export class AppShell implements OnDestroy {
   }
 
   logout(): void {
+    this.contextoInstitucion.limpiar();
     void this.auth.logout();
     void this.router.navigate(['/login']);
   }
