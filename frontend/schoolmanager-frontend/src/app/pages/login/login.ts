@@ -44,13 +44,7 @@ export class Login implements OnInit {
     try {
       const usuario = await this.auth.login(correo, password);
       const ruta = resolverRutaInicial(usuario);
-
-      if (ruta) {
-        await this.router.navigate([ruta]);
-      } else {
-        this.error =
-          'Tu usuario esta activo, pero todavia no tiene una pantalla habilitada. Contacta al administrador para revisar sus permisos.';
-      }
+      await this.router.navigate([ruta ?? '/acceso-pendiente']);
     } catch (error: unknown) {
       this.error = this.obtenerMensajeError(error);
 
