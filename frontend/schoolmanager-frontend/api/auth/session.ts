@@ -52,6 +52,12 @@ async function tokenIsValid(accessToken: string): Promise<boolean> {
       cache: 'no-store'
     });
 
+    if (!response.ok) {
+      console.error(
+        `Supabase rechazo la validacion del token: HTTP ${response.status} en ${config.url}/auth/v1/user.`
+      );
+    }
+
     return response.ok;
   } catch (error) {
     console.error('No se pudo validar la sesion Supabase en api/auth/session:', error);
@@ -115,7 +121,13 @@ export default async function handler(
       const authorization = firstHeader(request.headers.authorization);
       const accessToken = bearerToken(authorization);
 
-      if (!accessToken || !(await tokenIsValid(accessToken))) {
+      if (!accessToken) {
+        console.error('POST /api/auth/session recibio un Authorization Bearer ausente o invalido.');
+        finish(response, 401, { 'Cache-Control': 'no-store' });
+        return;
+      }
+
+      if (!(await tokenIsValid(accessToken))) {
         finish(response, 401, { 'Cache-Control': 'no-store' });
         return;
       }
