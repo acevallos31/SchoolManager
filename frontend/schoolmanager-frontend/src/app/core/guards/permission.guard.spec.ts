@@ -8,7 +8,7 @@ import {
 } from '@angular/router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { AuthService } from '../services/auth';
+import { AuthService, UsuarioActual } from '../services/auth';
 import { permissionGuard } from './permission.guard';
 
 const state = {} as RouterStateSnapshot;
@@ -25,12 +25,24 @@ function ejecutar(permiso: string | undefined): unknown {
 
 describe('PermissionGuard', () => {
   let router: Router;
-  let auth: { isLoggedIn: ReturnType<typeof vi.fn>; tienePermiso: ReturnType<typeof vi.fn> };
+  let auth: {
+    isLoggedIn: ReturnType<typeof vi.fn>;
+    tienePermiso: ReturnType<typeof vi.fn>;
+    usuarioActual: ReturnType<typeof vi.fn>;
+  };
 
-  beforeEach(async () => {
+  const perfilAdmin: UsuarioActual = {
+    id: 'u-admin',
+    personaId: 'p-admin',
+    roles: ['secretaria'],
+    permisos: ['academico.responsables.ver', 'academico.cargos.ver']
+  };
+
+  beforeEach(() => {
     auth = {
       isLoggedIn: vi.fn(),
-      tienePermiso: vi.fn()
+      tienePermiso: vi.fn(),
+      usuarioActual: vi.fn().mockReturnValue(perfilAdmin)
     };
     TestBed.configureTestingModule({
       providers: [
@@ -65,23 +77,47 @@ describe('PermissionGuard', () => {
     expect(String(resultado)).toContain('login');
   });
 
-  it('rechaza y redirige a /dashboard cuando el usuario no tiene el permiso', () => {
+  it('redirige al dashboard cuando falta un permiso pero existe otra capacidad administrativa', () => {
     auth.isLoggedIn.mockReturnValue(true);
     auth.tienePermiso.mockReturnValue(false);
 
-    const resultado = ejecutar('academico.responsables.ver');
+    const resultado = ejecutar('academico.matriculas.ver');
 
     expect(resultado instanceof UrlTree).toBe(true);
     expect(String(resultado)).toContain('dashboard');
   });
 
-  it('permite el acceso a rutas sin permiso declarado (autenticación pura)', () => {
+  it('permite AppShell para un perfil con capacidades administrativas', () => {
     auth.isLoggedIn.mockReturnValue(true);
 
     const resultado = ejecutar(undefined);
 
     expect(resultado).toBe(true);
     expect(auth.tienePermiso).not.toHaveBeenCalled();
+  });
+
+  it('evita que un responsable caiga dentro del AppShell', () => {
+    auth.isLoggedIn.mockReturnValue(true);
+    auth.usuarioActual.mockReturnValue({
+      id: 'u-padre', personaId: 'p-padre', roles: ['parent'], permisos: []
+    });
+
+    const resultado = ejecutar(undefined);
+
+    expect(resultado).toBeInstanceOf(UrlTree);
+    expect(String(resultado)).toContain('portal-padre');
+  });
+
+  it('envía a acceso pendiente un perfil válido sin módulo disponible', () => {
+    auth.isLoggedIn.mockReturnValue(true);
+    auth.usuarioActual.mockReturnValue({
+      id: 'u-alumno', personaId: 'p-alumno', roles: ['student'], permisos: []
+    });
+
+    const resultado = ejecutar(undefined);
+
+    expect(resultado).toBeInstanceOf(UrlTree);
+    expect(String(resultado)).toContain('acceso-pendiente');
   });
 
   it('distingue permisos distintos (responsables vs matriculas)', () => {
@@ -110,10 +146,9 @@ describe('PermissionGuard', () => {
 
     const resultado = ejecutar('academico.cargos.ver');
 
-    // El guard es de solo lectura: solo consulta isLoggedIn/tienePermiso y
-    // nunca invoca mutadores de AuthService ni servicios de contexto institucional.
     expect(resultado).toBe(true);
     expect(auth.isLoggedIn).toHaveBeenCalled();
+    expect(auth.usuarioActual).toHaveBeenCalled();
     expect(auth.tienePermiso).toHaveBeenCalledWith('academico.cargos.ver');
     expect(auth).not.toHaveProperty('login');
     expect(auth).not.toHaveProperty('seleccionarInstitucion');
