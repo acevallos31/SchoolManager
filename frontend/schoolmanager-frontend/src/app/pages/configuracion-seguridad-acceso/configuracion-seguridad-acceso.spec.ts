@@ -22,6 +22,12 @@ describe('ConfiguracionSeguridadAcceso', () => {
     permisos: ['academico.alumnos.ver']
   };
 
+  const asignacion = {
+    id: 'asig-1', usuarioId: 'usuario-1', nombre: 'Ana Pérez',
+    rolId: 'rol-1', rolCodigo: 'secretaria', rolNombre: 'Secretaría',
+    rolTipo: 'institucional', activo: true, creadoEn: '2026-09-13T10:00:00Z'
+  };
+
   const snapshot: SeguridadAccesoSnapshot = {
     institucionId: 'inst-1',
     capacidades: {
@@ -40,7 +46,7 @@ describe('ConfiguracionSeguridadAcceso', () => {
       codigo: 'academico.pagos.ver', modulo: 'academico', nombre: 'Ver pagos',
       descripcion: null, riesgo: 'medio'
     }],
-    asignaciones: []
+    asignaciones: [asignacion]
   };
 
   beforeEach(async () => {
@@ -49,8 +55,10 @@ describe('ConfiguracionSeguridadAcceso', () => {
       obtener: vi.fn().mockResolvedValue(snapshot),
       crearRol: vi.fn().mockResolvedValue('rol-nuevo'),
       clonarPlantilla: vi.fn().mockResolvedValue('rol-clonado'),
+      editarRol: vi.fn().mockResolvedValue(undefined),
       reemplazarPermisos: vi.fn().mockResolvedValue(undefined),
-      desactivarRol: vi.fn().mockResolvedValue(undefined)
+      desactivarRol: vi.fn().mockResolvedValue(undefined),
+      desactivarAsignacion: vi.fn().mockResolvedValue(undefined)
     };
 
     await TestBed.configureTestingModule({
@@ -84,6 +92,7 @@ describe('ConfiguracionSeguridadAcceso', () => {
     expect(component.puedeCrear).toBe(true);
     expect(component.puedeEditar).toBe(true);
     expect(component.puedeAsignarPermisos).toBe(true);
+    expect(component.puedeGestionarAsignaciones).toBe(true);
   });
 
   it('sin institución muestra un estado accionable y no consulta la API', async () => {
@@ -133,6 +142,29 @@ describe('ConfiguracionSeguridadAcceso', () => {
     expect(component.mensaje).toBe('Plantilla clonada como rol institucional.');
   });
 
+  it('edita nombre y descripción de un rol activo', async () => {
+    await crearComponente();
+    component.seleccionarRol(rol);
+    expect(component.edicionRol).toEqual({ nombre: 'Secretaría', descripcion: '' });
+    component.edicionRol = { nombre: ' Secretaría académica ', descripcion: ' Apoyo escolar ' };
+
+    await component.guardarRol();
+
+    expect(service['editarRol']).toHaveBeenCalledWith(
+      'rol-1', 'Secretaría académica', 'Apoyo escolar'
+    );
+    expect(component.mensaje).toBe('Definición del rol actualizada.');
+  });
+
+  it('no guarda una definición de rol sin nombre', async () => {
+    await crearComponente();
+    component.seleccionarRol(rol);
+    component.edicionRol.nombre = ' ';
+    await component.guardarRol();
+    expect(service['editarRol']).not.toHaveBeenCalled();
+    expect(component.mensaje).toContain('nombre del rol es obligatorio');
+  });
+
   it('selecciona rol, alterna permisos y guarda la selección', async () => {
     await crearComponente();
     component.seleccionarRol(rol);
@@ -154,28 +186,49 @@ describe('ConfiguracionSeguridadAcceso', () => {
   it('desactiva un rol editable y limpia la selección activa', async () => {
     await crearComponente();
     component.seleccionarRol(rol);
+    service['obtener'].mockResolvedValueOnce({ ...snapshot, roles: [] });
     await component.desactivarRol(rol);
     expect(service['desactivarRol']).toHaveBeenCalledWith(
       'rol-1', 'Desactivado desde Configuración > Seguridad y acceso'
     );
     expect(component.rolSeleccionadoId).toBe('');
     expect(component.permisosSeleccionados.size).toBe(0);
+    expect(component.edicionRol).toEqual({ nombre: '', descripcion: '' });
     expect(component.mensaje).toBe('Rol desactivado correctamente.');
   });
 
-  it('no muta permisos ni desactiva roles cuando la capacidad lo impide', async () => {
+  it('retira una asignación solo con capacidad usuarios.asignar_roles', async () => {
+    await crearComponente();
+    await component.retirarAsignacion(asignacion);
+    expect(service['desactivarAsignacion']).toHaveBeenCalledWith(
+      'asig-1', 'Asignación retirada desde Configuración > Seguridad y acceso'
+    );
+    expect(component.mensaje).toBe('Asignación retirada correctamente.');
+  });
+
+  it('no muta roles, permisos ni asignaciones cuando las capacidades lo impiden', async () => {
     service['obtener'].mockResolvedValue({
       ...snapshot,
-      capacidades: { ...snapshot.capacidades, rolesEditar: false, rolesAsignarPermisos: false }
+      capacidades: {
+        ...snapshot.capacidades,
+        rolesEditar: false,
+        rolesAsignarPermisos: false,
+        usuariosAsignarRoles: false
+      }
     });
     await crearComponente();
     component.seleccionarRol(rol);
     component.alternarPermiso('academico.pagos.ver', true);
+    component.edicionRol.nombre = 'Otro';
+    await component.guardarRol();
     await component.guardarPermisos();
     await component.desactivarRol(rol);
+    await component.retirarAsignacion(asignacion);
     expect(component.permisosSeleccionados.has('academico.pagos.ver')).toBe(false);
+    expect(service['editarRol']).not.toHaveBeenCalled();
     expect(service['reemplazarPermisos']).not.toHaveBeenCalled();
     expect(service['desactivarRol']).not.toHaveBeenCalled();
+    expect(service['desactivarAsignacion']).not.toHaveBeenCalled();
   });
 
   it('presenta el error funcional de seguridad y libera el estado guardando', async () => {
@@ -196,6 +249,7 @@ describe('ConfiguracionSeguridadAcceso', () => {
     expect(component.rolSeleccionado).toBeNull();
     expect(component.rolSeleccionadoId).toBe('');
     expect(component.permisosSeleccionados.size).toBe(0);
+    expect(component.edicionRol).toEqual({ nombre: '', descripcion: '' });
   });
 
   it('vuelve al hub de configuración', async () => {
