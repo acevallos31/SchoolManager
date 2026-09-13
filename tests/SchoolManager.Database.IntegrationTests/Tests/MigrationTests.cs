@@ -35,11 +35,12 @@ public sealed class MigrationTests(PostgreSqlFixture fixture) : IClassFixture<Po
             "026_permitir_rematricula_tras_anulacion.sql",
             "027_vinculacion_identidad_oauth.sql",
             "028_roles_dinamicos_institucionales.sql",
-            "029_operaciones_roles_institucionales.sql"
+            "029_operaciones_roles_institucionales.sql",
+            "030_roles_institucionales_clonado_edicion.sql"
     ];
 
     [Fact]
-    public void Migraciones_activas_estan_ordenadas_de_001_a_029()
+    public void Migraciones_activas_estan_ordenadas_de_001_a_030()
     {
         var names = MigrationRunner.GetActiveMigrationPaths().Select(Path.GetFileName).ToArray();
         Assert.Equal(MigracionesEsperadas, names);
