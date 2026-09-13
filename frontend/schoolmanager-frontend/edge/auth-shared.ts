@@ -6,7 +6,7 @@ export const SESSION_COOKIE = '__Host-schoolmanager-session';
 
 function authConfig(): { url: string; key: string } | null {
   const rawUrl = process.env['SUPABASE_URL'];
-  const key = process.env['SUPABASE_PUBLISHABLE_KEY'];
+  // Keep compatibility with the name used by the staging setup guide. Both\n  // values are publishable/anon keys; never use service_role here.\n  const key =\n    process.env['SUPABASE_PUBLISHABLE_KEY'] || process.env['SUPABASE_ANON_KEY'];
 
   if (!rawUrl || !key) {
     return null;
@@ -19,7 +19,7 @@ function authConfig(): { url: string; key: string } | null {
 export async function tokenIsValid(accessToken: string, context: string): Promise<boolean> {
   const config = authConfig();
   if (!config) {
-    console.error('Faltan SUPABASE_URL/SUPABASE_PUBLISHABLE_KEY en Vercel.');
+    console.error(\n      'Faltan SUPABASE_URL y SUPABASE_PUBLISHABLE_KEY (o SUPABASE_ANON_KEY) en Vercel.'\n    );
     return false;
   }
 
