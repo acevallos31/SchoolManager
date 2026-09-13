@@ -27,6 +27,7 @@
         <span class="sm-badge" [class.sm-badge--success]="snapshot.capacidades.rolesCrear">Crear roles</span>
         <span class="sm-badge" [class.sm-badge--success]="snapshot.capacidades.rolesEditar">Editar roles</span>
         <span class="sm-badge" [class.sm-badge--success]="snapshot.capacidades.rolesAsignarPermisos">Asignar permisos</span>
+        <span class="sm-badge" [class.sm-badge--success]="snapshot.capacidades.usuariosAsignarRoles">Asignar roles</span>
       </div>
     </section>
 
@@ -89,7 +90,7 @@
       <div class="section-heading">
         <div>
           <h2 class="sm-section-title">Roles de mi institución</h2>
-          <p class="sm-helper">Selecciona un rol para revisar o modificar los permisos que puedes delegar.</p>
+          <p class="sm-helper">Selecciona un rol para revisar o modificar su definición y los permisos que puedes delegar.</p>
         </div>
         <span class="sm-badge sm-badge--neutral">{{ snapshot.roles.length }} roles</span>
       </div>
@@ -121,7 +122,7 @@
               <div class="section-heading compact">
                 <div>
                   <h3 class="sm-section-title">{{ rol.nombre }}</h3>
-                  <p class="sm-helper">{{ rol.descripcion || 'Sin descripción.' }}</p>
+                  <p class="sm-helper">Código estable: <strong>{{ rol.codigo }}</strong></p>
                 </div>
                 @if (puedeEditar && rol.activo && !rol.protegido) {
                   <button type="button" class="sm-btn sm-btn--secondary sm-btn--sm" (click)="desactivarRol(rol)" [disabled]="guardando">
@@ -129,6 +130,24 @@
                   </button>
                 }
               </div>
+
+              @if (puedeEditar && rol.activo && !rol.protegido) {
+                <form (ngSubmit)="guardarRol()" class="form-stack role-definition-form">
+                  <label class="sm-field">
+                    <span class="sm-label">Nombre del rol *</span>
+                    <input class="sm-input" name="editarRolNombre" [(ngModel)]="edicionRol.nombre" required [disabled]="guardando">
+                  </label>
+                  <label class="sm-field">
+                    <span class="sm-label">Descripción</span>
+                    <textarea class="sm-input" name="editarRolDescripcion" [(ngModel)]="edicionRol.descripcion" rows="2" [disabled]="guardando"></textarea>
+                  </label>
+                  <div class="actions">
+                    <button type="submit" class="sm-btn sm-btn--secondary sm-btn--sm" [disabled]="guardando">Guardar definición</button>
+                  </div>
+                </form>
+              } @else {
+                <p class="sm-helper">{{ rol.descripcion || 'Sin descripción.' }}</p>
+              }
 
               @if (puedeAsignarPermisos) {
                 <div class="permission-list">
@@ -179,13 +198,20 @@
         } @else {
           <div class="sm-table-wrap">
             <table class="sm-table">
-              <thead><tr><th>Usuario</th><th>Rol</th><th>Tipo</th></tr></thead>
+              <thead><tr><th>Usuario</th><th>Rol</th><th>Tipo</th>@if (puedeGestionarAsignaciones) { <th>Acciones</th> }</tr></thead>
               <tbody>
                 @for (asignacion of snapshot.asignaciones; track asignacion.id) {
                   <tr>
                     <td>{{ asignacion.nombre || asignacion.usuarioId }}</td>
                     <td>{{ asignacion.rolNombre }}</td>
                     <td><span class="sm-badge sm-badge--neutral">{{ asignacion.rolTipo }}</span></td>
+                    @if (puedeGestionarAsignaciones) {
+                      <td>
+                        <button type="button" class="sm-btn sm-btn--secondary sm-btn--sm" (click)="retirarAsignacion(asignacion)" [disabled]="guardando">
+                          Retirar rol
+                        </button>
+                      </td>
+                    }
                   </tr>
                 }
               </tbody>
