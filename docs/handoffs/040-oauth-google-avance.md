@@ -255,3 +255,31 @@ antes de ejecutar el endpoint; cambiar únicamente la firma no lo solucionaba.
 - Frontend local: 322/322 tests. Build termina con código 0, pero conserva
   el error de prerender preexistente `consumirMensajeSesionInvalida is not a function`
   y el warning de `/responsive.css`; no se consideran resueltos por este cambio.
+### Diagnóstico posterior en Preview — 2026-09-13
+
+Después de corregir la carga ESM, el callback dejó de caer en 404 y el endpoint
+`POST /api/auth/session` dejó de responder 500. La evidencia del navegador pasó
+a ser `401 Unauthorized`, mientras `DELETE /api/auth/session` respondió 204.
+Eso confirma que el handler sí se ejecuta y que el fallo está en la validación
+del bearer contra Supabase o en su configuración server-side.
+
+La revisión del código encontró una discrepancia: esta función solo leía
+`SUPABASE_PUBLISHABLE_KEY`, pero `docs/ci/e2e-auth-setup.md` indicaba
+`SUPABASE_ANON_KEY`. Se corrigieron ambos validadores (`api/auth/session.ts` y
+`edge/auth-shared.ts`) para aceptar `SUPABASE_PUBLISHABLE_KEY` y, como alias
+compatible, `SUPABASE_ANON_KEY`, siempre junto con `SUPABASE_URL`. La clave debe
+ser publishable/anon; nunca `service_role`.
+
+La migración `20260912211327_vinculacion_identidad_oauth_027` ya aparece aplicada
+en el proyecto Supabase y la comprobación de solo lectura encontró la RPC y
+usuarios Google vinculados activos. No se ejecutó ninguna migración ni escritura
+de datos durante este diagnóstico.
+
+Tras desplegar este cambio, repetir el login en el Preview y verificar:
+
+1. `POST /api/auth/session` = 204 y respuesta con `Set-Cookie` HttpOnly.
+2. `GET /api/auth/me` = 200.
+3. Recarga de `/dashboard` sin 302 a `/login`.
+
+Si persiste el 401, revisar en los logs de Vercel si aparece `Faltan SUPABASE_URL`
+o si Supabase está rechazando el token; no registrar ni copiar tokens.
