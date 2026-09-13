@@ -1,0 +1,2 @@
+-- noop
+select 1;
