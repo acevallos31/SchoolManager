@@ -58,6 +58,9 @@ begin
     raise exception 'No se puede delegar un permiso que el usuario no posee.' using errcode='42501';
   end if;
 
+  perform pg_advisory_xact_lock(
+    hashtextextended('schoolmanager:admin-institucional:'||v_inst::text,0)
+  );
   v_antes:=public.contar_admins_institucionales(v_inst);
   delete from public.roles_permisos where rol_id=p_rol_id;
   insert into public.roles_permisos(rol_id,permiso_id)
@@ -69,7 +72,17 @@ begin
   if v_antes>0 and v_despues=0 then
     raise exception 'No se puede eliminar al ultimo administrador institucional activo.' using errcode='23514';
   end if;
+
+  insert into public.seguridad_auditoria(
+    actor_usuario_id,institucion_id,accion,entidad_tipo,entidad_id,detalle
+  ) values(
+    public.usuario_actual_id(),v_inst,'rol_institucional.reemplazar_permisos','rol',p_rol_id,
+    jsonb_build_object('permisos',to_jsonb(v_codigos))
+  );
 end $$;
+
+revoke execute on function public.rpc_reemplazar_permisos_rol_institucional(uuid,text[]) from public,anon;
+grant execute on function public.rpc_reemplazar_permisos_rol_institucional(uuid,text[]) to authenticated,service_role;
 
 insert into public.schema_migrations(version,nombre,checksum)
 values('032','roles_institucionales_reemplazar_permisos',null)
