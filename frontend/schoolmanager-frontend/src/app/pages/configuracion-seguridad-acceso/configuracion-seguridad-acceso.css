@@ -1,0 +1,140 @@
+.security-shell {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+.page-header,
+.section-heading,
+.summary-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.section-heading.compact {
+  align-items: center;
+}
+
+.creation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.form-stack {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.sm-input {
+  width: 100%;
+}
+
+.capabilities {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.roles-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(0, 2fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.role-list {
+  display: grid;
+  align-content: start;
+  gap: 0.5rem;
+}
+
+.role-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.85rem;
+  border: 1px solid var(--sm-border, #d7dce2);
+  border-radius: 0.75rem;
+  background: var(--sm-surface, #fff);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.role-item:hover,
+.role-item--selected {
+  border-color: var(--sm-primary, #315efb);
+}
+
+.role-item span:first-child,
+.permission-row span:nth-child(2) {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.role-item small,
+.permission-row small {
+  overflow-wrap: anywhere;
+  color: var(--sm-text-muted, #64748b);
+}
+
+.permission-panel {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--sm-border, #d7dce2);
+  border-radius: 0.75rem;
+}
+
+.permission-list {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  max-height: 32rem;
+  overflow: auto;
+}
+
+.permission-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem;
+  border-bottom: 1px solid var(--sm-border, #e5e7eb);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.sm-table-wrap {
+  overflow-x: auto;
+  margin-top: 1rem;
+}
+
+@media (max-width: 900px) {
+  .creation-grid,
+  .roles-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .page-header,
+  .section-heading,
+  .summary-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .capabilities {
+    justify-content: flex-start;
+  }
+}
