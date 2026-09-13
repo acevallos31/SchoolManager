@@ -16,7 +16,8 @@ public sealed class MigrationValidationSuiteTests
     public async Task Todas_las_validaciones_incrementales_pasan_en_base_limpia()
     {
         // Lanza ValidationFailedException con el detalle si alguna validacion falla.
-        await ValidationRunner.RunAllAsync();
+        var exception = await Record.ExceptionAsync(ValidationRunner.RunAllAsync);
+        Assert.Null(exception);
     }
 
     [Fact]
