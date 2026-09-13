@@ -13,13 +13,17 @@ import { permissionGuard } from './permission.guard';
 
 const state = {} as RouterStateSnapshot;
 
-function snapshotConPermiso(permiso: string | undefined): ActivatedRouteSnapshot {
-  return { data: { permiso } } as unknown as ActivatedRouteSnapshot;
+function snapshotConData(data: Record<string, unknown>): ActivatedRouteSnapshot {
+  return { data } as unknown as ActivatedRouteSnapshot;
 }
 
 function ejecutar(permiso: string | undefined): unknown {
+  return ejecutarData({ permiso });
+}
+
+function ejecutarData(data: Record<string, unknown>): unknown {
   return TestBed.runInInjectionContext(() =>
-    permissionGuard(snapshotConPermiso(permiso), state)
+    permissionGuard(snapshotConData(data), state)
   );
 }
 
@@ -65,6 +69,33 @@ describe('PermissionGuard', () => {
 
     expect(resultado).toBe(true);
     expect(auth.tienePermiso).toHaveBeenCalledWith('academico.responsables.ver');
+  });
+
+  it('permite una política OR cuando posee cualquiera de los permisos', () => {
+    auth.isLoggedIn.mockReturnValue(true);
+    auth.tienePermiso.mockImplementation((permiso: string) =>
+      permiso === 'identidad.usuarios.ver'
+    );
+
+    const resultado = ejecutarData({
+      permisosCualquiera: ['identidad.roles.ver', 'identidad.usuarios.ver']
+    });
+
+    expect(resultado).toBe(true);
+    expect(auth.tienePermiso).toHaveBeenCalledWith('identidad.roles.ver');
+    expect(auth.tienePermiso).toHaveBeenCalledWith('identidad.usuarios.ver');
+  });
+
+  it('rechaza una política OR cuando no posee ninguno de los permisos', () => {
+    auth.isLoggedIn.mockReturnValue(true);
+    auth.tienePermiso.mockReturnValue(false);
+
+    const resultado = ejecutarData({
+      permisosCualquiera: ['identidad.roles.ver', 'identidad.usuarios.ver']
+    });
+
+    expect(resultado).toBeInstanceOf(UrlTree);
+    expect(String(resultado)).toContain('dashboard');
   });
 
   it('redirige a /login cuando no hay sesión', () => {
