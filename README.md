@@ -138,3 +138,5 @@ frontend en cada push/PR; despliega a producción solo desde `main`
 Uso libre para fines educativos.
 
 LEARN-CAP-AEDC71C1
+- docs/AI_ASSISTANTS_SUPPORT_PLAN.md — plan inicial para tickets, soporte y asistentes Hermes.
+- docs/ROLES_PERMISOS_DINAMICOS.md — diseño objetivo de roles institucionales configurables.
