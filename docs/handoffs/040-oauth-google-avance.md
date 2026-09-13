@@ -216,4 +216,10 @@ Corrección propuesta en el PR siguiente:
 - Responder 405 con cabecera `Allow: POST, DELETE` para métodos no admitidos.
 - Ejecutar todas las pruebas a través del mismo handler exportado que cargará Vercel.
 
-Pendiente: CI, preview y prueba HTTP real del endpoint antes del merge.
+Estado del PR #94:
+
+- CI/CD completo: compilación, pruebas backend, base de datos, frontend y pruebas de rutas/funciones Vercel en verde.
+- SonarCloud / Quality Gate: verde.
+- Vercel Preview: desplegado y marcado **Ready**.
+- La prueba HTTP externa del preview no pudo llegar a la función porque la protección SSO de Vercel respondió 302 antes de ejecutar `/api/auth/session`.
+- Pendiente antes del merge: validar el endpoint desde una sesión autorizada del preview, o fusionar y comprobar inmediatamente en producción que DELETE devuelve 204, POST inválido devuelve 401 y el login Google crea la sesión.
