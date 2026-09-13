@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { ContextoInstitucionService } from '../../core/services/contexto-institucion.service';
 import {
   PermisoDelegableSeguridad,
@@ -14,7 +14,7 @@ import {
 @Component({
   selector: 'app-configuracion-seguridad-acceso',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule],
   templateUrl: './configuracion-seguridad-acceso.html',
   styleUrl: './configuracion-seguridad-acceso.css'
 })
@@ -65,7 +65,7 @@ export class ConfiguracionSeguridadAcceso implements OnInit {
     await this.cargar();
   }
 
-  async cargar(): Promise<void> {
+  async cargar(preservarMensaje = false): Promise<void> {
     const institucionId = this.institucionId;
     if (!institucionId) {
       this.snapshot = null;
@@ -75,7 +75,7 @@ export class ConfiguracionSeguridadAcceso implements OnInit {
     }
 
     this.cargando = true;
-    this.mensaje = '';
+    if (!preservarMensaje) this.mensaje = '';
     try {
       this.snapshot = await this.seguridad.obtener(institucionId);
       if (this.rolSeleccionadoId && !this.rolSeleccionado) {
@@ -179,7 +179,7 @@ export class ConfiguracionSeguridadAcceso implements OnInit {
     this.mensaje = '';
     try {
       await operacion();
-      await this.cargar();
+      await this.cargar(true);
     } catch (error) {
       this.mostrarError(this.mensajeError(error));
     } finally {
