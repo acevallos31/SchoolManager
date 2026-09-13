@@ -13,6 +13,7 @@ create or replace function public.rpc_desactivar_rol_usuario(
 returns void language plpgsql security definer set search_path=pg_catalog,public,pg_temp as $$
 declare
   v_inst uuid; v_usuario uuid; v_tipo text; v_codigo text; v_superadmins integer;
+  v_antes integer; v_despues integer;
 begin
   if btrim(coalesce(p_motivo,''))='' then raise exception 'El motivo es obligatorio.' using errcode='22023'; end if;
   select ur.institucion_id,ur.usuario_id,r.tipo,r.codigo
@@ -44,6 +45,22 @@ begin
     end if;
   elsif not public.usuario_tiene_permiso_actual('identidad.usuarios.asignar_roles',v_inst) then
     raise exception 'Permiso denegado.' using errcode='42501';
+  end if;
+
+  if v_inst is not null then
+    perform pg_advisory_xact_lock(hashtextextended('schoolmanager:admin-institucional:'||v_inst::text,0));
+    v_antes:=public.contar_admins_institucionales(v_inst);
+  end if;
+
+  update public.usuarios_roles
+  set activo=false,fecha_desactivacion=now(),motivo_desactivacion=btrim(p_motivo),updated_at=now()
+  where id=p_usuario_rol_id;
+
+  if v_inst is not null then
+    v_despues:=public.contar_admins_institucionales(v_inst);
+    if v_antes>0 and v_despues=0 then
+      raise exception 'No se puede retirar al ultimo administrador institucional activo.' using errcode='23514';
+    end if;
   end if;
 end $$;
 
