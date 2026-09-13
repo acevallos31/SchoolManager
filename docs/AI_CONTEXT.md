@@ -235,3 +235,11 @@ Resolución:
 - No commitear secretos.
 - No ejecutar pruebas destructivas contra producción.
 - Las reglas operativas completas están en `AGENTS.md`.
+
+## Planes de evolución documentados
+
+- [Plan inicial de tickets, soporte y asistentes Hermes](AI_ASSISTANTS_SUPPORT_PLAN.md).
+- [Diseño objetivo de roles y permisos dinámicos](ROLES_PERMISOS_DINAMICOS.md).
+
+Estos documentos son propuestas de diseño. No sustituyen las migraciones
+versionadas ni autorizan cambios en producción.
