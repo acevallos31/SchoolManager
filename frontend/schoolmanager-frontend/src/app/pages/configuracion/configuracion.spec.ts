@@ -24,7 +24,11 @@ describe('Configuracion', () => {
   };
 
   beforeEach(async () => {
-    permisos = new Set(['configuracion.instituciones.editar', 'configuracion.sistema.editar', 'configuracion.ciclos.ver']);
+    permisos = new Set([
+      'configuracion.instituciones.editar',
+      'configuracion.sistema.editar',
+      'academico.ciclos.ver'
+    ]);
     service = {
       obtenerConfiguracionInstitucion: vi.fn().mockResolvedValue(configuracion),
       crearInstitucion: vi.fn().mockResolvedValue(configuracion),
@@ -34,7 +38,11 @@ describe('Configuracion', () => {
     await TestBed.configureTestingModule({
       imports: [Configuracion],
       providers: [
-        provideRouter([{ path: 'configuracion/ciclos', component: Configuracion }, { path: 'configuracion/estructura-academica', component: Configuracion }]),
+        provideRouter([
+          { path: 'configuracion/ciclos', component: Configuracion },
+          { path: 'configuracion/estructura-academica', component: Configuracion },
+          { path: 'configuracion/seguridad-acceso', component: Configuracion }
+        ]),
         { provide: AuthService, useValue: { tienePermiso: (p: string) => permisos.has(p) } },
         { provide: ConfiguracionService, useValue: service }
       ]
@@ -51,13 +59,6 @@ describe('Configuracion', () => {
   });
 
   it('el spinner de carga desaparece al resolver la carga async sin interacción del usuario', async () => {
-    // Regression Bloque 030 (cambio de detección GLOBAL): aunque esta página
-    // ya inyecta ChangeDetectorRef y llama cdr.detectChanges() en su finally,
-    // verificamos que la resolución de la promise de obtenerConfiguracionInstitucion
-    // actualiza el DOM sin requerir clic/evento del usuario: mientras la promise
-    // queda pendiente el spinner es visible, y al resolverla desaparece y aparecen
-    // los datos. No se retira el detectChanges() existente (es el patrón que la
-    // página ya usa para refrescar tras cada operación async).
     let resolverCarga!: (v: typeof configuracion) => void;
     service['obtenerConfiguracionInstitucion'].mockReturnValue(
       new Promise<typeof configuracion>((r) => (resolverCarga = r))
@@ -65,11 +66,11 @@ describe('Configuracion', () => {
 
     const f2 = TestBed.createComponent(Configuracion);
     const c2 = f2.componentInstance;
-    f2.detectChanges(); // render inicial con la promise pendiente
+    f2.detectChanges();
     expect(c2.cargando).toBe(true);
     expect(f2.nativeElement.textContent).toContain('Cargando configuración...');
 
-    resolverCarga(configuracion); // sin clicks ni eventos de usuario
+    resolverCarga(configuracion);
     await f2.whenStable();
     f2.detectChanges();
 
@@ -79,11 +80,11 @@ describe('Configuracion', () => {
     f2.destroy();
   });
 
-  it('muestra la tarjeta de ciclos con permiso y navega a su ruta', async () => {
-    const tarjeta = fixture.nativeElement.querySelector('.navigation-card') as HTMLElement;
+  it('muestra la tarjeta de ciclos con el permiso canónico y navega a su ruta', async () => {
+    const tarjetas = Array.from(fixture.nativeElement.querySelectorAll('.navigation-card')) as HTMLElement[];
+    const tarjeta = tarjetas.find(item => item.textContent?.includes('Ciclos escolares'))!;
     const enlace = tarjeta.querySelector('a') as HTMLAnchorElement;
     expect(tarjeta.textContent).toContain('Ciclos escolares y períodos de matrícula');
-    expect(tarjeta.textContent).toContain('Administra los ciclos escolares y sus períodos de matrícula.');
     expect(enlace.textContent).toContain('Gestionar ciclos');
     expect(enlace.getAttribute('href')).toBe('/configuracion/ciclos');
 
@@ -91,20 +92,49 @@ describe('Configuracion', () => {
     await vi.waitFor(() => expect(TestBed.inject(Router).url).toBe('/configuracion/ciclos'));
   });
 
-  it('oculta la tarjeta de ciclos sin permiso de lectura', async () => {
+  it('oculta la tarjeta de ciclos sin permiso canónico de lectura', async () => {
     fixture.destroy();
-    permisos.delete('configuracion.ciclos.ver');
+    permisos.delete('academico.ciclos.ver');
     await crearComponente();
-    expect(fixture.nativeElement.querySelector('.navigation-card')).toBeNull();
     expect(fixture.nativeElement.textContent).not.toContain('Gestionar ciclos');
   });
 
-  it('muestra la estructura académica con cualquier permiso de lectura y la oculta sin ellos', async () => {
-    fixture.destroy(); permisos.add('configuracion.grados.ver'); await crearComponente();
-    const enlaces = Array.from(fixture.nativeElement.querySelectorAll('a')) as HTMLAnchorElement[];
+  it('muestra estructura académica solo con academico.estructura.ver', async () => {
+    fixture.destroy();
+    permisos.add('academico.estructura.ver');
+    await crearComponente();
+    let enlaces = Array.from(fixture.nativeElement.querySelectorAll('a')) as HTMLAnchorElement[];
     expect(enlaces.some(enlace => enlace.getAttribute('href') === '/configuracion/estructura-academica')).toBe(true);
-    fixture.destroy(); permisos.delete('configuracion.grados.ver'); permisos.delete('configuracion.jornadas.ver'); permisos.delete('configuracion.secciones.ver'); await crearComponente();
-    expect(fixture.nativeElement.textContent).not.toContain('Gestionar estructura académica');
+
+    fixture.destroy();
+    permisos.delete('academico.estructura.ver');
+    await crearComponente();
+    enlaces = Array.from(fixture.nativeElement.querySelectorAll('a')) as HTMLAnchorElement[];
+    expect(enlaces.some(enlace => enlace.getAttribute('href') === '/configuracion/estructura-academica')).toBe(false);
+  });
+
+  it('un gestor RBAC ve Seguridad y acceso sin consultar configuración del centro', async () => {
+    fixture.destroy();
+    permisos.clear();
+    permisos.add('identidad.roles.ver');
+    service['obtenerConfiguracionInstitucion'].mockClear();
+    await crearComponente();
+
+    expect(service['obtenerConfiguracionInstitucion']).not.toHaveBeenCalled();
+    const enlace = Array.from(fixture.nativeElement.querySelectorAll('a'))
+      .find((item: Element) => item.getAttribute('href') === '/configuracion/seguridad-acceso');
+    expect(enlace).toBeTruthy();
+    expect(fixture.nativeElement.textContent).toContain('Seguridad y acceso');
+    expect(fixture.nativeElement.textContent).not.toContain('Centro educativo');
+  });
+
+  it('identidad.usuarios.ver también habilita el acceso al módulo de seguridad', async () => {
+    fixture.destroy();
+    permisos.clear();
+    permisos.add('identidad.usuarios.ver');
+    await crearComponente();
+    expect(component.puedeVerSeguridadAcceso).toBe(true);
+    expect(fixture.nativeElement.textContent).toContain('Gestionar roles y permisos');
   });
 
   it('permite editar, guardar por RPC y cancelar restaura el formulario', async () => {
@@ -122,11 +152,14 @@ describe('Configuracion', () => {
     expect(component.editando).toBe(false);
   });
 
-  it('sin permiso queda en modo lectura', async () => {
+  it('sin permisos de centro no consulta ni muestra su configuración', async () => {
     fixture.destroy();
     permisos.clear();
+    service['obtenerConfiguracionInstitucion'].mockClear();
     await crearComponente();
+    expect(service['obtenerConfiguracionInstitucion']).not.toHaveBeenCalled();
     expect(fixture.nativeElement.textContent).not.toContain('Editar');
+    expect(fixture.nativeElement.textContent).not.toContain('Centro educativo');
     expect(component.puedeEditarInstitucion).toBe(false);
   });
 
