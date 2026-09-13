@@ -335,10 +335,9 @@ as $$
 declare
   v_tipo text;
   v_institucion_id uuid;
-  v_activo boolean;
 begin
-  select r.tipo, r.institucion_id, r.activo
-    into v_tipo, v_institucion_id, v_activo
+  select r.tipo, r.institucion_id
+    into v_tipo, v_institucion_id
   from public.roles r
   where r.id = new.rol_id;
 
@@ -346,10 +345,8 @@ begin
     raise exception 'El rol no existe.' using errcode = '23503';
   end if;
 
-  if new.activo and not v_activo then
-    raise exception 'No se puede asignar un rol inactivo.' using errcode = '23514';
-  end if;
-
+  -- La RPC solo selecciona roles activos. El trigger conserva la posibilidad
+  -- de representar asignaciones historicas privilegiadas a roles inactivos.
   if new.activo and v_tipo = 'plantilla' then
     raise exception 'Una plantilla de rol no puede asignarse directamente.' using errcode = '23514';
   end if;
