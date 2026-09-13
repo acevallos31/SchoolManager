@@ -64,6 +64,9 @@ create policy usuarios_roles_select on public.usuarios_roles for select to authe
   )
 );
 
+revoke execute on function public.usuario_tiene_permiso_institucional_estricto(text, uuid)
+  from authenticated;
+
 delete from public.schema_migrations where version = '037';
 
 commit;
