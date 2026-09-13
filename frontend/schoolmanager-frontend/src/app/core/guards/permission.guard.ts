@@ -2,13 +2,10 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 
 import { AuthService } from '../services/auth';
+import { resolverRutaInicial } from '../services/landing-route';
 
 const LOGIN_URL = '/login';
-// Ruta segura existente de respaldo cuando el usuario está autenticado pero
-// no posee el permiso requerido. No existe una ruta 403 dedicada; se reutiliza
-// el dashboard como destino de navegación coherente (limitación documentada en
-// docs/technical-debt.md, no se crea un mini-módulo 403).
-const RUTA_DENEGADA = '/dashboard';
+const ACCESO_PENDIENTE_URL = '/acceso-pendiente';
 
 /**
  * Guard de navegación basado en permisos concretos. Lee el permiso requerido
@@ -19,11 +16,10 @@ const RUTA_DENEGADA = '/dashboard';
  * evita incoherencias de navegación/UI, nunca sustituye la autorización
  * del servidor.
  *
- * Comportamiento:
- *  - sin sesión                -> redirige a /login
- *  - sesión sin el permiso     -> redirige a RUTA_DENEGADA (/dashboard)
- *  - sesión con el permiso     -> permite el acceso
- *  - ruta sin data.permiso     -> permite (guard de autenticación puro)
+ * Cuando la ruta no exige un permiso concreto (por ejemplo el AppShell), el
+ * guard también valida que el perfil tenga un destino administrativo. Así un
+ * responsable no cae accidentalmente en /dashboard y un perfil futuro sin
+ * módulo disponible recibe un estado accionable en vez de un logout.
  */
 export const permissionGuard: CanActivateFn = (route) => {
   const auth = inject(AuthService);
@@ -33,9 +29,17 @@ export const permissionGuard: CanActivateFn = (route) => {
     return router.createUrlTree([LOGIN_URL]);
   }
 
+  const usuario = auth.usuarioActual();
+  const rutaInicial = usuario ? resolverRutaInicial(usuario) : null;
   const permiso = route.data?.['permiso'] as string | undefined;
-  if (permiso && !auth.tienePermiso(permiso)) {
-    return router.createUrlTree([RUTA_DENEGADA]);
+
+  if (!permiso) {
+    if (rutaInicial === '/dashboard') return true;
+    return router.createUrlTree([rutaInicial ?? ACCESO_PENDIENTE_URL]);
+  }
+
+  if (!auth.tienePermiso(permiso)) {
+    return router.createUrlTree([rutaInicial ?? ACCESO_PENDIENTE_URL]);
   }
 
   return true;
