@@ -113,6 +113,9 @@ public sealed class UsuarioActualServiceTests : IAsyncLifetime
         Assert.Equal(["operador"], actual.Roles);
         Assert.Contains("academico.alumnos.ver", actual.Permisos);
         Assert.Contains("academico.matriculas.crear", actual.Permisos);
+        Assert.Equal(["operador"], actual.AmbitoGlobal.Roles);
+        Assert.Contains("academico.alumnos.ver", actual.AmbitoGlobal.Permisos);
+        Assert.Empty(actual.Instituciones);
     }
 
     [Fact]
@@ -131,6 +134,43 @@ public sealed class UsuarioActualServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Separa_ambito_global_de_contexto_institucional_explicito()
+    {
+        var authUserId = Guid.NewGuid();
+        var usuario = await InsertarUsuarioAsync(authUserId, ["consulta"], activo: true);
+        var institucionId = await InsertarInstitucionAsync("Colegio Contexto", "CC");
+        await AsignarRolInstitucionalAsync(usuario.Id, "operador", institucionId);
+
+        var actual = await _service.ObtenerAsync(CrearPrincipal(authUserId.ToString()));
+
+        Assert.Equal(["consulta", "operador"], actual.Roles);
+        Assert.Equal(["consulta"], actual.AmbitoGlobal.Roles);
+        var institucion = Assert.Single(actual.Instituciones);
+        Assert.Equal(institucionId, institucion.Id);
+        Assert.Equal("Colegio Contexto", institucion.Nombre);
+        Assert.Equal("CC", institucion.NombreCorto);
+        Assert.Equal(["operador"], institucion.Roles);
+        Assert.Contains("academico.alumnos.ver", institucion.Permisos);
+        Assert.DoesNotContain("operador", actual.AmbitoGlobal.Roles);
+    }
+
+    [Fact]
+    public async Task Institucion_inactiva_no_aporta_contexto_ni_permisos_efectivos()
+    {
+        var authUserId = Guid.NewGuid();
+        var usuario = await InsertarUsuarioAsync(authUserId, [], activo: true);
+        var institucionId = await InsertarInstitucionAsync("Institucion cerrada", activo: false);
+        await AsignarRolInstitucionalAsync(usuario.Id, "operador", institucionId);
+
+        var actual = await _service.ObtenerAsync(CrearPrincipal(authUserId.ToString()));
+
+        Assert.Empty(actual.Roles);
+        Assert.Empty(actual.Permisos);
+        Assert.Empty(actual.AmbitoGlobal.Roles);
+        Assert.Empty(actual.Instituciones);
+    }
+
+    [Fact]
     public async Task Rol_inactivo_no_retorna_rol_ni_concede_permisos()
     {
         var authUserId = Guid.NewGuid();
@@ -140,6 +180,8 @@ public sealed class UsuarioActualServiceTests : IAsyncLifetime
 
         Assert.Empty(actual.Roles);
         Assert.Empty(actual.Permisos);
+        Assert.Empty(actual.AmbitoGlobal.Roles);
+        Assert.Empty(actual.Instituciones);
     }
 
     private async Task<UsuarioActual> InsertarUsuarioAsync(
@@ -188,6 +230,43 @@ public sealed class UsuarioActualServiceTests : IAsyncLifetime
         }
 
         return new UsuarioActual(usuarioId, personaId, roles, []);
+    }
+
+    private async Task<Guid> InsertarInstitucionAsync(
+        string nombre,
+        string? nombreCorto = null,
+        bool activo = true
+    )
+    {
+        var id = Guid.NewGuid();
+        await using var command = _dataSource.CreateCommand("""
+            insert into public.instituciones (id, nombre, nombre_corto, activo)
+            values ($1, $2, $3, $4)
+            """);
+        command.Parameters.AddWithValue(id);
+        command.Parameters.AddWithValue(nombre);
+        command.Parameters.AddWithValue((object?)nombreCorto ?? DBNull.Value);
+        command.Parameters.AddWithValue(activo);
+        await command.ExecuteNonQueryAsync();
+        return id;
+    }
+
+    private async Task AsignarRolInstitucionalAsync(
+        Guid usuarioId,
+        string rol,
+        Guid institucionId
+    )
+    {
+        await using var command = _dataSource.CreateCommand("""
+            insert into public.usuarios_roles (usuario_id, rol_id, institucion_id)
+            select $1, id, $3
+            from public.roles
+            where codigo = $2
+            """);
+        command.Parameters.AddWithValue(usuarioId);
+        command.Parameters.AddWithValue(rol);
+        command.Parameters.AddWithValue(institucionId);
+        await command.ExecuteNonQueryAsync();
     }
 
     private static ClaimsPrincipal CrearPrincipal(string? sub = null)
