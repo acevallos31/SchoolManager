@@ -20,6 +20,25 @@ create table if not exists public.seguridad_auditoria (
 create index if not exists ix_seguridad_auditoria_institucion_fecha on public.seguridad_auditoria(institucion_id,created_at desc);
 alter table public.seguridad_auditoria enable row level security;
 
+create or replace function public.usuario_es_admin_institucional(p_usuario_id uuid,p_institucion_id uuid)
+returns boolean language sql stable security definer set search_path=pg_catalog,public,pg_temp as $$
+  select exists(
+    select 1 from public.usuarios u
+    join public.usuarios_roles ur on ur.usuario_id=u.id and ur.institucion_id=p_institucion_id and ur.activo
+    join public.roles r on r.id=ur.rol_id and r.activo
+    join public.roles_permisos rp on rp.rol_id=r.id
+    join public.permisos p on p.id=rp.permiso_id
+    where u.id=p_usuario_id and u.activo and p.codigo='identidad.roles.editar' and p.estado='vigente'
+  ) and exists(
+    select 1 from public.usuarios u
+    join public.usuarios_roles ur on ur.usuario_id=u.id and ur.institucion_id=p_institucion_id and ur.activo
+    join public.roles r on r.id=ur.rol_id and r.activo
+    join public.roles_permisos rp on rp.rol_id=r.id
+    join public.permisos p on p.id=rp.permiso_id
+    where u.id=p_usuario_id and u.activo and p.codigo='identidad.usuarios.asignar_roles' and p.estado='vigente'
+  );
+$$;
+
 create or replace function public.rpc_crear_rol_institucional(
   p_institucion_id uuid,p_codigo text,p_nombre text,p_descripcion text default null
 )
