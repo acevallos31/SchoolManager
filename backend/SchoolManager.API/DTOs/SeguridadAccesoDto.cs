@@ -5,7 +5,7 @@ namespace SchoolManager.API.DTOs;
 public sealed class CrearRolInstitucionalDto
 {
     [Required]
-    public Guid InstitucionId { get; init; }
+    public required Guid InstitucionId { get; init; }
 
     [Required, MaxLength(80)]
     public string Codigo { get; init; } = string.Empty;
@@ -20,7 +20,7 @@ public sealed class CrearRolInstitucionalDto
 public sealed class ClonarPlantillaRolDto
 {
     [Required]
-    public Guid InstitucionId { get; init; }
+    public required Guid InstitucionId { get; init; }
 
     [Required, MaxLength(80)]
     public string PlantillaCodigo { get; init; } = string.Empty;
@@ -53,7 +53,7 @@ public sealed class ReemplazarPermisosRolDto
 public sealed class AsignarRolInstitucionalDto
 {
     [Required]
-    public Guid UsuarioId { get; init; }
+    public required Guid UsuarioId { get; init; }
 }
 
 public sealed class DesactivarRbacDto
