@@ -2,7 +2,8 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
 import { vi } from 'vitest';
-import { AuthService } from '../../core/services/auth';
+import { AuthService, InstitucionAcceso, UsuarioActual } from '../../core/services/auth';
+import { ContextoInstitucionService } from '../../core/services/contexto-institucion.service';
 import { AppShell } from './app-shell';
 
 describe('AppShell', () => {
@@ -11,11 +12,48 @@ describe('AppShell', () => {
   let logout: ReturnType<typeof vi.fn>;
   let navigate: ReturnType<typeof vi.fn>;
   let permisos: Set<string>;
+  let usuario$: BehaviorSubject<UsuarioActual | null>;
+  let contexto$: BehaviorSubject<InstitucionAcceso | null>;
+  let seleccionarContexto: ReturnType<typeof vi.fn>;
+  let limpiarContexto: ReturnType<typeof vi.fn>;
+
+  const institucionA: InstitucionAcceso = {
+    id: 'inst-a',
+    nombre: 'Colegio Alfa',
+    nombreCorto: 'Alfa',
+    roles: ['secretaria'],
+    permisos: ['academico.alumnos.ver']
+  };
+
+  const institucionB: InstitucionAcceso = {
+    id: 'inst-b',
+    nombre: 'Colegio Beta',
+    nombreCorto: 'Beta',
+    roles: ['caja'],
+    permisos: ['academico.pagos.ver']
+  };
+
+  const usuarioBase: UsuarioActual = {
+    id: 'u1',
+    personaId: 'p1',
+    roles: ['admin'],
+    permisos: [],
+    instituciones: []
+  };
 
   beforeEach(async () => {
     permisos = new Set(['academico.alumnos.ver']);
     logout = vi.fn().mockResolvedValue(undefined);
     navigate = vi.fn().mockResolvedValue(true);
+    usuario$ = new BehaviorSubject<UsuarioActual | null>(usuarioBase);
+    contexto$ = new BehaviorSubject<InstitucionAcceso | null>(null);
+    seleccionarContexto = vi.fn((id: string) => {
+      const institucion = (usuario$.value?.instituciones ?? []).find(item => item.id === id);
+      if (!institucion) return false;
+      contexto$.next(institucion);
+      return true;
+    });
+    limpiarContexto = vi.fn(() => contexto$.next(null));
 
     await TestBed.configureTestingModule({
       imports: [AppShell],
@@ -26,7 +64,15 @@ describe('AppShell', () => {
           useValue: {
             tienePermiso: (p: string) => permisos.has(p),
             logout,
-            usuarioActual$: new BehaviorSubject({ id: 'u1', personaId: 'p1', roles: ['admin'], permisos: [] })
+            usuarioActual$: usuario$.asObservable()
+          }
+        },
+        {
+          provide: ContextoInstitucionService,
+          useValue: {
+            institucionActual$: contexto$.asObservable(),
+            seleccionar: seleccionarContexto,
+            limpiar: limpiarContexto
           }
         }
       ]
@@ -98,8 +144,39 @@ describe('AppShell', () => {
     expect(texto).not.toContain('Configuración');
   });
 
-  it('cierra sesión y navega a login', () => {
+  it('muestra la única institución activa sin exigir selector', () => {
+    usuario$.next({ ...usuarioBase, instituciones: [institucionA] });
+    contexto$.next(institucionA);
+    fixture.detectChanges();
+
+    const texto = fixture.nativeElement.textContent;
+    expect(texto).toContain('Alfa');
+    expect(fixture.nativeElement.querySelector('select[aria-label="Seleccionar institución activa"]')).toBeNull();
+    expect(component.requiereSeleccionInstitucion).toBe(false);
+  });
+
+  it('con varias instituciones muestra selector y exige contexto hasta elegir una', () => {
+    usuario$.next({ ...usuarioBase, instituciones: [institucionA, institucionB] });
+    fixture.detectChanges();
+
+    const select = fixture.nativeElement.querySelector(
+      'select[aria-label="Seleccionar institución activa"]'
+    ) as HTMLSelectElement;
+    expect(select).not.toBeNull();
+    expect(component.requiereSeleccionInstitucion).toBe(true);
+    expect(fixture.nativeElement.textContent).toContain('Selecciona una institución');
+
+    component.seleccionarInstitucion({ target: { value: 'inst-b' } } as unknown as Event);
+    fixture.detectChanges();
+
+    expect(seleccionarContexto).toHaveBeenCalledWith('inst-b');
+    expect(component.institucionActual?.id).toBe('inst-b');
+    expect(component.requiereSeleccionInstitucion).toBe(false);
+  });
+
+  it('cierra sesión, limpia contexto y navega a login', () => {
     component.logout();
+    expect(limpiarContexto).toHaveBeenCalledOnce();
     expect(logout).toHaveBeenCalledOnce();
     expect(navigate).toHaveBeenCalledWith(['/login']);
   });
