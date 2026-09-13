@@ -43,12 +43,12 @@ async function invoke(method: string, authorization?: string): Promise<MockRespo
 describe('api/auth/session', () => {
   beforeEach(() => {
     process.env['SUPABASE_URL'] = 'https://proyecto.supabase.co/';
-    process.env['SUPABASE_PUBLISHABLE_KEY'] = 'publishable-key-prueba';
+    process.env['SUPABASE_PUBLISHABLE_KEY'] = 'publishable-key-prueba';\n    delete process.env['SUPABASE_ANON_KEY'];
   });
 
   afterEach(() => {
     delete process.env['SUPABASE_URL'];
-    delete process.env['SUPABASE_PUBLISHABLE_KEY'];
+    delete process.env['SUPABASE_PUBLISHABLE_KEY'];\n    delete process.env['SUPABASE_ANON_KEY'];
     vi.restoreAllMocks();
   });
 
@@ -103,7 +103,7 @@ describe('api/auth/session', () => {
     expect(response.headers.get('set-cookie')).toBeUndefined();
   });
 
-  it('acepta authorization como arreglo del runtime Node', async () => {
+  it('acepta SUPABASE_ANON_KEY si Vercel usa el nombre del setup de staging', async () => {\n    delete process.env['SUPABASE_PUBLISHABLE_KEY'];\n    process.env['SUPABASE_ANON_KEY'] = 'anon-key-prueba';\n    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(\n      new Response(JSON.stringify({ id: 'auth-user-id' }), { status: 200 })\n    );\n\n    const response = await invoke('POST', 'Bearer access-token-prueba');\n\n    expect(response.statusCode).toBe(204);\n    expect(fetchMock).toHaveBeenCalledWith(\n      'https://proyecto.supabase.co/auth/v1/user',\n      expect.objectContaining({\n        headers: {\n          apikey: 'anon-key-prueba',\n          Authorization: 'Bearer access-token-prueba'\n        }\n      })\n    );\n  });\n\n  it('acepta authorization como arreglo del runtime Node', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 401 }));
     const response = responseMock();
 
