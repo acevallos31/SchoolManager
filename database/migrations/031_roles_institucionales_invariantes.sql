@@ -13,6 +13,8 @@ returns integer language sql stable security definer set search_path=pg_catalog,
   from public.usuarios u
   where u.activo and public.usuario_es_admin_institucional(u.id,p_institucion_id);
 $$;
+revoke all on function public.contar_admins_institucionales(uuid) from public,anon,authenticated;
+grant execute on function public.contar_admins_institucionales(uuid) to service_role;
 
 create or replace function public.trg_roles_permisos_validar_institucional()
 returns trigger language plpgsql security definer set search_path=pg_catalog,public,pg_temp as $$
@@ -29,6 +31,9 @@ begin
   end if;
   return new;
 end $$;
+
+revoke all on function public.trg_roles_permisos_validar_institucional() from public,anon,authenticated;
+grant execute on function public.trg_roles_permisos_validar_institucional() to service_role;
 
 drop trigger if exists trg_roles_permisos_validar_institucional_before on public.roles_permisos;
 create trigger trg_roles_permisos_validar_institucional_before
