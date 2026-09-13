@@ -8,15 +8,15 @@ const LOGIN_URL = '/login';
 const ACCESO_PENDIENTE_URL = '/acceso-pendiente';
 
 /**
- * Guard de navegación basado en permisos concretos. Lee el permiso requerido
- * de `route.data['permiso']` y lo comprueba contra el modelo de permisos del
- * usuario cargado por `AuthService` (backed por /auth/me).
+ * Guard de navegación basado en permisos concretos. Admite un permiso único
+ * (`route.data['permiso']`) o una lista OR (`route.data['permisosCualquiera']`)
+ * para módulos que pueden abrirse desde capacidades distintas.
  *
  * El backend/RLS siguen siendo la autoridad de seguridad: este guard solo
  * evita incoherencias de navegación/UI, nunca sustituye la autorización
  * del servidor.
  *
- * Cuando la ruta no exige un permiso concreto (por ejemplo el AppShell), el
+ * Cuando la ruta no exige permisos concretos (por ejemplo el AppShell), el
  * guard también valida que el perfil tenga un destino administrativo. Así un
  * responsable no cae accidentalmente en /dashboard y un perfil futuro sin
  * módulo disponible recibe un estado accionable en vez de un logout.
@@ -32,13 +32,18 @@ export const permissionGuard: CanActivateFn = (route) => {
   const usuario = auth.usuarioActual();
   const rutaInicial = usuario ? resolverRutaInicial(usuario) : null;
   const permiso = route.data?.['permiso'] as string | undefined;
+  const permisosCualquiera = route.data?.['permisosCualquiera'] as string[] | undefined;
+  const exigePermiso = Boolean(permiso) || Boolean(permisosCualquiera?.length);
 
-  if (!permiso) {
+  if (!exigePermiso) {
     if (rutaInicial === '/dashboard') return true;
     return router.createUrlTree([rutaInicial ?? ACCESO_PENDIENTE_URL]);
   }
 
-  if (!auth.tienePermiso(permiso)) {
+  const autorizado = Boolean(permiso && auth.tienePermiso(permiso))
+    || Boolean(permisosCualquiera?.some(codigo => auth.tienePermiso(codigo)));
+
+  if (!autorizado) {
     return router.createUrlTree([rutaInicial ?? ACCESO_PENDIENTE_URL]);
   }
 
