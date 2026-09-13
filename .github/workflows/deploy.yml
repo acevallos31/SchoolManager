@@ -97,6 +97,10 @@ jobs:
           cd frontend/schoolmanager-frontend
           npm run build -- --configuration production
 
+      - name: Verificar carga del diseño con CSP
+        working-directory: frontend/schoolmanager-frontend
+        run: node --test scripts/build-styles.test.ts
+
       - name: Verificar HTML inicial del login prerenderizado
         run: |
           PRERENDERED_LOGIN_HTML="frontend/schoolmanager-frontend/dist/schoolmanager-frontend/browser/login/index.html"
