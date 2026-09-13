@@ -222,4 +222,8 @@ Estado del PR #94:
 - SonarCloud / Quality Gate: verde.
 - Vercel Preview: desplegado y marcado **Ready**.
 - La prueba HTTP externa del preview no pudo llegar a la función porque la protección SSO de Vercel respondió 302 antes de ejecutar `/api/auth/session`.
-- Pendiente antes del merge: validar el endpoint desde una sesión autorizada del preview, o fusionar y comprobar inmediatamente en producción que DELETE devuelve 204, POST inválido devuelve 401 y el login Google crea la sesión.
+- La prueba desde una sesión autorizada del preview confirmó que el primer parche todavía devolvía `500 Internal Server Error` en DELETE. Por tanto, el Web Handler no resolvió el incidente y no debe fusionarse en ese estado.
+- Segundo parche: usar el handler Node clásico `export default async function handler(request, response)`, con las interfaces mínimas necesarias y sin depender de `@vercel/node` en producción.
+- El endpoint deja de construir objetos Web `Request`/`Response`; escribe estado, cabeceras y finalización directamente sobre la respuesta Node de Vercel.
+- Las reglas de seguridad no cambian: POST valida el bearer token contra `/auth/v1/user`, DELETE expira la cookie y los demás métodos reciben 405.
+- Pendiente antes del merge: nuevo CI/Sonar, despliegue del preview y repetición de las pruebas DELETE=204 y POST inválido=401.

@@ -2,6 +2,19 @@ declare const process: {
   env: Record<string, string | undefined>;
 };
 
+type HeaderValue = string | string[] | undefined;
+
+interface VercelRequestLike {
+  method?: string;
+  headers: Record<string, HeaderValue>;
+}
+
+interface VercelResponseLike {
+  setHeader(name: string, value: string): void;
+  status(code: number): VercelResponseLike;
+  end(body?: string): void;
+}
+
 const SESSION_COOKIE = '__Host-schoolmanager-session';
 const DEFAULT_MAX_AGE_SECONDS = 60 * 60;
 
@@ -52,6 +65,10 @@ function cookie(value: string, maxAge: number): string {
   ].join('; ');
 }
 
+function firstHeader(value: HeaderValue): string {
+  return Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
+}
+
 function bearerToken(authorization: string): string | null {
   const prefix = 'Bearer ';
   if (
@@ -65,57 +82,51 @@ function bearerToken(authorization: string): string | null {
   return token || null;
 }
 
-async function createSession(request: Request): Promise<Response> {
-  const authorization = request.headers.get('authorization') ?? '';
-  const accessToken = bearerToken(authorization);
-
-  if (!accessToken || !(await tokenIsValid(accessToken))) {
-    return new Response(null, {
-      status: 401,
-      headers: {
-        'Cache-Control': 'no-store'
-      }
-    });
+function finish(
+  response: VercelResponseLike,
+  status: number,
+  headers: Record<string, string>
+): void {
+  for (const [name, value] of Object.entries(headers)) {
+    response.setHeader(name, value);
   }
-
-  return new Response(null, {
-    status: 204,
-    headers: {
-      'Set-Cookie': cookie(accessToken, DEFAULT_MAX_AGE_SECONDS),
-      'Cache-Control': 'private, no-store',
-      Vary: 'Cookie'
-    }
-  });
+  response.status(status).end();
 }
 
-function deleteSession(): Response {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      'Set-Cookie': cookie('', 0),
-      'Cache-Control': 'private, no-store',
-      Vary: 'Cookie'
-    }
-  });
-}
-
-async function handleRequest(request: Request): Promise<Response> {
-  switch (request.method.toUpperCase()) {
-    case 'POST':
-      return createSession(request);
+export default async function handler(
+  request: VercelRequestLike,
+  response: VercelResponseLike
+): Promise<void> {
+  switch ((request.method ?? 'GET').toUpperCase()) {
     case 'DELETE':
-      return deleteSession();
+      finish(response, 204, {
+        'Set-Cookie': cookie('', 0),
+        'Cache-Control': 'private, no-store',
+        Vary: 'Cookie'
+      });
+      return;
+
+    case 'POST': {
+      const authorization = firstHeader(request.headers.authorization);
+      const accessToken = bearerToken(authorization);
+
+      if (!accessToken || !(await tokenIsValid(accessToken))) {
+        finish(response, 401, { 'Cache-Control': 'no-store' });
+        return;
+      }
+
+      finish(response, 204, {
+        'Set-Cookie': cookie(accessToken, DEFAULT_MAX_AGE_SECONDS),
+        'Cache-Control': 'private, no-store',
+        Vary: 'Cookie'
+      });
+      return;
+    }
+
     default:
-      return new Response(null, {
-        status: 405,
-        headers: {
-          Allow: 'POST, DELETE',
-          'Cache-Control': 'no-store'
-        }
+      finish(response, 405, {
+        Allow: 'POST, DELETE',
+        'Cache-Control': 'no-store'
       });
   }
 }
-
-export default {
-  fetch: handleRequest
-};
