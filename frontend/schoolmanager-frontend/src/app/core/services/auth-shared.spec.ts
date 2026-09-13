@@ -60,7 +60,28 @@ describe('auth-shared edge', () => {
     );
   });
 
-  it('acepta SUPABASE_ANON_KEY como nombre compatible de clave publicable', async () => {\n    vi.stubEnv('SUPABASE_URL', 'https://example.supabase.co');\n    vi.stubEnv('SUPABASE_PUBLISHABLE_KEY', '');\n    vi.stubEnv('SUPABASE_ANON_KEY', 'anon-key-prueba');\n    const fetchMock = vi\n      .spyOn(globalThis, 'fetch')\n      .mockResolvedValue(new Response(null, { status: 200 }));\n\n    await expect(tokenIsValid('token-valido', 'test')).resolves.toBe(true);\n\n    expect(fetchMock).toHaveBeenCalledWith(\n      'https://example.supabase.co/auth/v1/user',\n      expect.objectContaining({\n        headers: {\n          apikey: 'anon-key-prueba',\n          Authorization: 'Bearer token-valido'\n        }\n      })\n    );\n  });\n\n  it('devuelve false cuando Supabase rechaza el token', async () => {
+  it('acepta SUPABASE_ANON_KEY como nombre compatible de clave publicable', async () => {
+    vi.stubEnv('SUPABASE_URL', 'https://example.supabase.co');
+    vi.stubEnv('SUPABASE_PUBLISHABLE_KEY', '');
+    vi.stubEnv('SUPABASE_ANON_KEY', 'anon-key-prueba');
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(null, { status: 200 }));
+
+    await expect(tokenIsValid('token-valido', 'test')).resolves.toBe(true);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://example.supabase.co/auth/v1/user',
+      expect.objectContaining({
+        headers: {
+          apikey: 'anon-key-prueba',
+          Authorization: 'Bearer token-valido'
+        }
+      })
+    );
+  });
+
+  it('devuelve false cuando Supabase rechaza el token', async () => {
     configurarSupabase();
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 401 }));
 
