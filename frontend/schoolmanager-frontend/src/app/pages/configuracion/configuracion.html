@@ -13,6 +13,15 @@
   @if (cargando) {
     <div class="sm-state"><span class="sm-spinner" aria-hidden="true"></span><p>Cargando configuración...</p></div>
   } @else if (configuracion) {
+    @if (puedeVerSeguridadAcceso) {
+      <section class="sm-card navigation-card">
+        <div>
+          <h2 class="sm-section-title">Seguridad y acceso</h2>
+          <p class="sm-helper">Administra roles institucionales, plantillas y permisos delegables sin salir del ámbito de tu institución.</p>
+        </div>
+        <a class="sm-btn sm-btn--primary sm-btn--sm configuration-link" routerLink="/configuracion/seguridad-acceso">Gestionar roles y permisos</a>
+      </section>
+    }
     @if (puedeVerCiclos) {
       <section class="sm-card navigation-card">
         <div>
