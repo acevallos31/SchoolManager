@@ -46,6 +46,15 @@ begin
   ) then
     raise exception 'La seleccion contiene permisos inexistentes o no delegables.' using errcode='23514';
   end if;
+
+  if exists(
+    select 1
+    from unnest(v_codigos) c
+    join public.permisos p on p.codigo=c
+    where not public.usuario_tiene_permiso_actual(p.codigo,v_inst)
+  ) then
+    raise exception 'No se puede delegar un permiso que el usuario no posee.' using errcode='42501';
+  end if;
 end $$;
 
 insert into public.schema_migrations(version,nombre,checksum)
