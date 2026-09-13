@@ -192,3 +192,28 @@ select id, activo, persona_id, auth_user_id from public.usuarios;
 Rollback (si hiciera falta): `database/migrations/rollback/027_vinculacion_identidad_oauth.rollback.sql`.
 
 Verificación read-only tras la migración: `database/migrations/validation/027_vinculacion_identidad_oauth.validation.sql`.
+
+## Incidente posterior al merge — función de sesión Vercel
+
+La prueba real en producción confirmó que Google y Supabase procesan el retorno OAuth: la URL de callback queda en `/auth/callback#`, señal de que el fragmento ya fue consumido. También se verificó directamente en Supabase que:
+
+- La migración 027 está registrada.
+- La función `public.vincular_identidad_usuario(uuid, uuid)` existe.
+- La identidad Google está vinculada exactamente a un usuario activo.
+- El usuario vinculado tiene un rol activo.
+
+El bloqueo restante se aisló en Vercel:
+
+- `DELETE /api/auth/session` devolvía `500 FUNCTION_INVOCATION_FAILED`.
+- `POST /api/auth/session` con un token inválido también devolvía el mismo 500.
+- Como DELETE no consulta Supabase, el fallo ocurría al cargar o adaptar la función, antes de la validación del token.
+- `AuthService.restaurarSesion()` propagaba ese fallo de sincronización, limpiaba la sesión local y terminaba redirigiendo a `/login`.
+
+Corrección propuesta en el PR siguiente:
+
+- Reemplazar las exportaciones HTTP nombradas por el Web Handler predeterminado de Vercel: `export default { fetch(request) { ... } }`.
+- Mantener POST, DELETE y respuestas 401/204.
+- Responder 405 con cabecera `Allow: POST, DELETE` para métodos no admitidos.
+- Ejecutar todas las pruebas a través del mismo handler exportado que cargará Vercel.
+
+Pendiente: CI, preview y prueba HTTP real del endpoint antes del merge.

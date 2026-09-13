@@ -54,7 +54,10 @@ function cookie(value: string, maxAge: number): string {
 
 function bearerToken(authorization: string): string | null {
   const prefix = 'Bearer ';
-  if (authorization.length <= prefix.length || authorization.slice(0, prefix.length).toLowerCase() !== prefix.toLowerCase()) {
+  if (
+    authorization.length <= prefix.length ||
+    authorization.slice(0, prefix.length).toLowerCase() !== prefix.toLowerCase()
+  ) {
     return null;
   }
 
@@ -62,7 +65,7 @@ function bearerToken(authorization: string): string | null {
   return token || null;
 }
 
-export async function POST(request: Request): Promise<Response> {
+async function createSession(request: Request): Promise<Response> {
   const authorization = request.headers.get('authorization') ?? '';
   const accessToken = bearerToken(authorization);
 
@@ -85,7 +88,7 @@ export async function POST(request: Request): Promise<Response> {
   });
 }
 
-export function DELETE(): Response {
+function deleteSession(): Response {
   return new Response(null, {
     status: 204,
     headers: {
@@ -95,3 +98,24 @@ export function DELETE(): Response {
     }
   });
 }
+
+async function handleRequest(request: Request): Promise<Response> {
+  switch (request.method.toUpperCase()) {
+    case 'POST':
+      return createSession(request);
+    case 'DELETE':
+      return deleteSession();
+    default:
+      return new Response(null, {
+        status: 405,
+        headers: {
+          Allow: 'POST, DELETE',
+          'Cache-Control': 'no-store'
+        }
+      });
+  }
+}
+
+export default {
+  fetch: handleRequest
+};
