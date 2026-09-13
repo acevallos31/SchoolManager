@@ -34,6 +34,18 @@ begin
     from unnest(coalesce(p_permiso_codigos,'{}'::text[])) t(x)
     where x is not null and btrim(x)<>''
   ) s;
+
+  if exists(
+    select 1
+    from unnest(v_codigos) c
+    left join public.permisos p on p.codigo=c
+    where p.id is null
+       or p.ambito<>'institucion'
+       or not p.delegable
+       or p.estado<>'vigente'
+  ) then
+    raise exception 'La seleccion contiene permisos inexistentes o no delegables.' using errcode='23514';
+  end if;
 end $$;
 
 insert into public.schema_migrations(version,nombre,checksum)
