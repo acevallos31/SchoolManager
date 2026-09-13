@@ -11,6 +11,12 @@ begin
 end
 $$;
 
+-- Las policies RLS se evalúan como authenticated y necesitan poder invocar
+-- el helper. La funcion es SECURITY DEFINER y solo devuelve un booleano; no
+-- expone filas ni permite mutaciones.
+grant execute on function public.usuario_tiene_permiso_institucional_estricto(text, uuid)
+  to authenticated;
+
 -- Roles institucionales: un admin global legacy no obtiene visibilidad sobre
 -- todas las instituciones. Las plantillas/legacy globales siguen siendo
 -- catalogos compartidos durante la transicion.
