@@ -1,16 +1,61 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DELETE, POST } from './session';
+import handler from './session';
+
+interface MockResponse {
+  headers: Map<string, string>;
+  statusCode: number;
+  ended: boolean;
+  setHeader(name: string, value: string): void;
+  status(code: number): MockResponse;
+  end(): void;
+}
+
+function responseMock(): MockResponse {
+  return {
+    headers: new Map<string, string>(),
+    statusCode: 200,
+    ended: false,
+    setHeader(name, value) {
+      this.headers.set(name.toLowerCase(), value);
+    },
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    end() {
+      this.ended = true;
+    }
+  };
+}
+
+async function invoke(method: string, authorization?: string): Promise<MockResponse> {
+  const response = responseMock();
+  await handler(
+    {
+      method,
+      headers: authorization ? { authorization } : {}
+    },
+    response
+  );
+  return response;
+}
 
 describe('api/auth/session', () => {
   beforeEach(() => {
     process.env['SUPABASE_URL'] = 'https://proyecto.supabase.co/';
     process.env['SUPABASE_PUBLISHABLE_KEY'] = 'publishable-key-prueba';
+    delete process.env['SUPABASE_ANON_KEY'];
   });
 
   afterEach(() => {
     delete process.env['SUPABASE_URL'];
     delete process.env['SUPABASE_PUBLISHABLE_KEY'];
+    delete process.env['SUPABASE_ANON_KEY'];
     vi.restoreAllMocks();
+  });
+
+  it('expone el handler Node predeterminado que carga Vercel', () => {
+    expect(handler).toEqual(expect.any(Function));
   });
 
   it('emite la cookie segura cuando Supabase valida el bearer token', async () => {
@@ -18,12 +63,10 @@ describe('api/auth/session', () => {
       new Response(JSON.stringify({ id: 'auth-user-id' }), { status: 200 })
     );
 
-    const response = await POST(new Request('https://schoolmanager.test/api/auth/session', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer access-token-prueba' }
-    }));
+    const response = await invoke('POST', 'Bearer access-token-prueba');
 
-    expect(response.status).toBe(204);
+    expect(response.statusCode).toBe(204);
+    expect(response.ended).toBe(true);
     expect(fetchMock).toHaveBeenCalledWith(
       'https://proyecto.supabase.co/auth/v1/user',
       expect.objectContaining({
@@ -46,33 +89,72 @@ describe('api/auth/session', () => {
   it('rechaza solicitudes sin bearer token y no consulta Supabase', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch');
 
-    const response = await POST(new Request('https://schoolmanager.test/api/auth/session', {
-      method: 'POST'
-    }));
+    const response = await invoke('POST');
 
-    expect(response.status).toBe(401);
+    expect(response.statusCode).toBe(401);
+    expect(response.ended).toBe(true);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('rechaza el token cuando Supabase no lo valida', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 401 }));
 
-    const response = await POST(new Request('https://schoolmanager.test/api/auth/session', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer token-invalido' }
-    }));
+    const response = await invoke('POST', 'Bearer token-invalido');
 
-    expect(response.status).toBe(401);
-    expect(response.headers.get('set-cookie')).toBeNull();
+    expect(response.statusCode).toBe(401);
+    expect(response.headers.get('set-cookie')).toBeUndefined();
   });
 
-  it('elimina la cookie en DELETE', () => {
-    const response = DELETE();
+  it('acepta SUPABASE_ANON_KEY si Vercel usa el nombre del setup de staging', async () => {
+    delete process.env['SUPABASE_PUBLISHABLE_KEY'];
+    process.env['SUPABASE_ANON_KEY'] = 'anon-key-prueba';
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ id: 'auth-user-id' }), { status: 200 })
+    );
 
-    expect(response.status).toBe(204);
+    const response = await invoke('POST', 'Bearer access-token-prueba');
+
+    expect(response.statusCode).toBe(204);
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://proyecto.supabase.co/auth/v1/user',
+      expect.objectContaining({
+        headers: {
+          apikey: 'anon-key-prueba',
+          Authorization: 'Bearer access-token-prueba'
+        }
+      })
+    );
+  });
+
+  it('acepta authorization como arreglo del runtime Node', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 401 }));
+    const response = responseMock();
+
+    await handler(
+      {
+        method: 'POST',
+        headers: { authorization: ['Bearer token-invalido'] }
+      },
+      response
+    );
+
+    expect(response.statusCode).toBe(401);
+  });
+
+  it('elimina la cookie en DELETE', async () => {
+    const response = await invoke('DELETE');
+
+    expect(response.statusCode).toBe(204);
     expect(response.headers.get('set-cookie')).toContain(
       '__Host-schoolmanager-session='
     );
     expect(response.headers.get('set-cookie')).toContain('Max-Age=0');
+  });
+
+  it('responde 405 para métodos no admitidos', async () => {
+    const response = await invoke('GET');
+
+    expect(response.statusCode).toBe(405);
+    expect(response.headers.get('allow')).toBe('POST, DELETE');
   });
 });

@@ -192,3 +192,94 @@ select id, activo, persona_id, auth_user_id from public.usuarios;
 Rollback (si hiciera falta): `database/migrations/rollback/027_vinculacion_identidad_oauth.rollback.sql`.
 
 Verificación read-only tras la migración: `database/migrations/validation/027_vinculacion_identidad_oauth.validation.sql`.
+
+## Incidente posterior al merge — función de sesión Vercel
+
+La prueba real en producción confirmó que Google y Supabase procesan el retorno OAuth: la URL de callback queda en `/auth/callback#`, señal de que el fragmento ya fue consumido. También se verificó directamente en Supabase que:
+
+- La migración 027 está registrada.
+- La función `public.vincular_identidad_usuario(uuid, uuid)` existe.
+- La identidad Google está vinculada exactamente a un usuario activo.
+- El usuario vinculado tiene un rol activo.
+
+El bloqueo restante se aisló en Vercel:
+
+- `DELETE /api/auth/session` devolvía `500 FUNCTION_INVOCATION_FAILED`.
+- `POST /api/auth/session` con un token inválido también devolvía el mismo 500.
+- Como DELETE no consulta Supabase, el fallo ocurría al cargar o adaptar la función, antes de la validación del token.
+- `AuthService.restaurarSesion()` propagaba ese fallo de sincronización, limpiaba la sesión local y terminaba redirigiendo a `/login`.
+
+Corrección propuesta en el PR siguiente:
+
+- Reemplazar las exportaciones HTTP nombradas por el Web Handler predeterminado de Vercel: `export default { fetch(request) { ... } }`.
+- Mantener POST, DELETE y respuestas 401/204.
+- Responder 405 con cabecera `Allow: POST, DELETE` para métodos no admitidos.
+- Ejecutar todas las pruebas a través del mismo handler exportado que cargará Vercel.
+
+Estado del PR #94:
+
+- CI/CD completo: compilación, pruebas backend, base de datos, frontend y pruebas de rutas/funciones Vercel en verde.
+- SonarCloud / Quality Gate: verde.
+- Vercel Preview: desplegado y marcado **Ready**.
+- La prueba HTTP externa del preview no pudo llegar a la función porque la protección SSO de Vercel respondió 302 antes de ejecutar `/api/auth/session`.
+- La prueba desde una sesión autorizada del preview confirmó que el primer parche todavía devolvía `500 Internal Server Error` en DELETE. Por tanto, el Web Handler no resolvió el incidente y no debe fusionarse en ese estado.
+- Segundo parche: usar el handler Node clásico `export default async function handler(request, response)`, con las interfaces mínimas necesarias y sin depender de `@vercel/node` en producción.
+- El endpoint deja de construir objetos Web `Request`/`Response`; escribe estado, cabeceras y finalización directamente sobre la respuesta Node de Vercel.
+- Las reglas de seguridad no cambian: POST valida el bearer token contra `/auth/v1/user`, DELETE expira la cookie y los demás métodos reciben 405.
+- Pendiente antes del merge: nuevo CI/Sonar, despliegue del preview y repetición de las pruebas DELETE=204 y POST inválido=401.
+
+### Causa de carga confirmada — Codex, 2026-09-13, PR #94
+
+Esta evidencia sustituye las atribuciones anteriores al import externo o a la firma
+del handler: ambas eran hipótesis, no causas demostradas mediante logs.
+
+El log aportado por el operador muestra que Node intenta cargar
+`api/auth/session.js:62`, encuentra `export default async function handler` y
+advierte que falta `"type": "module"` en el package.json más cercano.
+TypeScript emite ES2022, pero el paquete no declaraba ESM. El proceso falla
+antes de ejecutar el endpoint; cambiar únicamente la firma no lo solucionaba.
+
+- Corrección: declarar `"type": "module"` en el package.json del frontend,
+  manteniendo el handler Node del commit `6a48e92` sin cambios.
+- Regresión: `api/session-runtime.spec.ts` transpila el archivo real con las
+  opciones del proyecto y lo carga en un proceso Node separado, sin detección
+  automática de módulos ni require(esm). Antes del cambio reproduce exactamente
+  el warning y `SyntaxError: Unexpected token 'export'` en la línea 62.
+- Con el cambio, la misma prueba carga correctamente y verifica DELETE=204,
+  POST sin bearer=401 y GET=405, sin acceso a red ni credenciales reales.
+- Suite local de Vercel: 10/10. El lockfile fue regenerado con npm 11.13.0;
+  no cambió su contenido porque no se modificaron dependencias.
+- Pendiente: CI/Sonar del nuevo commit y validación del deployment real.
+  La reproducción local no sustituye la prueba HTTP ni el login Google completo.
+- No se fusiona el PR ni se modifican datos, roles, RLS, secretos o CSP.
+- Frontend local: 322/322 tests. Build termina con código 0, pero conserva
+  el error de prerender preexistente `consumirMensajeSesionInvalida is not a function`
+  y el warning de `/responsive.css`; no se consideran resueltos por este cambio.
+### Diagnóstico posterior en Preview — 2026-09-13
+
+Después de corregir la carga ESM, el callback dejó de caer en 404 y el endpoint
+`POST /api/auth/session` dejó de responder 500. La evidencia del navegador pasó
+a ser `401 Unauthorized`, mientras `DELETE /api/auth/session` respondió 204.
+Eso confirma que el handler sí se ejecuta y que el fallo está en la validación
+del bearer contra Supabase o en su configuración server-side.
+
+La revisión del código encontró una discrepancia: esta función solo leía
+`SUPABASE_PUBLISHABLE_KEY`, pero `docs/ci/e2e-auth-setup.md` indicaba
+`SUPABASE_ANON_KEY`. Se corrigieron ambos validadores (`api/auth/session.ts` y
+`edge/auth-shared.ts`) para aceptar `SUPABASE_PUBLISHABLE_KEY` y, como alias
+compatible, `SUPABASE_ANON_KEY`, siempre junto con `SUPABASE_URL`. La clave debe
+ser publishable/anon; nunca `service_role`.
+
+La migración `20260912211327_vinculacion_identidad_oauth_027` ya aparece aplicada
+en el proyecto Supabase y la comprobación de solo lectura encontró la RPC y
+usuarios Google vinculados activos. No se ejecutó ninguna migración ni escritura
+de datos durante este diagnóstico.
+
+Tras desplegar este cambio, repetir el login en el Preview y verificar:
+
+1. `POST /api/auth/session` = 204 y respuesta con `Set-Cookie` HttpOnly.
+2. `GET /api/auth/me` = 200.
+3. Recarga de `/dashboard` sin 302 a `/login`.
+
+Si persiste el 401, revisar en los logs de Vercel si aparece `Faltan SUPABASE_URL`
+o si Supabase está rechazando el token; no registrar ni copiar tokens.

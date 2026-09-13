@@ -2,12 +2,28 @@ declare const process: {
   env: Record<string, string | undefined>;
 };
 
+type HeaderValue = string | string[] | undefined;
+
+interface VercelRequestLike {
+  method?: string;
+  headers: Record<string, HeaderValue>;
+}
+
+interface VercelResponseLike {
+  setHeader(name: string, value: string): void;
+  status(code: number): VercelResponseLike;
+  end(body?: string): void;
+}
+
 const SESSION_COOKIE = '__Host-schoolmanager-session';
 const DEFAULT_MAX_AGE_SECONDS = 60 * 60;
 
 function authConfig(): { url: string; key: string } | null {
   const rawUrl = process.env['SUPABASE_URL'];
-  const key = process.env['SUPABASE_PUBLISHABLE_KEY'];
+  // Keep compatibility with the name used by the staging setup guide. Both
+  // values are publishable/anon keys; never use service_role here.
+  const key =
+    process.env['SUPABASE_PUBLISHABLE_KEY'] || process.env['SUPABASE_ANON_KEY'];
 
   if (!rawUrl || !key) {
     return null;
@@ -20,7 +36,9 @@ function authConfig(): { url: string; key: string } | null {
 async function tokenIsValid(accessToken: string): Promise<boolean> {
   const config = authConfig();
   if (!config) {
-    console.error('Faltan SUPABASE_URL/SUPABASE_PUBLISHABLE_KEY en Vercel.');
+    console.error(
+      'Faltan SUPABASE_URL y SUPABASE_PUBLISHABLE_KEY (o SUPABASE_ANON_KEY) en Vercel.'
+    );
     return false;
   }
 
@@ -33,6 +51,12 @@ async function tokenIsValid(accessToken: string): Promise<boolean> {
       },
       cache: 'no-store'
     });
+
+    if (!response.ok) {
+      console.error(
+        `Supabase rechazo la validacion del token: HTTP ${response.status} en ${config.url}/auth/v1/user.`
+      );
+    }
 
     return response.ok;
   } catch (error) {
@@ -52,9 +76,16 @@ function cookie(value: string, maxAge: number): string {
   ].join('; ');
 }
 
+function firstHeader(value: HeaderValue): string {
+  return Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
+}
+
 function bearerToken(authorization: string): string | null {
   const prefix = 'Bearer ';
-  if (authorization.length <= prefix.length || authorization.slice(0, prefix.length).toLowerCase() !== prefix.toLowerCase()) {
+  if (
+    authorization.length <= prefix.length ||
+    authorization.slice(0, prefix.length).toLowerCase() !== prefix.toLowerCase()
+  ) {
     return null;
   }
 
@@ -62,36 +93,57 @@ function bearerToken(authorization: string): string | null {
   return token || null;
 }
 
-export async function POST(request: Request): Promise<Response> {
-  const authorization = request.headers.get('authorization') ?? '';
-  const accessToken = bearerToken(authorization);
-
-  if (!accessToken || !(await tokenIsValid(accessToken))) {
-    return new Response(null, {
-      status: 401,
-      headers: {
-        'Cache-Control': 'no-store'
-      }
-    });
+function finish(
+  response: VercelResponseLike,
+  status: number,
+  headers: Record<string, string>
+): void {
+  for (const [name, value] of Object.entries(headers)) {
+    response.setHeader(name, value);
   }
-
-  return new Response(null, {
-    status: 204,
-    headers: {
-      'Set-Cookie': cookie(accessToken, DEFAULT_MAX_AGE_SECONDS),
-      'Cache-Control': 'private, no-store',
-      Vary: 'Cookie'
-    }
-  });
+  response.status(status).end();
 }
 
-export function DELETE(): Response {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      'Set-Cookie': cookie('', 0),
-      'Cache-Control': 'private, no-store',
-      Vary: 'Cookie'
+export default async function handler(
+  request: VercelRequestLike,
+  response: VercelResponseLike
+): Promise<void> {
+  switch ((request.method ?? 'GET').toUpperCase()) {
+    case 'DELETE':
+      finish(response, 204, {
+        'Set-Cookie': cookie('', 0),
+        'Cache-Control': 'private, no-store',
+        Vary: 'Cookie'
+      });
+      return;
+
+    case 'POST': {
+      const authorization = firstHeader(request.headers.authorization);
+      const accessToken = bearerToken(authorization);
+
+      if (!accessToken) {
+        console.error('POST /api/auth/session recibio un Authorization Bearer ausente o invalido.');
+        finish(response, 401, { 'Cache-Control': 'no-store' });
+        return;
+      }
+
+      if (!(await tokenIsValid(accessToken))) {
+        finish(response, 401, { 'Cache-Control': 'no-store' });
+        return;
+      }
+
+      finish(response, 204, {
+        'Set-Cookie': cookie(accessToken, DEFAULT_MAX_AGE_SECONDS),
+        'Cache-Control': 'private, no-store',
+        Vary: 'Cookie'
+      });
+      return;
     }
-  });
+
+    default:
+      finish(response, 405, {
+        Allow: 'POST, DELETE',
+        'Cache-Control': 'no-store'
+      });
+  }
 }

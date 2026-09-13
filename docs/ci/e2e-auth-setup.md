@@ -38,7 +38,7 @@ está prohibido.
    nuevo de Supabase cloud o `supabase start` local (Docker).
    - Aplica el esquema y **siembra SOLO datos de prueba** (ciclos, alumnos,
      planes, un usuario con los permisos de la demo).
-   - Anota `SUPABASE_URL` y `SUPABASE_ANON_KEY` de staging.
+   - Anota `SUPABASE_URL` y una clave publicable de staging. En Vercel puedes\n     guardarla como `SUPABASE_PUBLISHABLE_KEY` (preferido) o\n     `SUPABASE_ANON_KEY` (nombre compatible).
 2. **Backend .NET de staging** apuntando a ese Supabase (variables de entorno de
    la API: conexión/URL Supabase). Cualquiera de los dos:
    - Backend local (`dotnet run`) con `SUPABASE_URL`/`SUPABASE_ANON_KEY` del
