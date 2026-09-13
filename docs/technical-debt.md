@@ -326,6 +326,32 @@ sistema frágil (principios ISW2 #4, #5 y #12).
 - **Cuándo abordarlo**: bloque dedicado de migración a la API .NET, tras el
   cierre funcional 023 y el bloque visual/UX.
 
+## 11. Pruebas de carga del backend en producción — baseline pendiente
+
+- **Estado: ABIERTO (registrado 2026-09-11).**
+- **Evidencia existente**: el frontend/CDN ya tiene baseline de carga en
+  producción con Loader.io: `600 req/s` durante `60 s`, `36,000` respuestas
+  exitosas, `0` errores HTTP, `0` timeouts, `0` errores de red, `0` redirects y
+  `4 ms` de respuesta promedio contra `https://schoolmanager.nocpbx.com/index.html`.
+- **Problema**: esa evidencia valida principalmente Vercel/CDN y no mide la
+  capacidad real del backend .NET en Render ni el camino completo
+  API → PostgreSQL/Supabase. El backend aún no tiene un baseline de carga
+  productivo documentado.
+- **Plan mínimo seguro**:
+  1. medir `GET https://api.schoolmanager.nocpbx.com/health` con carga gradual
+     (`100 → 250 → 500 req/s`, 1 minuto por escalón) para aislar Render + .NET;
+  2. medir después un endpoint `GET` autenticado y de solo lectura con un
+     usuario de prueba dedicado, para incluir autenticación, API .NET y acceso
+     a PostgreSQL sin modificar datos;
+  3. registrar throughput, latencia promedio/p95, timeouts y errores 4xx/5xx.
+- **Riesgo**: sin esta evidencia no se conoce el punto de degradación del
+  backend, y una prueba exclusiva del frontend puede ocultar límites de Render,
+  pool de conexiones o consultas a base de datos.
+- **Prioridad**: Media.
+- **Cuándo abordarlo**: después del cierre actual del Capstone/CI, antes de
+  considerar cerrada la evaluación de rendimiento en producción. No ejecutar
+  carga contra endpoints de escritura.
+
 ---
 
 ## Convenciones
