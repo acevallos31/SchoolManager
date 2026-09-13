@@ -1,7 +1,7 @@
 -- Bootstrap manual del PR 042: primer Superadministrador de plataforma.
 --
 -- NO es una migracion y NO debe ejecutarse automaticamente.
--- Solo se usa durante el rollout, despues de aplicar y validar 028..038.
+-- Solo se usa durante el rollout, despues de aplicar y validar 028..039.
 -- El script se niega a operar si ya existe un Superadministrador activo; a
 -- partir de ese momento las altas/bajas deben pasar por las reglas normales.
 --
@@ -35,9 +35,9 @@ begin
   if not exists (
     select 1
     from public.schema_migrations
-    where version = '038'
+    where version = '039'
   ) then
-    raise exception 'El bootstrap requiere las migraciones 028..038 aplicadas y validadas.'
+    raise exception 'El bootstrap requiere las migraciones 028..039 aplicadas y validadas.'
       using errcode = '55000';
   end if;
 
