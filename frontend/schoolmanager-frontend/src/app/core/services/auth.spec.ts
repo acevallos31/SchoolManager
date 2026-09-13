@@ -19,6 +19,26 @@ describe('AuthService', () => {
     permisos: ['academico.alumnos.ver']
   };
 
+  const perfilContextual = {
+    id: 'usuario-contextual',
+    personaId: 'persona-contextual',
+    roles: ['platform_admin', 'secretaria'],
+    permisos: ['platform.roles.ver', 'academico.alumnos.ver'],
+    ambitoGlobal: {
+      roles: ['platform_admin'],
+      permisos: ['platform.roles.ver']
+    },
+    instituciones: [
+      {
+        id: 'institucion-1',
+        nombre: 'Colegio Prueba',
+        nombreCorto: 'CP',
+        roles: ['secretaria'],
+        permisos: ['academico.alumnos.ver']
+      }
+    ]
+  };
+
   function esSesionEdge(input: RequestInfo | URL): boolean {
     return String(input) === '/api/auth/session';
   }
@@ -76,6 +96,28 @@ describe('AuthService', () => {
       headers: { Authorization: 'Bearer access-token-prueba' }
     });
     expect(service.supabase.from).toBeUndefined();
+  });
+
+  it('expone ámbito global y permisos de la institución sin mezclarlos', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
+      if (esSesionEdge(input)) {
+        return new Response(null, { status: 204 });
+      }
+      return new Response(JSON.stringify(perfilContextual), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    });
+
+    await service.login('admin@ejemplo.com', 'password');
+
+    expect(service.ambitoGlobal().roles).toEqual(['platform_admin']);
+    expect(service.esSuperadministrador()).toBe(true);
+    expect(service.institucionesDisponibles()).toHaveLength(1);
+    expect(service.tieneRolEnInstitucion('secretaria', 'institucion-1')).toBe(true);
+    expect(service.tienePermisoEnInstitucion('academico.alumnos.ver', 'institucion-1')).toBe(true);
+    expect(service.tienePermisoEnInstitucion('platform.roles.ver', 'institucion-1')).toBe(false);
+    expect(service.tienePermisoEnInstitucion('academico.alumnos.ver', 'otra-institucion')).toBe(false);
   });
 
   it('envia el access token a api/auth/me', async () => {
