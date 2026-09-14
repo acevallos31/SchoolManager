@@ -8,18 +8,10 @@ const LOGIN_URL = '/login';
 const ACCESO_PENDIENTE_URL = '/acceso-pendiente';
 
 /**
- * Guard de navegación basado en permisos concretos. Admite un permiso único
- * (`route.data['permiso']`) o una lista OR (`route.data['permisosCualquiera']`)
- * para módulos que pueden abrirse desde capacidades distintas.
- *
- * El backend/RLS siguen siendo la autoridad de seguridad: este guard solo
- * evita incoherencias de navegación/UI, nunca sustituye la autorización
- * del servidor.
- *
- * Cuando la ruta no exige permisos concretos (por ejemplo el AppShell), el
- * guard también valida que el perfil tenga un destino administrativo. Así un
- * responsable no cae accidentalmente en /dashboard y un perfil futuro sin
- * módulo disponible recibe un estado accionable en vez de un logout.
+ * Guard de navegación basado en permisos concretos. Admite un permiso único,
+ * una lista OR y, solo cuando la ruta lo declara expresamente,
+ * `permitirSuperadministrador`. El backend/RLS siguen siendo la autoridad de
+ * seguridad y vuelven a validar cada operación.
  */
 export const permissionGuard: CanActivateFn = (route) => {
   const auth = inject(AuthService);
@@ -33,7 +25,10 @@ export const permissionGuard: CanActivateFn = (route) => {
   const rutaInicial = usuario ? resolverRutaInicial(usuario) : null;
   const permiso = route.data?.['permiso'] as string | undefined;
   const permisosCualquiera = route.data?.['permisosCualquiera'] as string[] | undefined;
-  const exigePermiso = Boolean(permiso) || Boolean(permisosCualquiera?.length);
+  const permitirSuperadministrador = route.data?.['permitirSuperadministrador'] === true;
+  const exigePermiso = Boolean(permiso)
+    || Boolean(permisosCualquiera?.length)
+    || permitirSuperadministrador;
 
   if (!exigePermiso) {
     if (rutaInicial === '/dashboard') return true;
@@ -41,7 +36,8 @@ export const permissionGuard: CanActivateFn = (route) => {
   }
 
   const autorizado = Boolean(permiso && auth.tienePermiso(permiso))
-    || Boolean(permisosCualquiera?.some(codigo => auth.tienePermiso(codigo)));
+    || Boolean(permisosCualquiera?.some(codigo => auth.tienePermiso(codigo)))
+    || (permitirSuperadministrador && auth.esSuperadministrador());
 
   if (!autorizado) {
     return router.createUrlTree([rutaInicial ?? ACCESO_PENDIENTE_URL]);
