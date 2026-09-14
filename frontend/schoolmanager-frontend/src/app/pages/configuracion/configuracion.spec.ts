@@ -10,6 +10,7 @@ describe('Configuracion', () => {
   let component: Configuracion;
   let service: Record<string, ReturnType<typeof vi.fn>>;
   let permisos: Set<string>;
+  let superadministrador: boolean;
 
   const configuracion = {
     multiplesInstituciones: false,
@@ -24,6 +25,7 @@ describe('Configuracion', () => {
   };
 
   beforeEach(async () => {
+    superadministrador = false;
     permisos = new Set([
       'configuracion.instituciones.editar',
       'configuracion.sistema.editar',
@@ -43,7 +45,13 @@ describe('Configuracion', () => {
           { path: 'configuracion/estructura-academica', component: Configuracion },
           { path: 'configuracion/seguridad-acceso', component: Configuracion }
         ]),
-        { provide: AuthService, useValue: { tienePermiso: (p: string) => permisos.has(p) } },
+        {
+          provide: AuthService,
+          useValue: {
+            tienePermiso: (p: string) => permisos.has(p),
+            esSuperadministrador: () => superadministrador
+          }
+        },
         { provide: ConfiguracionService, useValue: service }
       ]
     }).compileComponents();
@@ -126,6 +134,18 @@ describe('Configuracion', () => {
     expect(enlace).toBeTruthy();
     expect(fixture.nativeElement.textContent).toContain('Seguridad y acceso');
     expect(fixture.nativeElement.textContent).not.toContain('Centro educativo');
+  });
+
+  it('Superadministrador ve Seguridad y acceso aunque no tenga permiso institucional legacy', async () => {
+    fixture.destroy();
+    permisos.clear();
+    superadministrador = true;
+    service['obtenerConfiguracionInstitucion'].mockClear();
+    await crearComponente();
+
+    expect(component.puedeVerSeguridadAcceso).toBe(true);
+    expect(service['obtenerConfiguracionInstitucion']).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain('Gestionar roles y permisos');
   });
 
   it('identidad.usuarios.ver también habilita el acceso al módulo de seguridad', async () => {
