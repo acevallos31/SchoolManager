@@ -1,7 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { skip, Subscription } from 'rxjs';
 import { ContextoInstitucionService } from '../../core/services/contexto-institucion.service';
 import {
   AsignacionRolSeguridad,
@@ -19,7 +20,7 @@ import {
   templateUrl: './configuracion-seguridad-acceso.html',
   styleUrl: './configuracion-seguridad-acceso.css'
 })
-export class ConfiguracionSeguridadAcceso implements OnInit {
+export class ConfiguracionSeguridadAcceso implements OnInit, OnDestroy {
   snapshot: SeguridadAccesoSnapshot | null = null;
   cargando = false;
   guardando = false;
@@ -31,6 +32,7 @@ export class ConfiguracionSeguridadAcceso implements OnInit {
   edicionRol = { nombre: '', descripcion: '' };
   rolSeleccionadoId = '';
   permisosSeleccionados = new Set<string>();
+  private contextoSubscription: Subscription | null = null;
 
   constructor(
     private readonly contexto: ContextoInstitucionService,
@@ -69,6 +71,19 @@ export class ConfiguracionSeguridadAcceso implements OnInit {
 
   async ngOnInit(): Promise<void> {
     await this.cargar();
+    // BehaviorSubject emite el contexto actual al suscribirse; se omite esa
+    // primera emisión porque ya fue cargada arriba. Cambios posteriores desde
+    // el selector del AppShell refrescan esta pantalla sin recargar el browser.
+    this.contextoSubscription = this.contexto.institucionActual$
+      .pipe(skip(1))
+      .subscribe(() => {
+        this.limpiarSeleccionRol();
+        void this.cargar();
+      });
+  }
+
+  ngOnDestroy(): void {
+    this.contextoSubscription?.unsubscribe();
   }
 
   async cargar(preservarMensaje = false): Promise<void> {
@@ -88,10 +103,7 @@ export class ConfiguracionSeguridadAcceso implements OnInit {
       if (this.rolSeleccionadoId && !rol) {
         this.limpiarSeleccionRol();
       } else if (rol) {
-        this.edicionRol = {
-          nombre: rol.nombre,
-          descripcion: rol.descripcion ?? ''
-        };
+        this.edicionRol = { nombre: rol.nombre, descripcion: rol.descripcion ?? '' };
       }
     } catch (error) {
       this.snapshot = null;
@@ -146,10 +158,7 @@ export class ConfiguracionSeguridadAcceso implements OnInit {
   seleccionarRol(rol: RolInstitucionalSeguridad): void {
     this.rolSeleccionadoId = rol.id;
     this.permisosSeleccionados = new Set(rol.permisos);
-    this.edicionRol = {
-      nombre: rol.nombre,
-      descripcion: rol.descripcion ?? ''
-    };
+    this.edicionRol = { nombre: rol.nombre, descripcion: rol.descripcion ?? '' };
   }
 
   async guardarRol(): Promise<void> {
@@ -162,11 +171,7 @@ export class ConfiguracionSeguridadAcceso implements OnInit {
     }
 
     await this.ejecutar(async () => {
-      await this.seguridad.editarRol(
-        rol.id,
-        nombre,
-        this.edicionRol.descripcion.trim() || null
-      );
+      await this.seguridad.editarRol(rol.id, nombre, this.edicionRol.descripcion.trim() || null);
       this.mostrarExito('Definición del rol actualizada.');
     });
   }
