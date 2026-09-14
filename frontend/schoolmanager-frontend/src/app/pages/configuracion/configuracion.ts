@@ -60,7 +60,8 @@ export class Configuracion implements OnInit {
   }
 
   get puedeVerSeguridadAcceso(): boolean {
-    return this.auth.tienePermiso('identidad.roles.ver')
+    return this.auth.esSuperadministrador()
+      || this.auth.tienePermiso('identidad.roles.ver')
       || this.auth.tienePermiso('identidad.usuarios.ver');
   }
 
@@ -85,8 +86,6 @@ export class Configuracion implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
-    // El hub contiene accesos independientes. Un gestor RBAC o académico no
-    // debe consultar la configuración del centro si no tiene esa capacidad.
     if (this.puedeVerCentroEducativo || this.puedeEditarModo) {
       await this.cargarConfiguracion();
     }
