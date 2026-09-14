@@ -1,6 +1,7 @@
 import { Injectable, OnDestroy, inject } from '@angular/core';
 import { BehaviorSubject, Subscription } from 'rxjs';
 import { AuthService, InstitucionAcceso, UsuarioActual } from './auth';
+import { ConfiguracionService } from './configuracion.service';
 
 const STORAGE_KEY = 'schoolmanager-institucion-contexto';
 
@@ -31,13 +32,23 @@ function obtenerStorageSeguro(): Storage | null {
  * contexto proviene de membresías explícitas; para platform_admin también puede
  * provenir de institucionesAdministrables, sin convertirlo en membresía ni
  * conceder permisos locales. Backend/RPC/RLS siguen siendo la autoridad real.
+ *
+ * Durante el preview puede ocurrir que el frontend nuevo apunte temporalmente a
+ * un backend anterior que todavía no serializa institucionesAdministrables. En
+ * modo mono-institución resolvemos únicamente la institución actual mediante el
+ * endpoint estable /configuracion/contexto. Ese fallback no inventa permisos ni
+ * membresías y desaparece en cuanto el backend 042 entrega el contrato completo.
  */
 @Injectable({ providedIn: 'root' })
 export class ContextoInstitucionService implements OnDestroy {
   private readonly auth = inject(AuthService);
+  private readonly configuracion = inject(ConfiguracionService);
   private readonly storage = obtenerStorageSeguro();
   private readonly institucionSubject = new BehaviorSubject<InstitucionAcceso | null>(null);
   private readonly usuarioSubscription: Subscription;
+  private fallbackAdministrables: InstitucionAcceso[] = [];
+  private fallbackUsuarioId: string | null = null;
+  private fallbackEnCurso = false;
 
   readonly institucionActual$ = this.institucionSubject.asObservable();
 
@@ -88,13 +99,23 @@ export class ContextoInstitucionService implements OnDestroy {
 
   private reconciliarConUsuario(usuario: UsuarioActual | null): void {
     if (!usuario) {
+      this.fallbackAdministrables = [];
+      this.fallbackUsuarioId = null;
       this.limpiar();
       return;
+    }
+
+    if (this.fallbackUsuarioId !== null && this.fallbackUsuarioId !== usuario.id) {
+      this.fallbackAdministrables = [];
+      this.fallbackUsuarioId = null;
     }
 
     const disponibles = this.institucionesParaContexto(usuario);
     if (disponibles.length === 0) {
       this.limpiar();
+      if (this.esPlatformAdmin(usuario)) {
+        void this.resolverFallbackMonoinstitucion(usuario);
+      }
       return;
     }
 
@@ -131,16 +152,51 @@ export class ContextoInstitucionService implements OnDestroy {
     if (!usuario) return [];
     const extendido = usuario as UsuarioActualExtendido;
     const explicitas = usuario.instituciones ?? [];
-    const administrables = usuario.ambitoGlobal?.roles.includes('platform_admin')
+    const administrablesContrato = this.esPlatformAdmin(usuario)
       ? extendido.institucionesAdministrables ?? []
+      : [];
+    const administrablesFallback = this.esPlatformAdmin(usuario) && this.fallbackUsuarioId === usuario.id
+      ? this.fallbackAdministrables
       : [];
 
     const porId = new Map<string, InstitucionAcceso>();
-    for (const institucion of administrables) porId.set(institucion.id, institucion);
+    for (const institucion of administrablesFallback) porId.set(institucion.id, institucion);
+    for (const institucion of administrablesContrato) porId.set(institucion.id, institucion);
     // Una membresía explícita gana sobre el contexto administrable porque sí
     // contiene los roles/permisos propios de esa institución.
     for (const institucion of explicitas) porId.set(institucion.id, institucion);
     return [...porId.values()];
+  }
+
+  private esPlatformAdmin(usuario: UsuarioActual): boolean {
+    return usuario.ambitoGlobal?.roles.includes('platform_admin')
+      ?? usuario.roles.includes('platform_admin');
+  }
+
+  private async resolverFallbackMonoinstitucion(usuario: UsuarioActual): Promise<void> {
+    if (this.fallbackEnCurso || this.fallbackUsuarioId === usuario.id) return;
+    this.fallbackEnCurso = true;
+
+    try {
+      const contexto = await this.configuracion.obtenerContexto();
+      if (this.auth.usuarioActual()?.id !== usuario.id || !contexto.institucion) return;
+
+      this.fallbackUsuarioId = usuario.id;
+      this.fallbackAdministrables = [{
+        id: contexto.institucion.id,
+        nombre: contexto.institucion.nombre,
+        nombreCorto: null,
+        roles: [],
+        permisos: []
+      }];
+      this.reconciliarConUsuario(usuario);
+    } catch {
+      // El fallback es únicamente compatibilidad de preview. Si el endpoint no
+      // está disponible, mantenemos el estado sin institución y la UI explica
+      // que debe seleccionarse una cuando el backend 042 esté desplegado.
+    } finally {
+      this.fallbackEnCurso = false;
+    }
   }
 
   private persistir(usuarioId: string, institucionId: string): void {
