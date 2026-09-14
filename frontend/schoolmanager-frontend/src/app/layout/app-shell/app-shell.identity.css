@@ -6,6 +6,29 @@
   max-width: 30rem;
 }
 
+.sm-user-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  flex: none;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--sm-primary, #0f5fa8), #173b63);
+  color: #ffffff;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  box-shadow: 0 0 0 3px rgba(15, 95, 168, 0.1);
+}
+
+.sm-user-summary__text {
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-2, 0.5rem);
+  min-width: 0;
+}
+
 .sm-user-summary__name {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -53,5 +76,9 @@
 @media (max-width: 620px) {
   .sm-user-summary__name {
     display: none;
+  }
+
+  .sm-user-summary__text {
+    gap: 0;
   }
 }
