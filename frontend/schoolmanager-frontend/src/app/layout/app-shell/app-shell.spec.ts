@@ -18,6 +18,7 @@ describe('AppShell', () => {
   let navigate: ReturnType<typeof vi.fn>;
   let permisos: Set<string>;
   let usuario$: BehaviorSubject<UsuarioExtendido | null>;
+  let session$: BehaviorSubject<any>;
   let contexto$: BehaviorSubject<InstitucionAcceso | null>;
   let seleccionarContexto: ReturnType<typeof vi.fn>;
   let limpiarContexto: ReturnType<typeof vi.fn>;
@@ -50,6 +51,9 @@ describe('AppShell', () => {
     logout = vi.fn().mockResolvedValue(undefined);
     navigate = vi.fn().mockResolvedValue(true);
     usuario$ = new BehaviorSubject<UsuarioExtendido | null>(usuarioBase);
+    session$ = new BehaviorSubject<any>({
+      user: { email: 'ana@example.com', user_metadata: { full_name: 'Ana Supabase' } }
+    });
     contexto$ = new BehaviorSubject<InstitucionAcceso | null>(null);
     seleccionarContexto = vi.fn((id: string) => {
       const institucion = institucionesContexto(usuario$.value).find(item => item.id === id);
@@ -69,6 +73,7 @@ describe('AppShell', () => {
             tienePermiso: (p: string) => permisos.has(p),
             esSuperadministrador: () => usuario$.value?.ambitoGlobal?.roles.includes('platform_admin') ?? false,
             logout,
+            session$: session$.asObservable(),
             usuarioActual$: usuario$.asObservable()
           }
         },
@@ -76,6 +81,7 @@ describe('AppShell', () => {
           provide: ContextoInstitucionService,
           useValue: {
             institucionActual$: contexto$.asObservable(),
+            institucionesDisponibles: () => institucionesContexto(usuario$.value),
             seleccionar: seleccionarContexto,
             limpiar: limpiarContexto
           }
@@ -104,6 +110,16 @@ describe('AppShell', () => {
     expect(texto).toContain('(Administrador)');
     expect(texto).toContain('Alumnos');
     expect(texto).toContain('Cerrar sesión');
+  });
+
+  it('usa metadata o correo de sesión mientras el backend preview aún no entrega nombreCompleto', () => {
+    usuario$.next({ ...usuarioBase, nombreCompleto: undefined });
+    fixture.detectChanges();
+    expect(component.nombreUsuario).toBe('Ana Supabase');
+
+    session$.next({ user: { email: 'ana@example.com', user_metadata: {} } });
+    fixture.detectChanges();
+    expect(component.nombreUsuario).toBe('ana@example.com');
   });
 
   it('oculta módulos sin sus permisos de lectura', () => {
@@ -173,6 +189,7 @@ describe('AppShell', () => {
 
   it('con varias instituciones muestra selector y exige contexto hasta elegir una', () => {
     usuario$.next({ ...usuarioBase, instituciones: [institucionA, institucionB] });
+    contexto$.next(null);
     fixture.detectChanges();
     const select = fixture.nativeElement.querySelector(
       'select[aria-label="Seleccionar institución activa"]'
