@@ -45,7 +45,7 @@
         <span class="sm-user-summary__text">
           <span class="sm-user-summary__name">{{ nombreUsuario }}</span>
           @if (rolVisible) {
-            <span class="sm-user-summary__role">({{ rolVisible }})</span>
+            <span class="sm-user-summary__role">{{ rolVisible }}</span>
           }
         </span>
       </div>
@@ -91,7 +91,7 @@
             [class.sm-sidebar__link--active]="esRutaActiva(item)"
             routerLink="{{ item.ruta }}"
             (click)="cerrarNav()">
-            <span class="sm-sidebar__link-icon" aria-hidden="true">{{ item.icono }}</span>
+            <span class="sm-sidebar__link-mark" aria-hidden="true"></span>
             <span class="sm-sidebar__link-label">{{ item.etiqueta }}</span>
           </a>
         }
@@ -102,7 +102,7 @@
           routerLink="/configuracion"
           routerLinkActive="sm-sidebar__link--active"
           (click)="cerrarNav()">
-          <span class="sm-sidebar__link-icon" aria-hidden="true">CO</span>
+          <span class="sm-sidebar__link-mark" aria-hidden="true"></span>
           <span class="sm-sidebar__link-label">Configuración</span>
         </a>
       }
