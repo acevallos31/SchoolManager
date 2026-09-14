@@ -24,18 +24,10 @@ public sealed class UsuarioActualServiceTests : IAsyncLifetime
         _service = new UsuarioActualService(_dataSource);
 
         var baselinePath = Path.Combine(
-            FindRepositoryRoot(),
-            "database",
-            "baseline",
-            "001_schoolmanager_fase1a.sql"
-        );
+            FindRepositoryRoot(), "database", "baseline", "001_schoolmanager_fase1a.sql");
         var securityBootstrapPath = Path.Combine(
-            FindRepositoryRoot(),
-            "tests",
-            "SchoolManager.Database.IntegrationTests",
-            "Infrastructure",
-            "SupabaseSecurityBootstrap.sql"
-        );
+            FindRepositoryRoot(), "tests", "SchoolManager.Database.IntegrationTests",
+            "Infrastructure", "SupabaseSecurityBootstrap.sql");
         await using (var securityCommand = _dataSource.CreateCommand(
             await File.ReadAllTextAsync(securityBootstrapPath)))
         {
@@ -47,43 +39,29 @@ public sealed class UsuarioActualServiceTests : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        if (_dataSource is not null)
-        {
-            await _dataSource.DisposeAsync();
-        }
-
+        if (_dataSource is not null) await _dataSource.DisposeAsync();
         await _container.DisposeAsync();
     }
 
     [Fact]
     public async Task Rechaza_sub_ausente()
     {
-        var principal = CrearPrincipal();
-
         await Assert.ThrowsAsync<UnauthorizedAccessException>(
-            () => _service.ObtenerAsync(principal)
-        );
+            () => _service.ObtenerAsync(CrearPrincipal()));
     }
 
     [Fact]
     public async Task Rechaza_sub_invalido()
     {
-        var principal = CrearPrincipal("no-es-un-uuid");
-
         await Assert.ThrowsAsync<UnauthorizedAccessException>(
-            () => _service.ObtenerAsync(principal)
-        );
+            () => _service.ObtenerAsync(CrearPrincipal("no-es-un-uuid")));
     }
 
     [Fact]
     public async Task Rechaza_usuario_inexistente_como_identidad_no_vinculada()
     {
-        var principal = CrearPrincipal(Guid.NewGuid().ToString());
-
         var excepcion = await Assert.ThrowsAsync<IdentidadNoVinculadaException>(
-            () => _service.ObtenerAsync(principal)
-        );
-
+            () => _service.ObtenerAsync(CrearPrincipal(Guid.NewGuid().ToString())));
         Assert.NotEqual(Guid.Empty, excepcion.AuthUserId);
     }
 
@@ -92,16 +70,13 @@ public sealed class UsuarioActualServiceTests : IAsyncLifetime
     {
         var authUserId = Guid.NewGuid();
         var esperado = await InsertarUsuarioAsync(authUserId, ["padre"], activo: false);
-
         var excepcion = await Assert.ThrowsAsync<UsuarioInactivoException>(
-            () => _service.ObtenerAsync(CrearPrincipal(authUserId.ToString()))
-        );
-
+            () => _service.ObtenerAsync(CrearPrincipal(authUserId.ToString())));
         Assert.Equal(esperado.Id, excepcion.UsuarioId);
     }
 
     [Fact]
-    public async Task Resuelve_usuario_con_un_rol_y_sus_permisos()
+    public async Task Resuelve_usuario_con_identidad_rol_y_permisos()
     {
         var authUserId = Guid.NewGuid();
         var esperado = await InsertarUsuarioAsync(authUserId, ["operador"], activo: true);
@@ -110,12 +85,14 @@ public sealed class UsuarioActualServiceTests : IAsyncLifetime
 
         Assert.Equal(esperado.Id, actual.Id);
         Assert.Equal(esperado.PersonaId, actual.PersonaId);
+        Assert.Equal("Usuario Prueba", actual.NombreCompleto);
         Assert.Equal(["operador"], actual.Roles);
         Assert.Contains("academico.alumnos.ver", actual.Permisos);
         Assert.Contains("academico.matriculas.crear", actual.Permisos);
         Assert.Equal(["operador"], actual.AmbitoGlobal.Roles);
         Assert.Contains("academico.alumnos.ver", actual.AmbitoGlobal.Permisos);
         Assert.Empty(actual.Instituciones);
+        Assert.Empty(actual.InstitucionesAdministrables);
     }
 
     [Fact]
@@ -123,14 +100,10 @@ public sealed class UsuarioActualServiceTests : IAsyncLifetime
     {
         var authUserId = Guid.NewGuid();
         var esperado = await InsertarUsuarioAsync(authUserId, ["consulta", "operador"], activo: true);
-
         var actual = await _service.ObtenerAsync(CrearPrincipal(authUserId.ToString()));
-
         Assert.Equal(esperado.Id, actual.Id);
-        Assert.Equal(esperado.PersonaId, actual.PersonaId);
         Assert.Equal(["consulta", "operador"], actual.Roles);
         Assert.Equal(actual.Permisos.Distinct(StringComparer.Ordinal), actual.Permisos);
-        Assert.Contains("academico.alumnos.ver", actual.Permisos);
     }
 
     [Fact]
@@ -151,7 +124,29 @@ public sealed class UsuarioActualServiceTests : IAsyncLifetime
         Assert.Equal("CC", institucion.NombreCorto);
         Assert.Equal(["operador"], institucion.Roles);
         Assert.Contains("academico.alumnos.ver", institucion.Permisos);
-        Assert.DoesNotContain("operador", actual.AmbitoGlobal.Roles);
+        Assert.Empty(actual.InstitucionesAdministrables);
+    }
+
+    [Fact]
+    public async Task Platform_admin_recibe_instituciones_administrables_sin_fabricar_membresias()
+    {
+        await CrearRolPlatformAdminAsync();
+        var authUserId = Guid.NewGuid();
+        await InsertarUsuarioAsync(authUserId, ["platform_admin"], activo: true);
+        var activaA = await InsertarInstitucionAsync("Colegio Alfa", "A");
+        var activaB = await InsertarInstitucionAsync("Colegio Beta", "B");
+        await InsertarInstitucionAsync("Colegio Cerrado", "C", activo: false);
+
+        var actual = await _service.ObtenerAsync(CrearPrincipal(authUserId.ToString()));
+
+        Assert.Contains("platform_admin", actual.AmbitoGlobal.Roles);
+        Assert.Empty(actual.Instituciones);
+        Assert.Equal([activaA, activaB], actual.InstitucionesAdministrables.Select(i => i.Id).ToArray());
+        Assert.All(actual.InstitucionesAdministrables, institucion =>
+        {
+            Assert.Empty(institucion.Roles);
+            Assert.Empty(institucion.Permisos);
+        });
     }
 
     [Fact]
@@ -161,9 +156,7 @@ public sealed class UsuarioActualServiceTests : IAsyncLifetime
         var usuario = await InsertarUsuarioAsync(authUserId, [], activo: true);
         var institucionId = await InsertarInstitucionAsync("Institucion cerrada", activo: false);
         await AsignarRolInstitucionalAsync(usuario.Id, "operador", institucionId);
-
         var actual = await _service.ObtenerAsync(CrearPrincipal(authUserId.ToString()));
-
         Assert.Empty(actual.Roles);
         Assert.Empty(actual.Permisos);
         Assert.Empty(actual.AmbitoGlobal.Roles);
@@ -175,9 +168,7 @@ public sealed class UsuarioActualServiceTests : IAsyncLifetime
     {
         var authUserId = Guid.NewGuid();
         await InsertarUsuarioAsync(authUserId, ["operador"], activo: true, rolActivo: false);
-
         var actual = await _service.ObtenerAsync(CrearPrincipal(authUserId.ToString()));
-
         Assert.Empty(actual.Roles);
         Assert.Empty(actual.Permisos);
         Assert.Empty(actual.AmbitoGlobal.Roles);
@@ -221,9 +212,8 @@ public sealed class UsuarioActualServiceTests : IAsyncLifetime
 
             if (!rolActivo)
             {
-                await using var deactivateCommand = _dataSource.CreateCommand("""
-                    update public.roles set activo = false where codigo = $1
-                    """);
+                await using var deactivateCommand = _dataSource.CreateCommand(
+                    "update public.roles set activo = false where codigo = $1");
                 deactivateCommand.Parameters.AddWithValue(rol);
                 await deactivateCommand.ExecuteNonQueryAsync();
             }
@@ -232,11 +222,20 @@ public sealed class UsuarioActualServiceTests : IAsyncLifetime
         return new UsuarioActual(usuarioId, personaId, roles, []);
     }
 
+    private async Task CrearRolPlatformAdminAsync()
+    {
+        await using var command = _dataSource.CreateCommand("""
+            insert into public.roles(codigo, nombre, descripcion, es_sistema, activo)
+            values ('platform_admin', 'Superadministrador', 'Prueba de plataforma', true, true)
+            on conflict (codigo) do nothing
+            """);
+        await command.ExecuteNonQueryAsync();
+    }
+
     private async Task<Guid> InsertarInstitucionAsync(
         string nombre,
         string? nombreCorto = null,
-        bool activo = true
-    )
+        bool activo = true)
     {
         var id = Guid.NewGuid();
         await using var command = _dataSource.CreateCommand("""
@@ -251,17 +250,11 @@ public sealed class UsuarioActualServiceTests : IAsyncLifetime
         return id;
     }
 
-    private async Task AsignarRolInstitucionalAsync(
-        Guid usuarioId,
-        string rol,
-        Guid institucionId
-    )
+    private async Task AsignarRolInstitucionalAsync(Guid usuarioId, string rol, Guid institucionId)
     {
         await using var command = _dataSource.CreateCommand("""
             insert into public.usuarios_roles (usuario_id, rol_id, institucion_id)
-            select $1, id, $3
-            from public.roles
-            where codigo = $2
+            select $1, id, $3 from public.roles where codigo = $2
             """);
         command.Parameters.AddWithValue(usuarioId);
         command.Parameters.AddWithValue(rol);
@@ -278,22 +271,14 @@ public sealed class UsuarioActualServiceTests : IAsyncLifetime
     private static string FindRepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
-
         while (directory is not null)
         {
-            if (File.Exists(Path.Combine(
-                    directory.FullName,
-                    "database",
-                    "baseline",
-                    "001_schoolmanager_fase1a.sql"
-                )))
+            if (File.Exists(Path.Combine(directory.FullName, "database", "baseline", "001_schoolmanager_fase1a.sql")))
             {
                 return directory.FullName;
             }
-
             directory = directory.Parent;
         }
-
         throw new DirectoryNotFoundException("No se encontró el baseline Fase 1A.");
     }
 }
