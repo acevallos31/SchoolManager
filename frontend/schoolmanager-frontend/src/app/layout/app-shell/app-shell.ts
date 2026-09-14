@@ -9,17 +9,19 @@ import {
 } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
-import { AuthService, InstitucionAcceso } from '../../core/services/auth';
+import { AuthService, InstitucionAcceso, UsuarioActual } from '../../core/services/auth';
 import { ContextoInstitucionService } from '../../core/services/contexto-institucion.service';
 
-/** Enlace de navegación primario del shell. `permiso` opcional: cuando se
- *  indica, el enlace se oculta sin ese permiso; el guard de ruta sigue siendo
- *  la autoridad para la navegación directa por URL. */
 interface NavItem {
   etiqueta: string;
   ruta: string;
   permiso?: string;
 }
+
+type UsuarioActualExtendido = UsuarioActual & {
+  nombreCompleto?: string;
+  institucionesAdministrables?: InstitucionAcceso[];
+};
 
 @Component({
   selector: 'app-shell',
@@ -34,11 +36,10 @@ export class AppShell implements OnDestroy {
   private readonly contextoSubscription: Subscription;
   navAbierta = false;
   roles: string[] = [];
+  nombreUsuario = 'Usuario';
   instituciones: readonly InstitucionAcceso[] = [];
   institucionActual: InstitucionAcceso | null = null;
 
-  // Enlaces con el permiso real que exige cada ruta; el guard sigue siendo la
-  // autoridad para navegación directa por URL. Panel: sin permiso concreto.
   readonly items: NavItem[] = [
     { etiqueta: 'Panel', ruta: '/dashboard' },
     { etiqueta: 'Alumnos', ruta: '/alumnos', permiso: 'academico.alumnos.ver' },
@@ -64,9 +65,9 @@ export class AppShell implements OnDestroy {
 
     this.usuarioSubscription = this.auth.usuarioActual$.subscribe((usuario) => {
       this.roles = usuario?.roles ?? [];
-      this.instituciones = usuario?.instituciones ?? [];
-      // En modo zoneless, una emisión RxJS no agenda por sí sola un refresco
-      // del template. Se marca el shell explícitamente sin forzar detectChanges().
+      const extendido = usuario as UsuarioActualExtendido | null;
+      this.nombreUsuario = extendido?.nombreCompleto?.trim() || 'Usuario';
+      this.instituciones = this.institucionesParaContexto(extendido);
       this.cdr.markForCheck();
     });
 
@@ -76,8 +77,32 @@ export class AppShell implements OnDestroy {
     });
   }
 
+  get esSuperadministrador(): boolean {
+    return this.auth.esSuperadministrador();
+  }
+
+  get rolVisible(): string {
+    if (this.esSuperadministrador) return 'Superadministrador';
+    const rol = this.roles[0];
+    if (!rol) return '';
+
+    const etiquetas: Record<string, string> = {
+      admin: 'Administrador',
+      school_admin: 'Administrador institucional',
+      academic_coordinator: 'Coordinación académica',
+      finance_operator: 'Finanzas',
+      teacher: 'Docente',
+      parent: 'Responsable',
+      student: 'Alumno',
+      demo_viewer: 'Demo / solo lectura',
+      support_agent: 'Soporte'
+    };
+    return etiquetas[rol] ?? rol.replaceAll('_', ' ');
+  }
+
   get puedeVerConfiguracion(): boolean {
-    return this.auth.tienePermiso('configuracion.sistema.ver')
+    return this.esSuperadministrador
+      || this.auth.tienePermiso('configuracion.sistema.ver')
       || this.auth.tienePermiso('configuracion.instituciones.ver')
       || this.auth.tienePermiso('identidad.roles.ver')
       || this.auth.tienePermiso('identidad.usuarios.ver');
@@ -88,9 +113,6 @@ export class AppShell implements OnDestroy {
   }
 
   mostrarItem(item: NavItem): boolean {
-    // Panel (sin permiso) siempre visible para autenticados; el resto exige el
-    // mismo permiso que su ruta. En 042F aún se conserva la unión compatible
-    // de /auth/me: el selector no reemplaza autorización backend/RLS.
     if (!item.permiso) return true;
     return this.auth.tienePermiso(item.permiso);
   }
@@ -106,7 +128,6 @@ export class AppShell implements OnDestroy {
     this.contextoInstitucion.seleccionar(institucionId);
   }
 
-  /** Activa el enlace del panel solo en su ruta exacta; el resto, por prefijo. */
   esRutaActiva(item: NavItem): boolean {
     const url = this.router.url;
     if (item.ruta === '/dashboard') return url === '/dashboard';
@@ -135,5 +156,18 @@ export class AppShell implements OnDestroy {
 
   volverAlPanel(): void {
     void this.router.navigate(['/dashboard']);
+  }
+
+  private institucionesParaContexto(usuario: UsuarioActualExtendido | null): readonly InstitucionAcceso[] {
+    if (!usuario) return [];
+    const explicitas = usuario.instituciones ?? [];
+    const administrables = usuario.ambitoGlobal?.roles.includes('platform_admin')
+      ? usuario.institucionesAdministrables ?? []
+      : [];
+
+    const porId = new Map<string, InstitucionAcceso>();
+    for (const institucion of administrables) porId.set(institucion.id, institucion);
+    for (const institucion of explicitas) porId.set(institucion.id, institucion);
+    return [...porId.values()];
   }
 }
