@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthAppError, AuthService } from '../../core/services/auth';
+import { OAuthProviderService } from '../../core/services/oauth-provider.service';
 import { resolverRutaInicial } from '../../core/services/landing-route';
 
 @Component({
@@ -17,14 +18,15 @@ export class Login implements OnInit {
   password = '';
   error = '';
   cargando = false;
-  cargandoGoogle = false;
+  proveedorCargando: 'google' | 'microsoft' | null = null;
 
-  constructor(private auth: AuthService, private router: Router) {}
+  constructor(
+    private auth: AuthService,
+    private oauth: OAuthProviderService,
+    private router: Router
+  ) {}
 
   ngOnInit(): void {
-    // Motivo conservado por AuthService cuando había sesión pero el backend no
-    // reconoció el perfil (p. ej. identidad de Google aún no vinculada). Se
-    // muestra en lugar del genérico "no se pudo validar la sesión".
     this.error = this.auth.consumirMensajeSesionInvalida() ?? '';
   }
 
@@ -59,15 +61,27 @@ export class Login implements OnInit {
   }
 
   async loginWithGoogle() {
+    await this.iniciarOAuth('google');
+  }
+
+  async loginWithMicrosoft() {
+    await this.iniciarOAuth('microsoft');
+  }
+
+  private async iniciarOAuth(proveedor: 'google' | 'microsoft'): Promise<void> {
     this.error = '';
-    this.cargandoGoogle = true;
+    this.proveedorCargando = proveedor;
 
     try {
-      await this.auth.loginWithGoogle();
+      if (proveedor === 'google') {
+        await this.oauth.continuarConGoogle();
+      } else {
+        await this.oauth.continuarConMicrosoft();
+      }
     } catch (error: unknown) {
       this.error = this.obtenerMensajeError(error);
     } finally {
-      this.cargandoGoogle = false;
+      this.proveedorCargando = null;
     }
   }
 
@@ -79,7 +93,7 @@ export class Login implements OnInit {
         case 'EMAIL_NOT_CONFIRMED':
           return 'Debes confirmar tu correo antes de iniciar sesion.';
         case 'USER_PROFILE_NOT_FOUND':
-          return 'Tu cuenta existe, pero no esta vinculada a un usuario de SchoolManager. Contacta al administrador para vincular tu identidad.';
+          return 'Tu cuenta existe, pero todavía no está vinculada a un perfil habilitado de SchoolManager. Si eres padre o encargado, revisa la invitación enviada por tu institución.';
         case 'USER_PROFILE_ERROR':
           return 'No se pudo validar tu perfil. Contacta al administrador.';
         case 'REQUEST_TIMEOUT':
