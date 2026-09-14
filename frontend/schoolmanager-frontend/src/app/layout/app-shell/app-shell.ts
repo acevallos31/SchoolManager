@@ -15,6 +15,7 @@ import { ContextoInstitucionService } from '../../core/services/contexto-institu
 interface NavItem {
   etiqueta: string;
   ruta: string;
+  icono: string;
   permiso?: string;
 }
 
@@ -33,7 +34,11 @@ type UsuarioActualExtendido = UsuarioActual & {
 export class AppShell implements OnDestroy {
   private readonly navSubscription: Subscription;
   private readonly usuarioSubscription: Subscription;
+  private readonly sessionSubscription: Subscription;
   private readonly contextoSubscription: Subscription;
+  private nombrePerfil = '';
+  private nombreSesion = '';
+
   navAbierta = false;
   roles: string[] = [];
   nombreUsuario = 'Usuario';
@@ -41,14 +46,14 @@ export class AppShell implements OnDestroy {
   institucionActual: InstitucionAcceso | null = null;
 
   readonly items: NavItem[] = [
-    { etiqueta: 'Panel', ruta: '/dashboard' },
-    { etiqueta: 'Alumnos', ruta: '/alumnos', permiso: 'academico.alumnos.ver' },
-    { etiqueta: 'Matrículas', ruta: '/matriculas', permiso: 'academico.matriculas.ver' },
-    { etiqueta: 'Ciclos escolares', ruta: '/configuracion/ciclos', permiso: 'academico.ciclos.ver' },
-    { etiqueta: 'Estructura académica', ruta: '/configuracion/estructura-academica', permiso: 'academico.estructura.ver' },
-    { etiqueta: 'Responsables', ruta: '/responsables', permiso: 'academico.responsables.ver' },
-    { etiqueta: 'Cargos', ruta: '/cargos', permiso: 'academico.cargos.ver' },
-    { etiqueta: 'Pagos', ruta: '/pagos', permiso: 'academico.pagos.ver' }
+    { etiqueta: 'Panel', ruta: '/dashboard', icono: 'IN' },
+    { etiqueta: 'Alumnos', ruta: '/alumnos', icono: 'AL', permiso: 'academico.alumnos.ver' },
+    { etiqueta: 'Matrículas', ruta: '/matriculas', icono: 'MA', permiso: 'academico.matriculas.ver' },
+    { etiqueta: 'Ciclos escolares', ruta: '/configuracion/ciclos', icono: 'CI', permiso: 'academico.ciclos.ver' },
+    { etiqueta: 'Estructura académica', ruta: '/configuracion/estructura-academica', icono: 'EA', permiso: 'academico.estructura.ver' },
+    { etiqueta: 'Responsables', ruta: '/responsables', icono: 'RE', permiso: 'academico.responsables.ver' },
+    { etiqueta: 'Cargos', ruta: '/cargos', icono: 'CA', permiso: 'academico.cargos.ver' },
+    { etiqueta: 'Pagos', ruta: '/pagos', icono: 'PA', permiso: 'academico.pagos.ver' }
   ];
 
   constructor(
@@ -63,16 +68,29 @@ export class AppShell implements OnDestroy {
         this.navAbierta = false;
       });
 
+    this.sessionSubscription = this.auth.session$.subscribe(session => {
+      const metadata = session?.user?.user_metadata as Record<string, unknown> | undefined;
+      const nombreMetadata = typeof metadata?.['full_name'] === 'string'
+        ? metadata['full_name']
+        : typeof metadata?.['name'] === 'string'
+          ? metadata['name']
+          : '';
+      this.nombreSesion = nombreMetadata.trim() || session?.user?.email?.trim() || '';
+      this.actualizarNombreVisible();
+    });
+
     this.usuarioSubscription = this.auth.usuarioActual$.subscribe((usuario) => {
       this.roles = usuario?.roles ?? [];
       const extendido = usuario as UsuarioActualExtendido | null;
-      this.nombreUsuario = extendido?.nombreCompleto?.trim() || 'Usuario';
+      this.nombrePerfil = extendido?.nombreCompleto?.trim() || '';
+      this.actualizarNombreVisible();
       this.instituciones = this.institucionesParaContexto(extendido);
       this.cdr.markForCheck();
     });
 
     this.contextoSubscription = this.contextoInstitucion.institucionActual$.subscribe(institucion => {
       this.institucionActual = institucion;
+      this.instituciones = this.contextoInstitucion.institucionesDisponibles();
       this.cdr.markForCheck();
     });
   }
@@ -137,6 +155,7 @@ export class AppShell implements OnDestroy {
   ngOnDestroy(): void {
     this.navSubscription.unsubscribe();
     this.usuarioSubscription.unsubscribe();
+    this.sessionSubscription.unsubscribe();
     this.contextoSubscription.unsubscribe();
   }
 
@@ -156,6 +175,11 @@ export class AppShell implements OnDestroy {
 
   volverAlPanel(): void {
     void this.router.navigate(['/dashboard']);
+  }
+
+  private actualizarNombreVisible(): void {
+    this.nombreUsuario = this.nombrePerfil || this.nombreSesion || 'Usuario';
+    this.cdr.markForCheck();
   }
 
   private institucionesParaContexto(usuario: UsuarioActualExtendido | null): readonly InstitucionAcceso[] {
