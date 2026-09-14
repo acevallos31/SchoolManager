@@ -28,7 +28,7 @@ type UsuarioActualExtendido = UsuarioActual & {
   standalone: true,
   imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet],
   templateUrl: './app-shell.html',
-  styleUrl: './app-shell.css'
+  styleUrls: ['./app-shell.css', './app-shell.identity.css']
 })
 export class AppShell implements OnDestroy {
   private readonly navSubscription: Subscription;
