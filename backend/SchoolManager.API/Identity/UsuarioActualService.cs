@@ -19,6 +19,7 @@ public sealed class UsuarioActualService(NpgsqlDataSource dataSource) : IUsuario
 
         Guid usuarioId;
         Guid personaId;
+        string nombreCompleto;
         string[] roles;
         string[] permisos;
         string[] rolesGlobales;
@@ -29,6 +30,8 @@ public sealed class UsuarioActualService(NpgsqlDataSource dataSource) : IUsuario
               u.id,
               u.persona_id,
               u.activo,
+              p.nombres,
+              p.apellidos,
               coalesce((
                 select array_agg(distinct r.codigo order by r.codigo)
                 from public.usuarios_roles ur
@@ -47,11 +50,11 @@ public sealed class UsuarioActualService(NpgsqlDataSource dataSource) : IUsuario
                   )
               ), '{}'::text[]) as roles,
               coalesce((
-                select array_agg(distinct p.codigo order by p.codigo)
+                select array_agg(distinct pe.codigo order by pe.codigo)
                 from public.usuarios_roles ur
                 join public.roles r on r.id = ur.rol_id
                 join public.roles_permisos rp on rp.rol_id = r.id
-                join public.permisos p on p.id = rp.permiso_id
+                join public.permisos pe on pe.id = rp.permiso_id
                 where ur.usuario_id = u.id
                   and ur.activo = true
                   and r.activo = true
@@ -75,17 +78,18 @@ public sealed class UsuarioActualService(NpgsqlDataSource dataSource) : IUsuario
                   and r.activo = true
               ), '{}'::text[]) as roles_globales,
               coalesce((
-                select array_agg(distinct p.codigo order by p.codigo)
+                select array_agg(distinct pe.codigo order by pe.codigo)
                 from public.usuarios_roles ur
                 join public.roles r on r.id = ur.rol_id
                 join public.roles_permisos rp on rp.rol_id = r.id
-                join public.permisos p on p.id = rp.permiso_id
+                join public.permisos pe on pe.id = rp.permiso_id
                 where ur.usuario_id = u.id
                   and ur.institucion_id is null
                   and ur.activo = true
                   and r.activo = true
               ), '{}'::text[]) as permisos_globales
             from public.usuarios u
+            join public.personas p on p.id = u.persona_id
             where u.auth_user_id = $1
             """))
         {
@@ -95,8 +99,6 @@ public sealed class UsuarioActualService(NpgsqlDataSource dataSource) : IUsuario
 
             if (!await reader.ReadAsync(cancellationToken))
             {
-                // El token es valido pero nadie lo vinculo a public.usuarios:
-                // caso propio de la vinculacion explicita pendiente (migracion 027).
                 throw new IdentidadNoVinculadaException(authUserId);
             }
 
@@ -107,13 +109,22 @@ public sealed class UsuarioActualService(NpgsqlDataSource dataSource) : IUsuario
 
             usuarioId = reader.GetGuid(0);
             personaId = reader.GetGuid(1);
-            roles = reader.GetFieldValue<string[]>(3);
-            permisos = reader.GetFieldValue<string[]>(4);
-            rolesGlobales = reader.GetFieldValue<string[]>(5);
-            permisosGlobales = reader.GetFieldValue<string[]>(6);
+            nombreCompleto = string.Join(
+                ' ',
+                new[] { reader.GetString(3), reader.GetString(4) }
+                    .Where(valor => !string.IsNullOrWhiteSpace(valor))
+            ).Trim();
+            roles = reader.GetFieldValue<string[]>(5);
+            permisos = reader.GetFieldValue<string[]>(6);
+            rolesGlobales = reader.GetFieldValue<string[]>(7);
+            permisosGlobales = reader.GetFieldValue<string[]>(8);
         }
 
         var instituciones = await ObtenerInstitucionesAsync(usuarioId, cancellationToken);
+        var esSuperadministrador = rolesGlobales.Contains("platform_admin", StringComparer.Ordinal);
+        var institucionesAdministrables = esSuperadministrador
+            ? await ObtenerInstitucionesAdministrablesAsync(cancellationToken)
+            : Array.Empty<InstitucionAcceso>();
 
         return new UsuarioActual(
             usuarioId,
@@ -122,11 +133,13 @@ public sealed class UsuarioActualService(NpgsqlDataSource dataSource) : IUsuario
             Array.AsReadOnly(permisos)
         )
         {
+            NombreCompleto = nombreCompleto,
             AmbitoGlobal = new AmbitoGlobalAcceso(
                 Array.AsReadOnly(rolesGlobales),
                 Array.AsReadOnly(permisosGlobales)
             ),
-            Instituciones = instituciones
+            Instituciones = instituciones,
+            InstitucionesAdministrables = institucionesAdministrables
         };
     }
 
@@ -177,6 +190,33 @@ public sealed class UsuarioActualService(NpgsqlDataSource dataSource) : IUsuario
                 reader.IsDBNull(2) ? null : reader.GetString(2),
                 Array.AsReadOnly(reader.GetFieldValue<string[]>(3)),
                 Array.AsReadOnly(reader.GetFieldValue<string[]>(4))
+            ));
+        }
+
+        return resultado.AsReadOnly();
+    }
+
+    private async Task<IReadOnlyList<InstitucionAcceso>> ObtenerInstitucionesAdministrablesAsync(
+        CancellationToken cancellationToken
+    )
+    {
+        await using var command = dataSource.CreateCommand("""
+            select i.id, i.nombre, i.nombre_corto
+            from public.instituciones i
+            where i.activo = true
+            order by lower(i.nombre), i.id
+            """);
+
+        var resultado = new List<InstitucionAcceso>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            resultado.Add(new InstitucionAcceso(
+                reader.GetGuid(0),
+                reader.GetString(1),
+                reader.IsDBNull(2) ? null : reader.GetString(2),
+                Array.Empty<string>(),
+                Array.Empty<string>()
             ));
         }
 
