@@ -29,7 +29,6 @@ public sealed class AuthControllerTests : IClassFixture<AuthControllerTests.ApiF
     public async Task Sin_autenticacion_devuelve_401()
     {
         var response = await _client.GetAsync("/api/auth/me");
-
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
@@ -37,7 +36,6 @@ public sealed class AuthControllerTests : IClassFixture<AuthControllerTests.ApiF
     public async Task Admin_activo_devuelve_200()
     {
         var response = await GetMeAsync("admin");
-
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
@@ -45,7 +43,6 @@ public sealed class AuthControllerTests : IClassFixture<AuthControllerTests.ApiF
     public async Task Padre_activo_devuelve_200()
     {
         var response = await GetMeAsync("padre");
-
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
@@ -57,9 +54,13 @@ public sealed class AuthControllerTests : IClassFixture<AuthControllerTests.ApiF
         var propiedades = json.RootElement.EnumerateObject().Select(x => x.Name).Order().ToArray();
 
         Assert.Equal(
-            ["ambitoGlobal", "id", "instituciones", "permisos", "personaId", "roles"],
+            [
+                "ambitoGlobal", "id", "instituciones", "institucionesAdministrables",
+                "nombreCompleto", "permisos", "personaId", "roles"
+            ],
             propiedades
         );
+        Assert.Equal("Usuario Prueba", json.RootElement.GetProperty("nombreCompleto").GetString());
         Assert.Equal("admin", json.RootElement.GetProperty("roles")[0].GetString());
         Assert.Contains(
             json.RootElement.GetProperty("permisos").EnumerateArray(),
@@ -68,6 +69,7 @@ public sealed class AuthControllerTests : IClassFixture<AuthControllerTests.ApiF
         Assert.True(json.RootElement.GetProperty("ambitoGlobal").TryGetProperty("roles", out _));
         Assert.True(json.RootElement.GetProperty("ambitoGlobal").TryGetProperty("permisos", out _));
         Assert.Equal(JsonValueKind.Array, json.RootElement.GetProperty("instituciones").ValueKind);
+        Assert.Equal(JsonValueKind.Array, json.RootElement.GetProperty("institucionesAdministrables").ValueKind);
         Assert.False(json.RootElement.TryGetProperty("rol", out _));
     }
 
@@ -89,7 +91,6 @@ public sealed class AuthControllerTests : IClassFixture<AuthControllerTests.ApiF
     {
         var response = await GetMeAsync("admin");
         var contenido = await response.Content.ReadAsStringAsync();
-
         Assert.DoesNotContain("auth_user_id", contenido, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("correo", contenido, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("claims", contenido, StringComparison.OrdinalIgnoreCase);
@@ -99,7 +100,6 @@ public sealed class AuthControllerTests : IClassFixture<AuthControllerTests.ApiF
     public async Task Identidad_no_resoluble_devuelve_403()
     {
         var response = await GetMeAsync("no-resoluble");
-
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
@@ -107,7 +107,6 @@ public sealed class AuthControllerTests : IClassFixture<AuthControllerTests.ApiF
     public async Task Identidad_no_vinculada_devuelve_403_con_codigo_accionable()
     {
         var response = await GetMeAsync("no-vinculada");
-
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         Assert.Equal("IDENTIDAD_NO_VINCULADA", json.RootElement.GetProperty("codigo").GetString());
@@ -118,7 +117,6 @@ public sealed class AuthControllerTests : IClassFixture<AuthControllerTests.ApiF
     public async Task Usuario_inactivo_devuelve_403_con_codigo_propio()
     {
         var response = await GetMeAsync("inactivo");
-
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         Assert.Equal("USUARIO_INACTIVO", json.RootElement.GetProperty("codigo").GetString());
@@ -129,7 +127,6 @@ public sealed class AuthControllerTests : IClassFixture<AuthControllerTests.ApiF
     {
         var response = await GetMeAsync("no-vinculada");
         var contenido = await response.Content.ReadAsStringAsync();
-
         Assert.DoesNotContain("no-vinculada", contenido, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("token", contenido, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("auth_user_id", contenido, StringComparison.OrdinalIgnoreCase);
@@ -173,20 +170,9 @@ public sealed class AuthControllerTests : IClassFixture<AuthControllerTests.ApiF
         )
         {
             var identidad = principal.FindFirstValue("sub");
-            if (identidad == "no-resoluble")
-            {
-                throw new UnauthorizedAccessException();
-            }
-
-            if (identidad == "no-vinculada")
-            {
-                throw new IdentidadNoVinculadaException(Guid.NewGuid());
-            }
-
-            if (identidad == "inactivo")
-            {
-                throw new UsuarioInactivoException(Guid.NewGuid());
-            }
+            if (identidad == "no-resoluble") throw new UnauthorizedAccessException();
+            if (identidad == "no-vinculada") throw new IdentidadNoVinculadaException(Guid.NewGuid());
+            if (identidad == "inactivo") throw new UsuarioInactivoException(Guid.NewGuid());
 
             var rol = identidad == "padre" ? "padre" : "admin";
             var usuario = new UsuarioActual(
@@ -194,7 +180,10 @@ public sealed class AuthControllerTests : IClassFixture<AuthControllerTests.ApiF
                 Guid.NewGuid(),
                 [rol],
                 rol == "admin" ? ["academico.alumnos.ver"] : []
-            );
+            )
+            {
+                NombreCompleto = "Usuario Prueba"
+            };
 
             if (identidad == "admin-contexto")
             {
