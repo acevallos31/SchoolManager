@@ -1,6 +1,5 @@
 <div class="sm-shell" (keydown.escape)="navAbierta && cerrarNav()">
 
-  <!-- Cabecera superior: siempre visible. Hamburguesa solo en móvil/tablet. -->
   <header class="sm-topbar">
     <button
       type="button"
@@ -41,16 +40,18 @@
     }
 
     <div class="sm-topbar__actions">
-      @if (roles.length > 0) {
-        <span class="sm-badge sm-badge--info" [title]="roles.join(', ')">{{ roles[0] }}</span>
-      }
-      <button type="button" class="sm-btn sm-btn--ghost sm-btn--sm" (click)="logout()">
+      <div class="sm-user-summary" [title]="nombreUsuario + (rolVisible ? ' (' + rolVisible + ')' : '')">
+        <span class="sm-user-summary__name">{{ nombreUsuario }}</span>
+        @if (rolVisible) {
+          <span class="sm-user-summary__role">({{ rolVisible }})</span>
+        }
+      </div>
+      <button type="button" class="sm-btn sm-btn--ghost sm-btn--sm sm-topbar__logout" (click)="logout()">
         Cerrar sesión
       </button>
     </div>
   </header>
 
-  <!-- Overlay que oscurece el contenido al abrir el drawer en móvil. -->
   @if (navAbierta) {
     <button
       type="button"
@@ -59,7 +60,6 @@
       (click)="cerrarNav()"></button>
   }
 
-  <!-- Sidebar: columna fija en escritorio; drawer deslizante en móvil/tablet. -->
   <aside class="sm-sidebar" [class.sm-sidebar--open]="navAbierta" aria-label="Secciones">
     <div class="sm-sidebar__brand">
       <p class="sm-eyebrow">SchoolManager</p>
@@ -107,7 +107,6 @@
     </div>
   </aside>
 
-  <!-- Contenido de la ruta hija. -->
   <main class="sm-content">
     <router-outlet></router-outlet>
   </main>
