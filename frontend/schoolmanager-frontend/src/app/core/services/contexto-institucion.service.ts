@@ -9,6 +9,10 @@ interface ContextoPersistido {
   institucionId: string;
 }
 
+type UsuarioActualExtendido = UsuarioActual & {
+  institucionesAdministrables?: InstitucionAcceso[];
+};
+
 function obtenerStorageSeguro(): Storage | null {
   if (typeof window === 'undefined') return null;
 
@@ -23,9 +27,10 @@ function obtenerStorageSeguro(): Storage | null {
 }
 
 /**
- * Mantiene la institución seleccionada dentro del conjunto explícito devuelto
- * por /api/auth/me. Nunca acepta un institucionId que el perfil actual no tenga
- * en instituciones[]. El backend/RPC/RLS continúan siendo la autoridad real.
+ * Mantiene una institución de contexto autorizada. Para usuarios normales el
+ * contexto proviene de membresías explícitas; para platform_admin también puede
+ * provenir de institucionesAdministrables, sin convertirlo en membresía ni
+ * conceder permisos locales. Backend/RPC/RLS siguen siendo la autoridad real.
  */
 @Injectable({ providedIn: 'root' })
 export class ContextoInstitucionService implements OnDestroy {
@@ -47,18 +52,14 @@ export class ContextoInstitucionService implements OnDestroy {
   }
 
   institucionesDisponibles(): readonly InstitucionAcceso[] {
-    return this.auth.institucionesDisponibles();
+    return this.institucionesParaContexto(this.auth.usuarioActual());
   }
 
-  /**
-   * Selecciona solo una institución expresamente autorizada en el perfil.
-   * Devuelve false en vez de fabricar contexto cuando el id no pertenece al usuario.
-   */
   seleccionar(institucionId: string): boolean {
     const usuario = this.auth.usuarioActual();
     if (!usuario) return false;
 
-    const institucion = (usuario.instituciones ?? [])
+    const institucion = this.institucionesParaContexto(usuario)
       .find(item => item.id === institucionId);
 
     if (!institucion) return false;
@@ -91,7 +92,7 @@ export class ContextoInstitucionService implements OnDestroy {
       return;
     }
 
-    const disponibles = usuario.instituciones ?? [];
+    const disponibles = this.institucionesParaContexto(usuario);
     if (disponibles.length === 0) {
       this.limpiar();
       return;
@@ -101,7 +102,6 @@ export class ContextoInstitucionService implements OnDestroy {
     if (seleccionActual) {
       const vigente = disponibles.find(item => item.id === seleccionActual.id);
       if (vigente) {
-        // Refresca roles/permisos si /auth/me cambió manteniendo el mismo id.
         this.institucionSubject.next(vigente);
         this.persistir(usuario.id, vigente.id);
         return;
@@ -117,16 +117,30 @@ export class ContextoInstitucionService implements OnDestroy {
       }
     }
 
-    // Con una sola institución no hay ambigüedad: se selecciona automáticamente.
     if (disponibles.length === 1) {
       this.institucionSubject.next(disponibles[0]);
       this.persistir(usuario.id, disponibles[0].id);
       return;
     }
 
-    // Con varias instituciones y sin selección válida se exige elección explícita.
     this.institucionSubject.next(null);
     this.eliminarPersistencia();
+  }
+
+  private institucionesParaContexto(usuario: UsuarioActual | null): InstitucionAcceso[] {
+    if (!usuario) return [];
+    const extendido = usuario as UsuarioActualExtendido;
+    const explicitas = usuario.instituciones ?? [];
+    const administrables = usuario.ambitoGlobal?.roles.includes('platform_admin')
+      ? extendido.institucionesAdministrables ?? []
+      : [];
+
+    const porId = new Map<string, InstitucionAcceso>();
+    for (const institucion of administrables) porId.set(institucion.id, institucion);
+    // Una membresía explícita gana sobre el contexto administrable porque sí
+    // contiene los roles/permisos propios de esa institución.
+    for (const institucion of explicitas) porId.set(institucion.id, institucion);
+    return [...porId.values()];
   }
 
   private persistir(usuarioId: string, institucionId: string): void {
