@@ -11,7 +11,7 @@ describe('AuthCallback', () => {
   let auth: {
     asegurarUsuarioInicial: ReturnType<typeof vi.fn>;
     isLoggedIn: ReturnType<typeof vi.fn>;
-    tieneRol: ReturnType<typeof vi.fn>;
+    usuarioActual: ReturnType<typeof vi.fn>;
     mensajeSesionInvalidaPendiente: ReturnType<typeof vi.fn>;
   };
   let router: { navigate: ReturnType<typeof vi.fn> };
@@ -20,7 +20,7 @@ describe('AuthCallback', () => {
     auth = {
       asegurarUsuarioInicial: vi.fn().mockResolvedValue(undefined),
       isLoggedIn: vi.fn(),
-      tieneRol: vi.fn(),
+      usuarioActual: vi.fn(),
       mensajeSesionInvalidaPendiente: vi.fn().mockReturnValue(null)
     };
     router = { navigate: vi.fn().mockResolvedValue(true) };
@@ -61,19 +61,53 @@ describe('AuthCallback', () => {
 
   it('redirige al portal cuando la sesión pertenece a un padre', async () => {
     auth.isLoggedIn.mockReturnValue(true);
-    auth.tieneRol.mockImplementation((rol: string) => rol === 'padre');
+    auth.usuarioActual.mockReturnValue({
+      id: 'u-padre',
+      personaId: 'p-padre',
+      roles: ['padre'],
+      permisos: []
+    });
 
     await component.ngOnInit();
 
     expect(router.navigate).toHaveBeenCalledWith(['/portal-padre']);
   });
 
-  it('redirige al dashboard para una sesión administrativa', async () => {
+  it('redirige al dashboard usando permisos aunque el rol sea dinamico', async () => {
     auth.isLoggedIn.mockReturnValue(true);
-    auth.tieneRol.mockReturnValue(false);
+    auth.usuarioActual.mockReturnValue({
+      id: 'u-secretaria',
+      personaId: 'p-secretaria',
+      roles: ['secretaria'],
+      permisos: ['academico.alumnos.ver']
+    });
 
     await component.ngOnInit();
 
     expect(router.navigate).toHaveBeenCalledWith(['/dashboard']);
+  });
+
+  it('lleva a acceso pendiente cuando el perfil aun no tiene destino', async () => {
+    auth.isLoggedIn.mockReturnValue(true);
+    auth.usuarioActual.mockReturnValue({
+      id: 'u-alumno',
+      personaId: 'p-alumno',
+      roles: ['student'],
+      permisos: []
+    });
+
+    await component.ngOnInit();
+
+    expect(router.navigate).toHaveBeenCalledWith(['/acceso-pendiente']);
+  });
+
+  it('vuelve al login si el estado autenticado queda inconsistente sin perfil', async () => {
+    auth.isLoggedIn.mockReturnValue(true);
+    auth.usuarioActual.mockReturnValue(null);
+
+    await component.ngOnInit();
+
+    expect(component.mensaje).toContain('No se pudo validar tu perfil');
+    expect(router.navigate).toHaveBeenCalledWith(['/login']);
   });
 });

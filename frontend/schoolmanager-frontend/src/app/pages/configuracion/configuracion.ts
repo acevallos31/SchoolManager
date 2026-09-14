@@ -50,18 +50,27 @@ export class Configuracion implements OnInit {
     return this.auth.tienePermiso('configuracion.instituciones.editar');
   }
 
+  get puedeVerCentroEducativo(): boolean {
+    return this.auth.tienePermiso('configuracion.instituciones.ver')
+      || this.puedeEditarInstitucion;
+  }
+
   get puedeEditarModo(): boolean {
     return this.auth.tienePermiso('configuracion.sistema.editar');
   }
 
+  get puedeVerSeguridadAcceso(): boolean {
+    return this.auth.esSuperadministrador()
+      || this.auth.tienePermiso('identidad.roles.ver')
+      || this.auth.tienePermiso('identidad.usuarios.ver');
+  }
+
   get puedeVerCiclos(): boolean {
-    return this.auth.tienePermiso('configuracion.ciclos.ver');
+    return this.auth.tienePermiso('academico.ciclos.ver');
   }
 
   get puedeVerEstructuraAcademica(): boolean {
-    return this.auth.tienePermiso('configuracion.grados.ver')
-      || this.auth.tienePermiso('configuracion.jornadas.ver')
-      || this.auth.tienePermiso('configuracion.secciones.ver');
+    return this.auth.tienePermiso('academico.estructura.ver');
   }
 
   get puedeVerConceptosFinancieros(): boolean {
@@ -77,7 +86,9 @@ export class Configuracion implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
-    await this.cargarConfiguracion();
+    if (this.puedeVerCentroEducativo || this.puedeEditarModo) {
+      await this.cargarConfiguracion();
+    }
   }
 
   async cargarConfiguracion(): Promise<void> {

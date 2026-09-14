@@ -1,6 +1,5 @@
 <div class="sm-shell" (keydown.escape)="navAbierta && cerrarNav()">
 
-  <!-- Cabecera superior: siempre visible. Hamburguesa solo en móvil/tablet. -->
   <header class="sm-topbar">
     <button
       type="button"
@@ -15,17 +14,47 @@
       <span class="sm-topbar__brand-sub">Panel escolar</span>
     </div>
 
+    @if (instituciones.length === 1 && institucionActual) {
+      <div class="sm-contexto" aria-label="Institución activa">
+        <span class="sm-contexto__label">Institución activa</span>
+        <strong class="sm-contexto__value">
+          {{ institucionActual.nombreCorto || institucionActual.nombre }}
+        </strong>
+      </div>
+    } @else if (instituciones.length > 1) {
+      <label class="sm-contexto sm-contexto--select">
+        <span class="sm-contexto__label">Institución</span>
+        <select
+          class="sm-contexto__select"
+          aria-label="Seleccionar institución activa"
+          [value]="institucionActual?.id || ''"
+          (change)="seleccionarInstitucion($event)">
+          <option value="" disabled>Selecciona una institución</option>
+          @for (institucion of instituciones; track institucion.id) {
+            <option [value]="institucion.id">
+              {{ institucion.nombreCorto || institucion.nombre }}
+            </option>
+          }
+        </select>
+      </label>
+    }
+
     <div class="sm-topbar__actions">
-      @if (roles.length > 0) {
-        <span class="sm-badge sm-badge--info" [title]="roles.join(', ')">{{ roles[0] }}</span>
-      }
-      <button type="button" class="sm-btn sm-btn--ghost sm-btn--sm" (click)="logout()">
+      <div class="sm-user-summary" [title]="nombreUsuario + (rolVisible ? ' (' + rolVisible + ')' : '')">
+        <span class="sm-user-avatar" aria-hidden="true">{{ inicialesUsuario }}</span>
+        <span class="sm-user-summary__text">
+          <span class="sm-user-summary__name">{{ nombreUsuario }}</span>
+          @if (rolVisible) {
+            <span class="sm-user-summary__role">({{ rolVisible }})</span>
+          }
+        </span>
+      </div>
+      <button type="button" class="sm-btn sm-btn--ghost sm-btn--sm sm-topbar__logout" (click)="logout()">
         Cerrar sesión
       </button>
     </div>
   </header>
 
-  <!-- Overlay que oscurece el contenido al abrir el drawer en móvil. -->
   @if (navAbierta) {
     <button
       type="button"
@@ -34,14 +63,27 @@
       (click)="cerrarNav()"></button>
   }
 
-  <!-- Sidebar: columna fija en escritorio; drawer deslizante en móvil/tablet. -->
   <aside class="sm-sidebar" [class.sm-sidebar--open]="navAbierta" aria-label="Secciones">
     <div class="sm-sidebar__brand">
-      <p class="sm-eyebrow">SchoolManager</p>
-      <span class="sm-sidebar__brand-name">Panel escolar</span>
+      <span class="sm-sidebar__brand-kicker">PLATAFORMA ESCOLAR</span>
+      <span class="sm-sidebar__brand-name">SchoolManager</span>
+      @if (institucionActual) {
+        <span class="sm-sidebar__contexto">
+          {{ institucionActual.nombreCorto || institucionActual.nombre }}
+        </span>
+      } @else {
+        <span class="sm-sidebar__contexto">Panel de administración</span>
+      }
     </div>
 
+    @if (requiereSeleccionInstitucion) {
+      <div class="sm-sidebar__notice" role="status">
+        Selecciona una institución en la barra superior para establecer el contexto de trabajo.
+      </div>
+    }
+
     <nav class="sm-sidebar__nav" id="sidebar-nav">
+      <span class="sm-sidebar__section-title">NAVEGACIÓN</span>
       @for (item of items; track item.ruta) {
         @if (mostrarItem(item)) {
           <a
@@ -49,8 +91,8 @@
             [class.sm-sidebar__link--active]="esRutaActiva(item)"
             routerLink="{{ item.ruta }}"
             (click)="cerrarNav()">
-            <span class="sm-sidebar__link-dot" aria-hidden="true"></span>
-            {{ item.etiqueta }}
+            <span class="sm-sidebar__link-mark" aria-hidden="true"></span>
+            <span class="sm-sidebar__link-label">{{ item.etiqueta }}</span>
           </a>
         }
       }
@@ -60,18 +102,18 @@
           routerLink="/configuracion"
           routerLinkActive="sm-sidebar__link--active"
           (click)="cerrarNav()">
-          <span class="sm-sidebar__link-dot" aria-hidden="true"></span>
-          Configuración
+          <span class="sm-sidebar__link-mark" aria-hidden="true"></span>
+          <span class="sm-sidebar__link-label">Configuración</span>
         </a>
       }
     </nav>
 
     <div class="sm-sidebar__footer">
-      <span class="sm-metadata">Acceso conectado con Supabase</span>
+      <span class="sm-sidebar__status-dot" aria-hidden="true"></span>
+      <span class="sm-metadata">Sesión segura conectada</span>
     </div>
   </aside>
 
-  <!-- Contenido de la ruta hija. -->
   <main class="sm-content">
     <router-outlet></router-outlet>
   </main>

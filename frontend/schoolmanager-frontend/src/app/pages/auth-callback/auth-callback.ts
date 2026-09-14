@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth';
+import { resolverRutaInicial } from '../../core/services/landing-route';
 
 @Component({
   selector: 'app-auth-callback',
@@ -32,9 +33,6 @@ export class AuthCallback implements OnInit {
     await this.auth.asegurarUsuarioInicial();
 
     if (!this.auth.isLoggedIn()) {
-      // El motivo lo conserva AuthService (identidad de Google sin vincular,
-      // usuario inactivo o fallo de red) en lugar de limpiar la sesión en
-      // silencio. /login lo consume y lo muestra.
       this.mensaje =
         this.auth.mensajeSesionInvalidaPendiente() ??
         'No se pudo validar la sesión. Regresando al login...';
@@ -42,8 +40,19 @@ export class AuthCallback implements OnInit {
       return;
     }
 
-    await this.router.navigate([
-      this.auth.tieneRol('padre') ? '/portal-padre' : '/dashboard'
-    ]);
+    const usuario = this.auth.usuarioActual();
+    if (!usuario) {
+      this.mensaje = 'No se pudo validar tu perfil. Regresando al login...';
+      await this.router.navigate(['/login']);
+      return;
+    }
+
+    const ruta = resolverRutaInicial(usuario);
+    if (!ruta) {
+      await this.router.navigate(['/acceso-pendiente']);
+      return;
+    }
+
+    await this.router.navigate([ruta]);
   }
 }

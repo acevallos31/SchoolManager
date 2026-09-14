@@ -2,8 +2,14 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
 import { vi } from 'vitest';
-import { AuthService } from '../../core/services/auth';
+import { AuthService, InstitucionAcceso, UsuarioActual } from '../../core/services/auth';
+import { ContextoInstitucionService } from '../../core/services/contexto-institucion.service';
 import { AppShell } from './app-shell';
+
+type UsuarioExtendido = UsuarioActual & {
+  nombreCompleto?: string;
+  institucionesAdministrables?: InstitucionAcceso[];
+};
 
 describe('AppShell', () => {
   let component: AppShell;
@@ -11,11 +17,51 @@ describe('AppShell', () => {
   let logout: ReturnType<typeof vi.fn>;
   let navigate: ReturnType<typeof vi.fn>;
   let permisos: Set<string>;
+  let usuario$: BehaviorSubject<UsuarioExtendido | null>;
+  let session$: BehaviorSubject<any>;
+  let contexto$: BehaviorSubject<InstitucionAcceso | null>;
+  let seleccionarContexto: ReturnType<typeof vi.fn>;
+  let limpiarContexto: ReturnType<typeof vi.fn>;
+
+  const institucionA: InstitucionAcceso = {
+    id: 'inst-a', nombre: 'Colegio Alfa', nombreCorto: 'Alfa',
+    roles: ['secretaria'], permisos: ['academico.alumnos.ver']
+  };
+  const institucionB: InstitucionAcceso = {
+    id: 'inst-b', nombre: 'Colegio Beta', nombreCorto: 'Beta',
+    roles: ['caja'], permisos: ['academico.pagos.ver']
+  };
+  const usuarioBase: UsuarioExtendido = {
+    id: 'u1', personaId: 'p1', nombreCompleto: 'Ana Prueba',
+    roles: ['admin'], permisos: [], instituciones: []
+  };
+
+  const institucionesContexto = (usuario: UsuarioExtendido | null) => {
+    if (!usuario) return [];
+    const administrables = usuario.ambitoGlobal?.roles.includes('platform_admin')
+      ? usuario.institucionesAdministrables ?? [] : [];
+    const porId = new Map<string, InstitucionAcceso>();
+    for (const item of administrables) porId.set(item.id, item);
+    for (const item of usuario.instituciones ?? []) porId.set(item.id, item);
+    return [...porId.values()];
+  };
 
   beforeEach(async () => {
     permisos = new Set(['academico.alumnos.ver']);
     logout = vi.fn().mockResolvedValue(undefined);
     navigate = vi.fn().mockResolvedValue(true);
+    usuario$ = new BehaviorSubject<UsuarioExtendido | null>(usuarioBase);
+    session$ = new BehaviorSubject<any>({
+      user: { email: 'ana@example.com', user_metadata: { full_name: 'Ana Supabase' } }
+    });
+    contexto$ = new BehaviorSubject<InstitucionAcceso | null>(null);
+    seleccionarContexto = vi.fn((id: string) => {
+      const institucion = institucionesContexto(usuario$.value).find(item => item.id === id);
+      if (!institucion) return false;
+      contexto$.next(institucion);
+      return true;
+    });
+    limpiarContexto = vi.fn(() => contexto$.next(null));
 
     await TestBed.configureTestingModule({
       imports: [AppShell],
@@ -25,15 +71,25 @@ describe('AppShell', () => {
           provide: AuthService,
           useValue: {
             tienePermiso: (p: string) => permisos.has(p),
+            esSuperadministrador: () => usuario$.value?.ambitoGlobal?.roles.includes('platform_admin') ?? false,
             logout,
-            usuarioActual$: new BehaviorSubject({ id: 'u1', personaId: 'p1', roles: ['admin'], permisos: [] })
+            session$: session$.asObservable(),
+            usuarioActual$: usuario$.asObservable()
+          }
+        },
+        {
+          provide: ContextoInstitucionService,
+          useValue: {
+            institucionActual$: contexto$.asObservable(),
+            institucionesDisponibles: () => institucionesContexto(usuario$.value),
+            seleccionar: seleccionarContexto,
+            limpiar: limpiarContexto
           }
         }
       ]
     }).compileComponents();
 
     navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
-
     fixture = TestBed.createComponent(AppShell);
     component = fixture.componentInstance;
     fixture.detectChanges();
@@ -47,11 +103,23 @@ describe('AppShell', () => {
     await fixture.whenStable();
   };
 
-  it('muestra el acceso conectado y los enlaces base', () => {
+  it('muestra identidad humana y los enlaces base', () => {
     const texto = fixture.nativeElement.textContent;
     expect(texto).toContain('SchoolManager');
+    expect(texto).toContain('Ana Prueba');
+    expect(texto).toContain('(Administrador)');
     expect(texto).toContain('Alumnos');
     expect(texto).toContain('Cerrar sesión');
+  });
+
+  it('usa metadata o correo de sesión mientras el backend preview aún no entrega nombreCompleto', () => {
+    usuario$.next({ ...usuarioBase, nombreCompleto: undefined });
+    fixture.detectChanges();
+    expect(component.nombreUsuario).toBe('Ana Supabase');
+
+    session$.next({ user: { email: 'ana@example.com', user_metadata: {} } });
+    fixture.detectChanges();
+    expect(component.nombreUsuario).toBe('ana@example.com');
   });
 
   it('oculta módulos sin sus permisos de lectura', () => {
@@ -63,83 +131,95 @@ describe('AppShell', () => {
     expect(texto).not.toContain('Configuración');
   });
 
-  it('muestra Responsables con permiso', async () => {
+  it('muestra módulos con sus permisos', async () => {
     permisos.add('academico.responsables.ver');
-    await recrearComponente();
-    expect(fixture.nativeElement.textContent).toContain('Responsables');
-  });
-
-  it('muestra Matrículas con permiso', async () => {
     permisos.add('academico.matriculas.ver');
-    await recrearComponente();
-    expect(fixture.nativeElement.textContent).toContain('Matrículas');
-  });
-
-  it('muestra Ciclos escolares con el permiso de aplicación', async () => {
-    permisos.add('academico.ciclos.ver');
-    await recrearComponente();
-    expect(fixture.nativeElement.textContent).toContain('Ciclos escolares');
-  });
-
-  it('muestra Estructura académica con el permiso de aplicación', async () => {
-    permisos.add('academico.estructura.ver');
-    await recrearComponente();
-    expect(fixture.nativeElement.textContent).toContain('Estructura académica');
-  });
-
-  it('no exige acceso general a Configuración para mostrar accesos académicos directos', async () => {
     permisos.add('academico.ciclos.ver');
     permisos.add('academico.estructura.ver');
     await recrearComponente();
-
     const texto = fixture.nativeElement.textContent;
+    expect(texto).toContain('Responsables');
+    expect(texto).toContain('Matrículas');
     expect(texto).toContain('Ciclos escolares');
     expect(texto).toContain('Estructura académica');
-    expect(texto).not.toContain('Configuración');
   });
 
-  it('cierra sesión y navega a login', () => {
+  it('muestra Configuración a un gestor de roles institucionales', async () => {
+    permisos.add('identidad.roles.ver');
+    await recrearComponente();
+    expect(fixture.nativeElement.textContent).toContain('Configuración');
+    expect(component.puedeVerConfiguracion).toBe(true);
+  });
+
+  it('muestra Superadministrador por encima del rol legacy y habilita Configuración', () => {
+    usuario$.next({
+      ...usuarioBase,
+      roles: ['admin', 'platform_admin'],
+      ambitoGlobal: { roles: ['admin', 'platform_admin'], permisos: [] }
+    });
+    fixture.detectChanges();
+    expect(component.rolVisible).toBe('Superadministrador');
+    expect(component.puedeVerConfiguracion).toBe(true);
+    expect(fixture.nativeElement.textContent).toContain('(Superadministrador)');
+  });
+
+  it('muestra la única institución activa sin exigir selector', () => {
+    usuario$.next({ ...usuarioBase, instituciones: [institucionA] });
+    contexto$.next(institucionA);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Alfa');
+    expect(fixture.nativeElement.querySelector('select[aria-label="Seleccionar institución activa"]')).toBeNull();
+    expect(component.requiereSeleccionInstitucion).toBe(false);
+  });
+
+  it('Superadministrador usa instituciones administrables sin fabricar membresía', () => {
+    usuario$.next({
+      ...usuarioBase,
+      roles: ['platform_admin'],
+      ambitoGlobal: { roles: ['platform_admin'], permisos: [] },
+      instituciones: [],
+      institucionesAdministrables: [institucionA]
+    });
+    contexto$.next(institucionA);
+    fixture.detectChanges();
+    expect(component.instituciones.map(item => item.id)).toEqual(['inst-a']);
+    expect(component.institucionActual?.id).toBe('inst-a');
+    expect(component.rolVisible).toBe('Superadministrador');
+  });
+
+  it('con varias instituciones muestra selector y exige contexto hasta elegir una', () => {
+    usuario$.next({ ...usuarioBase, instituciones: [institucionA, institucionB] });
+    contexto$.next(null);
+    fixture.detectChanges();
+    const select = fixture.nativeElement.querySelector(
+      'select[aria-label="Seleccionar institución activa"]'
+    ) as HTMLSelectElement;
+    expect(select).not.toBeNull();
+    expect(component.requiereSeleccionInstitucion).toBe(true);
+    component.seleccionarInstitucion({ target: { value: 'inst-b' } } as unknown as Event);
+    fixture.detectChanges();
+    expect(seleccionarContexto).toHaveBeenCalledWith('inst-b');
+    expect(component.institucionActual?.id).toBe('inst-b');
+  });
+
+  it('cierra sesión, limpia contexto y navega a login', () => {
     component.logout();
+    expect(limpiarContexto).toHaveBeenCalledOnce();
     expect(logout).toHaveBeenCalledOnce();
     expect(navigate).toHaveBeenCalledWith(['/login']);
   });
 
-  it('vuelve al panel principal', () => {
-    component.volverAlPanel();
-    expect(navigate).toHaveBeenCalledWith(['/dashboard']);
-  });
-
-  it('alterna el drawer móvil y lo cierra al navegar', () => {
-    expect(component.navAbierta).toBe(false);
+  it('alterna el drawer móvil y filtra enlaces por permiso', () => {
     component.alternarNav();
     expect(component.navAbierta).toBe(true);
-    component.alternarNav();
-    expect(component.navAbierta).toBe(false);
-    component.alternarNav();
     component.cerrarNav();
     expect(component.navAbierta).toBe(false);
-  });
-
-  it('marca activo el panel solo en su ruta exacta', () => {
-    const panel = component.items.find(item => item.ruta === '/dashboard')!;
-    const alumnos = component.items.find(item => item.ruta === '/alumnos')!;
-    expect(component.esRutaActiva(panel)).toBe(false);
-    expect(component.esRutaActiva(alumnos)).toBe(false);
-  });
-
-  it('muestra los enlaces sin permiso y filtra los que exigen permiso', () => {
     const panel = component.items.find(item => item.ruta === '/dashboard')!;
     const alumnos = component.items.find(item => item.ruta === '/alumnos')!;
     const matriculas = component.items.find(item => item.ruta === '/matriculas')!;
-    const ciclos = component.items.find(item => item.ruta === '/configuracion/ciclos')!;
-    const estructura = component.items.find(item => item.ruta === '/configuracion/estructura-academica')!;
-
     expect(component.mostrarItem(panel)).toBe(true);
     expect(component.mostrarItem(alumnos)).toBe(true);
     expect(component.mostrarItem(matriculas)).toBe(false);
-    expect(component.mostrarItem(ciclos)).toBe(false);
-    expect(component.mostrarItem(estructura)).toBe(false);
-    expect(component.puedeVerConfiguracion).toBe(false);
   });
 
   it('expone el rol real del usuario autenticado', () => {

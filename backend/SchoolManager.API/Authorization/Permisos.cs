@@ -9,6 +9,18 @@ public static class Permisos
         public const string EditarInstituciones = "configuracion.instituciones.editar";
     }
 
+    public static class Identidad
+    {
+        public const string UsuariosVer = "identidad.usuarios.ver";
+        public const string UsuariosCrear = "identidad.usuarios.crear";
+        public const string UsuariosEditar = "identidad.usuarios.editar";
+        public const string UsuariosAsignarRoles = "identidad.usuarios.asignar_roles";
+        public const string RolesVer = "identidad.roles.ver";
+        public const string RolesCrear = "identidad.roles.crear";
+        public const string RolesEditar = "identidad.roles.editar";
+        public const string RolesAsignarPermisos = "identidad.roles.asignar_permisos";
+    }
+
     public static class Alumnos
     {
         public const string Ver = "academico.alumnos.ver";
@@ -81,6 +93,14 @@ public static class Permisos
         Configuracion.EditarSistema,
         Configuracion.VerInstituciones,
         Configuracion.EditarInstituciones,
+        Identidad.UsuariosVer,
+        Identidad.UsuariosCrear,
+        Identidad.UsuariosEditar,
+        Identidad.UsuariosAsignarRoles,
+        Identidad.RolesVer,
+        Identidad.RolesCrear,
+        Identidad.RolesEditar,
+        Identidad.RolesAsignarPermisos,
         Alumnos.Ver,
         Alumnos.Crear,
         Alumnos.Editar,

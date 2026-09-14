@@ -1,40 +1,43 @@
-import { Component, OnDestroy } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import {
-  Router,
-  RouterLink,
-  RouterLinkActive,
-  RouterOutlet,
-  NavigationEnd
-} from '@angular/router';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
-import { AuthService } from '../../core/services/auth';
+import { AuthService, InstitucionAcceso, UsuarioActual } from '../../core/services/auth';
+import { ContextoInstitucionService } from '../../core/services/contexto-institucion.service';
 
-/** Enlace de navegación primario del shell. `permiso` opcional: cuando se
- *  indica, el enlace se oculta sin ese permiso; el guard de ruta sigue siendo
- *  la autoridad para la navegación directa por URL. */
 interface NavItem {
   etiqueta: string;
   ruta: string;
   permiso?: string;
 }
 
+type UsuarioActualExtendido = UsuarioActual & {
+  nombreCompleto?: string;
+  institucionesAdministrables?: InstitucionAcceso[];
+};
+
 @Component({
   selector: 'app-shell',
   standalone: true,
   imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet],
   templateUrl: './app-shell.html',
-  styleUrl: './app-shell.css'
+  styleUrls: ['./app-shell.css', './app-shell.identity.css']
 })
 export class AppShell implements OnDestroy {
   private readonly navSubscription: Subscription;
-  private usuarioSubscription: Subscription;
+  private readonly usuarioSubscription: Subscription;
+  private readonly sessionSubscription: Subscription;
+  private readonly contextoSubscription: Subscription;
+  private nombrePerfil = '';
+  private nombreSesion = '';
+
   navAbierta = false;
   roles: string[] = [];
+  nombreUsuario = 'Usuario';
+  instituciones: readonly InstitucionAcceso[] = [];
+  institucionActual: InstitucionAcceso | null = null;
 
-  // Enlaces con el permiso real que exige cada ruta; el guard sigue siendo la
-  // autoridad para navegación directa por URL. Panel: sin permiso concreto.
   readonly items: NavItem[] = [
     { etiqueta: 'Panel', ruta: '/dashboard' },
     { etiqueta: 'Alumnos', ruta: '/alumnos', permiso: 'academico.alumnos.ver' },
@@ -48,57 +51,121 @@ export class AppShell implements OnDestroy {
 
   constructor(
     private readonly auth: AuthService,
-    private readonly router: Router
+    private readonly contextoInstitucion: ContextoInstitucionService,
+    private readonly router: Router,
+    private readonly cdr: ChangeDetectorRef
   ) {
     this.navSubscription = this.router.events
       .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
-      .subscribe(() => {
-        this.navAbierta = false;
-      });
+      .subscribe(() => { this.navAbierta = false; });
 
-    this.usuarioSubscription = this.auth.usuarioActual$.subscribe((usuario) => {
+    this.sessionSubscription = this.auth.session$.subscribe(session => {
+      const metadata = session?.user?.user_metadata as Record<string, unknown> | undefined;
+      const nombreMetadata = typeof metadata?.['full_name'] === 'string'
+        ? metadata['full_name']
+        : typeof metadata?.['name'] === 'string' ? metadata['name'] : '';
+      this.nombreSesion = nombreMetadata.trim() || session?.user?.email?.trim() || '';
+      this.actualizarNombreVisible();
+    });
+
+    this.usuarioSubscription = this.auth.usuarioActual$.subscribe(usuario => {
       this.roles = usuario?.roles ?? [];
+      const extendido = usuario as UsuarioActualExtendido | null;
+      this.nombrePerfil = extendido?.nombreCompleto?.trim() || '';
+      this.actualizarNombreVisible();
+      this.instituciones = this.institucionesParaContexto(extendido);
+      this.cdr.markForCheck();
+    });
+
+    this.contextoSubscription = this.contextoInstitucion.institucionActual$.subscribe(institucion => {
+      this.institucionActual = institucion;
+      this.instituciones = this.contextoInstitucion.institucionesDisponibles();
+      this.cdr.markForCheck();
     });
   }
 
+  get esSuperadministrador(): boolean { return this.auth.esSuperadministrador(); }
+
+  get rolVisible(): string {
+    if (this.esSuperadministrador) return 'Superadministrador';
+    const rol = this.roles[0];
+    if (!rol) return '';
+    const etiquetas: Record<string, string> = {
+      admin: 'Administrador', school_admin: 'Administrador institucional',
+      academic_coordinator: 'Coordinación académica', finance_operator: 'Finanzas',
+      teacher: 'Docente', parent: 'Responsable', student: 'Alumno',
+      demo_viewer: 'Demo / solo lectura', support_agent: 'Soporte'
+    };
+    return etiquetas[rol] ?? rol.replaceAll('_', ' ');
+  }
+
+  get inicialesUsuario(): string {
+    const nombre = this.nombreUsuario.trim();
+    if (!nombre) return 'U';
+    if (nombre.includes('@')) return nombre[0].toUpperCase();
+    const partes = nombre.split(/\s+/).filter(Boolean);
+    if (partes.length === 1) return partes[0][0].toUpperCase();
+    const indicePrimerApellido = partes.length >= 4 ? partes.length - 2 : 1;
+    return `${partes[0][0]}${partes[indicePrimerApellido][0]}`.toUpperCase();
+  }
+
   get puedeVerConfiguracion(): boolean {
-    return this.auth.tienePermiso('configuracion.sistema.ver')
-      || this.auth.tienePermiso('configuracion.instituciones.ver');
+    return this.esSuperadministrador
+      || this.auth.tienePermiso('configuracion.sistema.ver')
+      || this.auth.tienePermiso('configuracion.instituciones.ver')
+      || this.auth.tienePermiso('identidad.roles.ver')
+      || this.auth.tienePermiso('identidad.usuarios.ver');
+  }
+
+  get requiereSeleccionInstitucion(): boolean {
+    return this.instituciones.length > 1 && this.institucionActual === null;
   }
 
   mostrarItem(item: NavItem): boolean {
-    // Panel (sin permiso) siempre visible para autenticados; el resto exige el
-    // mismo permiso que su ruta.
-    if (!item.permiso) return true;
-    return this.auth.tienePermiso(item.permiso);
+    return !item.permiso || this.auth.tienePermiso(item.permiso);
   }
 
-  /** Activa el enlace del panel solo en su ruta exacta; el resto, por prefijo. */
+  seleccionarInstitucion(event: Event): void {
+    const id = (event.target as HTMLSelectElement | null)?.value ?? '';
+    if (!id) this.contextoInstitucion.limpiar();
+    else this.contextoInstitucion.seleccionar(id);
+  }
+
   esRutaActiva(item: NavItem): boolean {
     const url = this.router.url;
-    if (item.ruta === '/dashboard') return url === '/dashboard';
-    return url === item.ruta || url.startsWith(item.ruta + '/');
+    return item.ruta === '/dashboard' ? url === '/dashboard' : url === item.ruta || url.startsWith(item.ruta + '/');
   }
 
-  ngOnDestroy(): void {
-    this.navSubscription.unsubscribe();
-    this.usuarioSubscription.unsubscribe();
-  }
-
-  alternarNav(): void {
-    this.navAbierta = !this.navAbierta;
-  }
-
-  cerrarNav(): void {
-    this.navAbierta = false;
-  }
+  alternarNav(): void { this.navAbierta = !this.navAbierta; }
+  cerrarNav(): void { this.navAbierta = false; }
 
   logout(): void {
+    this.contextoInstitucion.limpiar();
     void this.auth.logout();
     void this.router.navigate(['/login']);
   }
 
-  volverAlPanel(): void {
-    void this.router.navigate(['/dashboard']);
+  volverAlPanel(): void { void this.router.navigate(['/dashboard']); }
+
+  ngOnDestroy(): void {
+    this.navSubscription.unsubscribe();
+    this.usuarioSubscription.unsubscribe();
+    this.sessionSubscription.unsubscribe();
+    this.contextoSubscription.unsubscribe();
+  }
+
+  private actualizarNombreVisible(): void {
+    this.nombreUsuario = this.nombrePerfil || this.nombreSesion || 'Usuario';
+    this.cdr.markForCheck();
+  }
+
+  private institucionesParaContexto(usuario: UsuarioActualExtendido | null): readonly InstitucionAcceso[] {
+    if (!usuario) return [];
+    const porId = new Map<string, InstitucionAcceso>();
+    const administrables = usuario.ambitoGlobal?.roles.includes('platform_admin')
+      ? usuario.institucionesAdministrables ?? [] : [];
+    for (const institucion of administrables) porId.set(institucion.id, institucion);
+    for (const institucion of usuario.instituciones ?? []) porId.set(institucion.id, institucion);
+    return [...porId.values()];
   }
 }
