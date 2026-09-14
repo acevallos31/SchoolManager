@@ -1,58 +1,70 @@
 .sm-user-summary {
   display: flex;
   align-items: center;
-  gap: var(--sm-space-2, 0.5rem);
+  gap: 0.7rem;
   min-width: 0;
-  max-width: 30rem;
+  max-width: 32rem;
+  padding: 0.38rem 0.55rem 0.38rem 0.42rem;
+  border: 1px solid var(--sm-border, #d8e0e8);
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(16, 38, 64, 0.06);
 }
 
 .sm-user-avatar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.35rem;
-  height: 2.35rem;
+  width: 2.45rem;
+  height: 2.45rem;
   flex: none;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--sm-primary, #0f5fa8), #173b63);
   color: #ffffff;
-  font-size: 0.76rem;
+  font-size: 0.82rem;
   font-weight: 800;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   box-shadow: 0 0 0 3px rgba(15, 95, 168, 0.1);
 }
 
 .sm-user-summary__text {
   display: flex;
-  align-items: center;
-  gap: var(--sm-space-2, 0.5rem);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.08rem;
   min-width: 0;
+  padding-right: 0.2rem;
 }
 
 .sm-user-summary__name {
+  display: block;
+  max-width: 15rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--sm-text-strong, #102a43);
-  font-size: var(--sm-fs-sm, 0.875rem);
+  font-size: 0.82rem;
+  line-height: 1.15;
   font-weight: var(--sm-weight-semibold, 600);
 }
 
 .sm-user-summary__role {
-  flex: none;
-  padding: 0.18rem 0.5rem;
-  border-radius: 999px;
-  background: var(--sm-info-soft, #e8f2ff);
-  color: var(--sm-info, #145b94);
-  font-size: var(--sm-fs-xs, 0.75rem);
-  font-weight: var(--sm-weight-semibold, 600);
+  display: block;
+  max-width: 15rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--sm-text-soft, #5f7388);
+  font-size: 0.7rem;
+  line-height: 1.15;
+  font-weight: var(--sm-weight-medium, 500);
 }
 
 .sm-topbar__logout {
-  min-height: 2rem;
-  padding: 0.35rem 0.75rem;
+  min-height: 2.2rem;
+  padding: 0.42rem 0.8rem;
   border: 1px solid transparent;
-  border-radius: var(--sm-radius-sm, 0.5rem);
+  border-radius: 999px;
   background: transparent;
   color: var(--sm-primary, #0f5fa8);
   font-weight: var(--sm-weight-medium, 500);
@@ -66,6 +78,11 @@
 @media (max-width: 900px) {
   .sm-user-summary {
     max-width: 14rem;
+    padding-right: 0.42rem;
+  }
+
+  .sm-user-summary__name {
+    max-width: 9rem;
   }
 
   .sm-user-summary__role {
@@ -74,11 +91,19 @@
 }
 
 @media (max-width: 620px) {
-  .sm-user-summary__name {
-    display: none;
+  .sm-user-summary {
+    padding: 0.26rem;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
   }
 
   .sm-user-summary__text {
-    gap: 0;
+    display: none;
+  }
+
+  .sm-user-avatar {
+    width: 2.2rem;
+    height: 2.2rem;
   }
 }
