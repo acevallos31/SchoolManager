@@ -41,10 +41,13 @@
 
     <div class="sm-topbar__actions">
       <div class="sm-user-summary" [title]="nombreUsuario + (rolVisible ? ' (' + rolVisible + ')' : '')">
-        <span class="sm-user-summary__name">{{ nombreUsuario }}</span>
-        @if (rolVisible) {
-          <span class="sm-user-summary__role">({{ rolVisible }})</span>
-        }
+        <span class="sm-user-avatar" aria-hidden="true">{{ inicialesUsuario }}</span>
+        <span class="sm-user-summary__text">
+          <span class="sm-user-summary__name">{{ nombreUsuario }}</span>
+          @if (rolVisible) {
+            <span class="sm-user-summary__role">({{ rolVisible }})</span>
+          }
+        </span>
       </div>
       <button type="button" class="sm-btn sm-btn--ghost sm-btn--sm sm-topbar__logout" (click)="logout()">
         Cerrar sesión
