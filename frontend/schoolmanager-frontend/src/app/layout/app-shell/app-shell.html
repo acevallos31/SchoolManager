@@ -16,7 +16,7 @@
 
     @if (instituciones.length === 1 && institucionActual) {
       <div class="sm-contexto" aria-label="Institución activa">
-        <span class="sm-contexto__label">Institución</span>
+        <span class="sm-contexto__label">Institución activa</span>
         <strong class="sm-contexto__value">
           {{ institucionActual.nombreCorto || institucionActual.nombre }}
         </strong>
@@ -43,7 +43,7 @@
       <div class="sm-user-summary" [title]="nombreUsuario + (rolVisible ? ' (' + rolVisible + ')' : '')">
         <span class="sm-user-summary__name">{{ nombreUsuario }}</span>
         @if (rolVisible) {
-          <span class="sm-user-summary__role">({{ rolVisible }})</span>
+          <span class="sm-user-summary__role">{{ rolVisible }}</span>
         }
       </div>
       <button type="button" class="sm-btn sm-btn--ghost sm-btn--sm sm-topbar__logout" (click)="logout()">
@@ -62,12 +62,14 @@
 
   <aside class="sm-sidebar" [class.sm-sidebar--open]="navAbierta" aria-label="Secciones">
     <div class="sm-sidebar__brand">
-      <p class="sm-eyebrow">SchoolManager</p>
-      <span class="sm-sidebar__brand-name">Panel escolar</span>
+      <span class="sm-sidebar__brand-kicker">PLATAFORMA ESCOLAR</span>
+      <span class="sm-sidebar__brand-name">SchoolManager</span>
       @if (institucionActual) {
         <span class="sm-sidebar__contexto">
           {{ institucionActual.nombreCorto || institucionActual.nombre }}
         </span>
+      } @else {
+        <span class="sm-sidebar__contexto">Panel de administración</span>
       }
     </div>
 
@@ -78,6 +80,7 @@
     }
 
     <nav class="sm-sidebar__nav" id="sidebar-nav">
+      <span class="sm-sidebar__section-title">NAVEGACIÓN</span>
       @for (item of items; track item.ruta) {
         @if (mostrarItem(item)) {
           <a
@@ -85,8 +88,8 @@
             [class.sm-sidebar__link--active]="esRutaActiva(item)"
             routerLink="{{ item.ruta }}"
             (click)="cerrarNav()">
-            <span class="sm-sidebar__link-dot" aria-hidden="true"></span>
-            {{ item.etiqueta }}
+            <span class="sm-sidebar__link-icon" aria-hidden="true">{{ item.icono }}</span>
+            <span class="sm-sidebar__link-label">{{ item.etiqueta }}</span>
           </a>
         }
       }
@@ -96,14 +99,15 @@
           routerLink="/configuracion"
           routerLinkActive="sm-sidebar__link--active"
           (click)="cerrarNav()">
-          <span class="sm-sidebar__link-dot" aria-hidden="true"></span>
-          Configuración
+          <span class="sm-sidebar__link-icon" aria-hidden="true">CO</span>
+          <span class="sm-sidebar__link-label">Configuración</span>
         </a>
       }
     </nav>
 
     <div class="sm-sidebar__footer">
-      <span class="sm-metadata">Acceso conectado con Supabase</span>
+      <span class="sm-sidebar__status-dot" aria-hidden="true"></span>
+      <span class="sm-metadata">Sesión segura conectada</span>
     </div>
   </aside>
 
