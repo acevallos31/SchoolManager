@@ -27,7 +27,7 @@
     <div class="login-card">
       <p class="eyebrow">Bienvenido</p>
       <h2>Inicia sesion</h2>
-      <p class="subtitulo">Ingresa tus credenciales para acceder al panel escolar.</p>
+      <p class="subtitulo">Ingresa tus credenciales o continúa con tu proveedor de identidad.</p>
 
       <form class="login-form" (ngSubmit)="login()">
         <div class="form-group">
@@ -40,7 +40,7 @@
             placeholder="admin@schoolmanager.com"
             autocomplete="email"
             required
-            [disabled]="cargando"
+            [disabled]="cargando || proveedorCargando !== null"
           />
         </div>
 
@@ -54,7 +54,7 @@
             placeholder="********"
             autocomplete="current-password"
             required
-            [disabled]="cargando"
+            [disabled]="cargando || proveedorCargando !== null"
           />
         </div>
 
@@ -62,22 +62,51 @@
           <div class="error" role="alert" aria-live="assertive">{{ error }}</div>
         }
 
-        <button type="submit" [disabled]="cargando || cargandoGoogle">
+        <button type="submit" class="primary-button" [disabled]="cargando || proveedorCargando !== null">
           {{ cargando ? 'Validando acceso...' : 'Entrar al sistema' }}
         </button>
 
         <div class="login-divider" aria-hidden="true">
-          <span>o</span>
+          <span>o continúa con</span>
         </div>
 
-        <button
-          type="button"
-          class="google-button"
-          (click)="loginWithGoogle()"
-          [disabled]="cargando || cargandoGoogle"
-        >
-          {{ cargandoGoogle ? 'Conectando con Google...' : 'Continuar con Google' }}
-        </button>
+        <div class="oauth-buttons">
+          <button
+            type="button"
+            class="oauth-button"
+            (click)="loginWithGoogle()"
+            [disabled]="cargando || proveedorCargando !== null"
+            aria-label="Continuar con Google y seleccionar una cuenta"
+          >
+            <svg class="oauth-logo" viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="#4285F4" d="M21.6 12.23c0-.71-.06-1.39-.18-2.05H12v3.88h5.38a4.6 4.6 0 0 1-2 3.02v2.52h3.24c1.9-1.75 2.98-4.33 2.98-7.37Z"/>
+              <path fill="#34A853" d="M12 22c2.7 0 4.98-.9 6.64-2.4l-3.24-2.52c-.9.6-2.05.96-3.4.96-2.61 0-4.82-1.76-5.61-4.13H3.04v2.6A10 10 0 0 0 12 22Z"/>
+              <path fill="#FBBC05" d="M6.39 13.91A6.02 6.02 0 0 1 6.08 12c0-.66.11-1.31.31-1.91v-2.6H3.04A10 10 0 0 0 2 12c0 1.61.38 3.13 1.04 4.51l3.35-2.6Z"/>
+              <path fill="#EA4335" d="M12 5.96c1.47 0 2.79.51 3.83 1.5l2.87-2.87A9.64 9.64 0 0 0 12 2a10 10 0 0 0-8.96 5.49l3.35 2.6C7.18 7.72 9.39 5.96 12 5.96Z"/>
+            </svg>
+            <span>{{ proveedorCargando === 'google' ? 'Conectando...' : 'Google' }}</span>
+          </button>
+
+          <button
+            type="button"
+            class="oauth-button"
+            (click)="loginWithMicrosoft()"
+            [disabled]="cargando || proveedorCargando !== null"
+            aria-label="Continuar con Microsoft y seleccionar una cuenta"
+          >
+            <svg class="oauth-logo" viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="#F25022" d="M2 2h9.5v9.5H2z"/>
+              <path fill="#7FBA00" d="M12.5 2H22v9.5h-9.5z"/>
+              <path fill="#00A4EF" d="M2 12.5h9.5V22H2z"/>
+              <path fill="#FFB900" d="M12.5 12.5H22V22h-9.5z"/>
+            </svg>
+            <span>{{ proveedorCargando === 'microsoft' ? 'Conectando...' : 'Microsoft' }}</span>
+          </button>
+        </div>
+
+        <p class="oauth-help">
+          Google y Microsoft te permitirán elegir la cuenta que deseas usar. Los roles y permisos siguen siendo administrados por SchoolManager.
+        </p>
       </form>
     </div>
   </section>
