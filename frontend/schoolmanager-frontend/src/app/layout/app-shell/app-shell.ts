@@ -1,12 +1,6 @@
 import { ChangeDetectorRef, Component, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import {
-  Router,
-  RouterLink,
-  RouterLinkActive,
-  RouterOutlet,
-  NavigationEnd
-} from '@angular/router';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
 import { AuthService, InstitucionAcceso, UsuarioActual } from '../../core/services/auth';
@@ -64,22 +58,18 @@ export class AppShell implements OnDestroy {
   ) {
     this.navSubscription = this.router.events
       .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
-      .subscribe(() => {
-        this.navAbierta = false;
-      });
+      .subscribe(() => { this.navAbierta = false; });
 
     this.sessionSubscription = this.auth.session$.subscribe(session => {
       const metadata = session?.user?.user_metadata as Record<string, unknown> | undefined;
       const nombreMetadata = typeof metadata?.['full_name'] === 'string'
         ? metadata['full_name']
-        : typeof metadata?.['name'] === 'string'
-          ? metadata['name']
-          : '';
+        : typeof metadata?.['name'] === 'string' ? metadata['name'] : '';
       this.nombreSesion = nombreMetadata.trim() || session?.user?.email?.trim() || '';
       this.actualizarNombreVisible();
     });
 
-    this.usuarioSubscription = this.auth.usuarioActual$.subscribe((usuario) => {
+    this.usuarioSubscription = this.auth.usuarioActual$.subscribe(usuario => {
       this.roles = usuario?.roles ?? [];
       const extendido = usuario as UsuarioActualExtendido | null;
       this.nombrePerfil = extendido?.nombreCompleto?.trim() || '';
@@ -95,27 +85,29 @@ export class AppShell implements OnDestroy {
     });
   }
 
-  get esSuperadministrador(): boolean {
-    return this.auth.esSuperadministrador();
-  }
+  get esSuperadministrador(): boolean { return this.auth.esSuperadministrador(); }
 
   get rolVisible(): string {
     if (this.esSuperadministrador) return 'Superadministrador';
     const rol = this.roles[0];
     if (!rol) return '';
-
     const etiquetas: Record<string, string> = {
-      admin: 'Administrador',
-      school_admin: 'Administrador institucional',
-      academic_coordinator: 'Coordinación académica',
-      finance_operator: 'Finanzas',
-      teacher: 'Docente',
-      parent: 'Responsable',
-      student: 'Alumno',
-      demo_viewer: 'Demo / solo lectura',
-      support_agent: 'Soporte'
+      admin: 'Administrador', school_admin: 'Administrador institucional',
+      academic_coordinator: 'Coordinación académica', finance_operator: 'Finanzas',
+      teacher: 'Docente', parent: 'Responsable', student: 'Alumno',
+      demo_viewer: 'Demo / solo lectura', support_agent: 'Soporte'
     };
     return etiquetas[rol] ?? rol.replaceAll('_', ' ');
+  }
+
+  get inicialesUsuario(): string {
+    const nombre = this.nombreUsuario.trim();
+    if (!nombre) return 'U';
+    if (nombre.includes('@')) return nombre[0].toUpperCase();
+    const partes = nombre.split(/\s+/).filter(Boolean);
+    if (partes.length === 1) return partes[0][0].toUpperCase();
+    const indicePrimerApellido = partes.length >= 4 ? partes.length - 2 : 1;
+    return `${partes[0][0]}${partes[indicePrimerApellido][0]}`.toUpperCase();
   }
 
   get puedeVerConfiguracion(): boolean {
@@ -131,41 +123,22 @@ export class AppShell implements OnDestroy {
   }
 
   mostrarItem(item: NavItem): boolean {
-    if (!item.permiso) return true;
-    return this.auth.tienePermiso(item.permiso);
+    return !item.permiso || this.auth.tienePermiso(item.permiso);
   }
 
   seleccionarInstitucion(event: Event): void {
-    const select = event.target as HTMLSelectElement | null;
-    const institucionId = select?.value ?? '';
-    if (!institucionId) {
-      this.contextoInstitucion.limpiar();
-      return;
-    }
-
-    this.contextoInstitucion.seleccionar(institucionId);
+    const id = (event.target as HTMLSelectElement | null)?.value ?? '';
+    if (!id) this.contextoInstitucion.limpiar();
+    else this.contextoInstitucion.seleccionar(id);
   }
 
   esRutaActiva(item: NavItem): boolean {
     const url = this.router.url;
-    if (item.ruta === '/dashboard') return url === '/dashboard';
-    return url === item.ruta || url.startsWith(item.ruta + '/');
+    return item.ruta === '/dashboard' ? url === '/dashboard' : url === item.ruta || url.startsWith(item.ruta + '/');
   }
 
-  ngOnDestroy(): void {
-    this.navSubscription.unsubscribe();
-    this.usuarioSubscription.unsubscribe();
-    this.sessionSubscription.unsubscribe();
-    this.contextoSubscription.unsubscribe();
-  }
-
-  alternarNav(): void {
-    this.navAbierta = !this.navAbierta;
-  }
-
-  cerrarNav(): void {
-    this.navAbierta = false;
-  }
+  alternarNav(): void { this.navAbierta = !this.navAbierta; }
+  cerrarNav(): void { this.navAbierta = false; }
 
   logout(): void {
     this.contextoInstitucion.limpiar();
@@ -173,8 +146,13 @@ export class AppShell implements OnDestroy {
     void this.router.navigate(['/login']);
   }
 
-  volverAlPanel(): void {
-    void this.router.navigate(['/dashboard']);
+  volverAlPanel(): void { void this.router.navigate(['/dashboard']); }
+
+  ngOnDestroy(): void {
+    this.navSubscription.unsubscribe();
+    this.usuarioSubscription.unsubscribe();
+    this.sessionSubscription.unsubscribe();
+    this.contextoSubscription.unsubscribe();
   }
 
   private actualizarNombreVisible(): void {
@@ -184,14 +162,11 @@ export class AppShell implements OnDestroy {
 
   private institucionesParaContexto(usuario: UsuarioActualExtendido | null): readonly InstitucionAcceso[] {
     if (!usuario) return [];
-    const explicitas = usuario.instituciones ?? [];
-    const administrables = usuario.ambitoGlobal?.roles.includes('platform_admin')
-      ? usuario.institucionesAdministrables ?? []
-      : [];
-
     const porId = new Map<string, InstitucionAcceso>();
+    const administrables = usuario.ambitoGlobal?.roles.includes('platform_admin')
+      ? usuario.institucionesAdministrables ?? [] : [];
     for (const institucion of administrables) porId.set(institucion.id, institucion);
-    for (const institucion of explicitas) porId.set(institucion.id, institucion);
+    for (const institucion of usuario.instituciones ?? []) porId.set(institucion.id, institucion);
     return [...porId.values()];
   }
 }
