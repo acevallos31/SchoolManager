@@ -1,87 +1,142 @@
 # Bloque 042 — Rollout RBAC desde SQL Manager
 
-Estado: migraciones 028→039 aplicadas y validadas en producción; bootstrap del primer Superadministrador pendiente
+Estado: **rollout 028→039 completado y validado; bootstrap inicial completado**
 Rama: `feature/rbac-dinamico-institucional-042`
+Fecha de ejecución: 2026-09-14
 
-## Resultado del rollout productivo
+## Objetivo
 
-El 2026-09-13 se ejecutó desde PowerShell/psql el rollout completo `028`→`039` contra la base productiva de SchoolManager.
+Aplicar el bloque RBAC dinámico institucional manteniendo el orden exacto de migraciones, validando cada paso y creando de forma explícita y auditada el primer Superadministrador.
 
-Resultado:
+## Resultado final
 
-- 12 migraciones aplicadas en orden: `028`→`039`;
-- 12 validaciones individuales ejecutadas sin hallazgos;
-- `platform_admin` creado como rol global, protegido y activo;
-- 6 permisos `platform.*` creados con ámbito `plataforma` y `delegable=false`;
-- 9 plantillas globales creadas;
-- aliases internos `configuracion.*` académicos permanecen ocultos/no delegables;
-- helper estricto, snapshot de Seguridad y acceso y helper de compatibilidad canónica presentes;
-- RLS de lectura administrativo presente en `roles`, `permisos`, `roles_permisos` y `usuarios_roles`;
-- `seguridad_auditoria` presente;
-- asignaciones inválidas de `platform_admin`: `0`;
-- Superadministradores activos después de las migraciones: `0`, como se esperaba antes del bootstrap;
-- validación global final: `resultado = PASS`.
+El rollout se ejecutó correctamente desde PowerShell/psql.
 
-## Evidencia de `schema_migrations`
+Resultado confirmado:
 
-Producción registra ahora exactamente estas versiones RBAC:
+- migraciones `028`→`039`: aplicadas en orden;
+- validaciones individuales `028`→`039`: PASS;
+- validación global: `resultado = PASS`;
+- `platform_admin`: una definición global, protegida y activa;
+- permisos `platform.*`: 6, todos de ámbito plataforma y no delegables;
+- plantillas globales: 9;
+- aliases internos `configuracion.*` de ciclos/estructura: ocultos y no delegables;
+- helpers/RPC esperados presentes;
+- asignaciones inválidas de `platform_admin`: 0;
+- Superadministradores activos después del bootstrap: 1;
+- auditoría del bootstrap inicial: registrada.
 
-1. `028_roles_dinamicos_institucionales`
-2. `029_operaciones_roles_institucionales`
-3. `030_roles_institucionales_clonado_edicion`
-4. `031_roles_institucionales_invariantes`
-5. `032_roles_institucionales_reemplazar_permisos`
-6. `033_roles_institucionales_asignar`
-7. `034_roles_institucionales_desactivar`
-8. `035_roles_usuario_proteccion_ultimo_admin`
-9. `036_rbac_autoridad_institucional_estricta`
-10. `037_rbac_lectura_institucional_estricta`
-11. `038_rbac_consulta_seguridad_acceso`
-12. `039_rbac_canonicalizar_permisos_configuracion_academica`
+## 1. Preflight ejecutado
 
-## Siguiente paso — primer Superadministrador
+Antes del rollout se confirmó:
 
-El usuario seleccionado para el bootstrap inicial es `acevallos31@gmail.com`.
+- `027` presente en `public.schema_migrations`;
+- ninguna `028`..`039` aplicada previamente;
+- `roles = 7`;
+- `permisos = 72`;
+- `asignaciones_activas = 3`;
+- `instituciones_activas = 1`;
+- `usuarios_activos = 3`;
+- columnas nuevas de 028 ausentes antes de iniciar.
 
-No se debe hardcodear el correo en una migración. Primero hay que resolver el `auth_user_id` real de esa cuenta y confirmar que corresponde a un usuario interno activo.
+Archivo operativo:
 
-Después, en la misma sesión SQL:
+`database/operations/042_rbac_sql_manager_preflight.sql`
 
-```sql
-set schoolmanager.bootstrap_auth_user_id = '<AUTH_USER_ID_UUID>';
-```
+## 2. Implementación aplicada
 
-Luego ejecutar completo:
+Se ejecutaron, una por una y en orden, las siguientes migraciones:
 
-`database/operations/bootstrap_first_platform_admin.sql`
+1. `database/migrations/028_roles_dinamicos_institucionales.sql`
+2. `database/migrations/029_operaciones_roles_institucionales.sql`
+3. `database/migrations/030_roles_institucionales_clonado_edicion.sql`
+4. `database/migrations/031_roles_institucionales_invariantes.sql`
+5. `database/migrations/032_roles_institucionales_reemplazar_permisos.sql`
+6. `database/migrations/033_roles_institucionales_asignar.sql`
+7. `database/migrations/034_roles_institucionales_desactivar.sql`
+8. `database/migrations/035_roles_usuario_proteccion_ultimo_admin.sql`
+9. `database/migrations/036_rbac_autoridad_institucional_estricta.sql`
+10. `database/migrations/037_rbac_lectura_institucional_estricta.sql`
+11. `database/migrations/038_rbac_consulta_seguridad_acceso.sql`
+12. `database/migrations/039_rbac_canonicalizar_permisos_configuracion_academica.sql`
 
-El bootstrap exige 039 aplicada, toma un advisory lock, exige cero Superadministradores activos, crea una única asignación global de `platform_admin` y registra `platform.superadmin.bootstrap_inicial` en `seguridad_auditoria`.
+Cada migración confirmó `COMMIT` y quedó registrada en `public.schema_migrations`.
 
-## Validación posterior al bootstrap
+## 3. Validaciones individuales
 
-Volver a ejecutar:
+Después de cada migración se ejecutó su validación correspondiente bajo:
+
+`database/migrations/validation/`
+
+Las doce validaciones finalizaron sin hallazgos bloqueantes.
+
+## 4. Validación global posterior a 039
+
+Se ejecutó:
 
 `database/operations/042_rbac_sql_manager_validation.sql`
 
-Debe cumplirse:
+Resultado confirmado:
+
+- 12 versiones `028`..`039` registradas;
+- ninguna versión faltante;
+- `platform_admin` único/global/protegido/activo;
+- seis permisos `platform.*` vigentes;
+- nueve plantillas activas;
+- veinte aliases internos `configuracion.*` permanecen no delegables y ocultos;
+- presentes `usuario_tiene_permiso_institucional_estricto`, `rpc_obtener_seguridad_acceso` y `usuario_tiene_permiso_actual`;
+- cuatro políticas RLS administrativas presentes;
+- `seguridad_auditoria` presente;
+- asignaciones inválidas de `platform_admin`: 0;
+- resultado final: `PASS`.
+
+## 5. Bootstrap inicial de Superadministrador
+
+Se verificó primero que la identidad seleccionada correspondiera a un usuario interno activo.
+
+Se ejecutó:
+
+`database/operations/bootstrap_first_platform_admin.sql`
+
+El bootstrap:
+
+- exigió 039 aplicada;
+- confirmó cero Superadministradores activos previos;
+- confirmó usuario interno activo;
+- creó una asignación global activa de `platform_admin`;
+- registró auditoría `platform.superadmin.bootstrap_inicial`;
+- completó con `COMMIT`.
+
+## 6. Validación posterior al bootstrap
+
+Resultado confirmado después del bootstrap:
 
 - `superadministradores_activos = 1`;
+- asignación activa global de `platform_admin`: 1;
+- `institucion_id` de esa asignación: `NULL`;
+- auditoría `platform.superadmin.bootstrap_inicial`: presente;
 - `asignaciones_platform_admin_invalidas = 0`;
-- validación global `resultado = PASS`;
-- existe auditoría `platform.superadmin.bootstrap_inicial`.
+- validación global: `resultado = PASS`.
 
-## Smoke tests antes del merge
+## 7. Smoke tests pendientes de aplicación
+
+El rollout de base de datos está cerrado. Antes del merge del PR deben completarse los smoke tests de aplicación:
 
 - iniciar sesión con el primer Superadministrador;
-- confirmar acceso a Configuración → Seguridad y acceso;
+- confirmar acceso a **Configuración → Seguridad y acceso**;
 - confirmar contexto institucional correcto;
 - crear o clonar un rol institucional de prueba;
 - modificar permisos delegables;
 - asignar y retirar ese rol;
-- confirmar aislamiento entre instituciones;
+- confirmar que una institución no puede administrar roles de otra;
 - confirmar que un admin institucional no puede asignar `platform_admin`;
 - confirmar protección del último administrador institucional y del último Superadministrador.
 
-## Cierre
+## 8. Cierre
 
-No hacer merge del PR #97 hasta completar bootstrap, validación posterior y smoke tests reales de aplicación.
+- migraciones: **COMPLETADAS**;
+- validaciones DB: **PASS**;
+- bootstrap inicial: **COMPLETADO**;
+- auditoría bootstrap: **CONFIRMADA**;
+- smoke tests de aplicación: **PENDIENTES**;
+- merge PR #97: **PENDIENTE hasta finalizar smoke tests**.
