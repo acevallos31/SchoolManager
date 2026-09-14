@@ -53,7 +53,7 @@ describe('ConfiguracionSeguridadAcceso', () => {
 
   beforeEach(async () => {
     institucionActual = { id: 'inst-1', nombre: 'Colegio Alfa' };
-    contexto$ = new BehaviorSubject(institucionActual);
+    contexto$ = new BehaviorSubject<{ id: string; nombre: string } | null>(institucionActual);
     service = {
       obtener: vi.fn().mockResolvedValue(snapshot),
       crearRol: vi.fn().mockResolvedValue('rol-nuevo'),
