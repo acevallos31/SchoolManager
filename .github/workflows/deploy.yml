@@ -14,7 +14,7 @@ jobs:
 
     steps:
       - name: Checkout del código
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
         with:
           fetch-depth: 0
 
@@ -26,7 +26,7 @@ jobs:
           git diff --check "$base"..HEAD
 
       - name: Configurar .NET 10
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0, Node 24
         with:
           dotnet-version: '10.0.x'
 
@@ -43,7 +43,7 @@ jobs:
         continue-on-error: false
 
       - name: Subir cobertura backend (cobertura.xml) como artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, Node 24
         with:
           name: coverage-backend-cobertura
           path: coverage-backend/**/coverage.cobertura.xml
@@ -53,7 +53,7 @@ jobs:
         run: dotnet test tests/SchoolManager.Database.IntegrationTests/SchoolManager.Database.IntegrationTests.csproj --configuration Release
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0, Node 24
         with:
           node-version: 22.22.3
           cache: npm
@@ -79,7 +79,7 @@ jobs:
         continue-on-error: false
 
       - name: Subir cobertura frontend (lcov.info) como artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, Node 24
         with:
           name: coverage-frontend-lcov
           path: frontend/schoolmanager-frontend/coverage/**/lcov.info
@@ -112,18 +112,18 @@ jobs:
 
     steps:
       - name: Checkout del código
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
         with:
           fetch-depth: 0
 
       - name: Descargar cobertura backend
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1, Node 24
         with:
           name: coverage-backend-cobertura
           path: coverage-backend
 
       - name: Descargar cobertura frontend
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1, Node 24
         with:
           name: coverage-frontend-lcov
           path: frontend/schoolmanager-frontend/coverage
@@ -138,7 +138,7 @@ jobs:
           exit 1
 
       - name: Configurar .NET 10
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0, Node 24
         with:
           dotnet-version: '10.0.x'
 
@@ -212,7 +212,7 @@ jobs:
 
     steps:
       - name: Checkout del código
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
 
       - name: Desplegar Backend a Render
         continue-on-error: true
