@@ -62,22 +62,45 @@ jobs:
           npx playwright install --with-deps chromium
 
       - name: Levantar staging local desechable
-        run: python3 scripts/e2e/bootstrap-local-staging.py start
-
-      - name: Diagnosticar Supabase local si no levanta
-        if: ${{ failure() }}
         shell: bash
         run: |
-          echo '=== Contenedores Supabase ==='
-          docker ps -a --filter 'name=supabase_' --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' || true
-          echo '=== Errores seguros de Postgres ==='
-          db_container="$(docker ps -a --filter 'name=supabase_db_' --format '{{.Names}}' | head -n 1)"
-          if [ -n "$db_container" ]; then
-            docker logs "$db_container" 2>&1 \
-              | grep -Ei 'ERROR|FATAL|PANIC|migration|syntax|duplicate|violat|does not exist|permission denied|failed' \
-              | tail -n 120 \
-              | sed -E 's/(password|secret|token|key)=?[^ ,;]*/\1=[REDACTED]/Ig' || true
+          python3 - <<'PY'
+          import importlib.util
+          from pathlib import Path
+
+          path = Path('scripts/e2e/bootstrap-local-staging.py')
+          spec = importlib.util.spec_from_file_location('sm_bootstrap', path)
+          module = importlib.util.module_from_spec(spec)
+          assert spec and spec.loader
+          spec.loader.exec_module(module)
+          module.prepare_migrations()
+          PY
+
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          set +e
+          supabase start --exclude 'studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta,mailpit' > "$RUNNER_TEMP/supabase-start.log" 2>&1
+          rc=$?
+          set -e
+
+          if [ "$rc" -ne 0 ]; then
+            echo '=== Diagnóstico seguro de supabase start ==='
+            grep -Ei 'error|fatal|panic|failed|migration|syntax|duplicate|violat|does not exist|relation|function|column|constraint|permission|health|port|docker' "$RUNNER_TEMP/supabase-start.log" \
+              | grep -Eiv 'secret|token|password|service[_ -]?role|anon[_ -]?key|publishable[_ -]?key|db_url|api_url' \
+              | tail -n 160 || true
+            exit "$rc"
           fi
+
+          python3 - <<'PY'
+          import importlib.util
+          from pathlib import Path
+
+          path = Path('scripts/e2e/bootstrap-local-staging.py')
+          spec = importlib.util.spec_from_file_location('sm_bootstrap', path)
+          module = importlib.util.module_from_spec(spec)
+          assert spec and spec.loader
+          spec.loader.exec_module(module)
+          module.write_runtime_environment()
+          PY
 
       - name: Sembrar identidades y roles E2E
         run: python3 scripts/e2e/seed-local-staging.py seed
