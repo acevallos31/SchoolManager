@@ -20,6 +20,10 @@ describe('ContextoInstitucionService', () => {
     id: 'inst-b', nombre: 'Institución B', nombreCorto: 'B',
     roles: ['caja'], permisos: ['academico.pagos.ver']
   };
+  const institucionInactiva: InstitucionAcceso = {
+    id: 'inst-c', nombre: 'Institución cerrada', nombreCorto: 'C',
+    roles: [], permisos: [], activo: false
+  };
   const usuarioBase: UsuarioExtendido = {
     id: 'usuario-1', personaId: 'persona-1', roles: ['secretaria'],
     permisos: ['academico.alumnos.ver'], ambitoGlobal: { roles: [], permisos: [] },
@@ -66,18 +70,23 @@ describe('ContextoInstitucionService', () => {
     expect(service.tienePermiso('academico.pagos.ver')).toBe(true);
   });
 
-  it('platform_admin puede seleccionar una institución administrable sin convertirla en membresía', () => {
+  it('platform_admin ve todo el catálogo pero solo selecciona instituciones activas', () => {
     usuario$.next({
       ...usuarioBase,
       roles: ['platform_admin'],
       permisos: [],
       ambitoGlobal: { roles: ['platform_admin'], permisos: [] },
       instituciones: [],
-      institucionesAdministrables: [{ ...institucionA, roles: [], permisos: [] }]
+      institucionesAdministrables: [
+        { ...institucionA, roles: [], permisos: [], activo: true },
+        institucionInactiva
+      ]
     });
 
     expect(service.institucionActual()?.id).toBe('inst-a');
+    expect(service.institucionesVisibles().map(item => item.id)).toEqual(['inst-a', 'inst-c']);
     expect(service.institucionesDisponibles().map(item => item.id)).toEqual(['inst-a']);
+    expect(service.seleccionar('inst-c')).toBe(false);
     expect(service.tienePermiso('academico.alumnos.ver')).toBe(false);
     expect(service.tieneRol('secretaria')).toBe(false);
     expect(obtenerContexto).not.toHaveBeenCalled();
@@ -95,7 +104,8 @@ describe('ContextoInstitucionService', () => {
     await vi.waitFor(() => expect(service.institucionActual()?.id).toBe('inst-a'));
     expect(obtenerContexto).toHaveBeenCalledTimes(1);
     expect(service.institucionesDisponibles()).toEqual([{
-      id: 'inst-a', nombre: 'Institución A', nombreCorto: null, roles: [], permisos: []
+      id: 'inst-a', nombre: 'Institución A', nombreCorto: null,
+      roles: [], permisos: [], activo: true
     }]);
     expect(service.tieneRol('secretaria')).toBe(false);
     expect(service.tienePermiso('academico.alumnos.ver')).toBe(false);
