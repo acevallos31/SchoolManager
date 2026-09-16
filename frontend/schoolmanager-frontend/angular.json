@@ -65,6 +65,29 @@
               ],
               "outputHashing": "all"
             },
+            "staging": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true,
+              "fileReplacements": [
+                {
+                  "replace": "src/app/environments/environment.ts",
+                  "with": "src/app/environments/environment.staging.ts"
+                }
+              ],
+              "assets": [
+                {
+                  "glob": "**/*",
+                  "input": "public"
+                },
+                {
+                  "glob": "e2e-runtime.staging.json",
+                  "input": "src/app/environments",
+                  "output": "/"
+                }
+              ],
+              "outputHashing": "all"
+            },
             "development": {
               "optimization": false,
               "extractLicenses": false,
@@ -78,6 +101,9 @@
           "configurations": {
             "production": {
               "buildTarget": "schoolmanager-frontend:build:production"
+            },
+            "staging": {
+              "buildTarget": "schoolmanager-frontend:build:staging"
             },
             "development": {
               "buildTarget": "schoolmanager-frontend:build:development"
