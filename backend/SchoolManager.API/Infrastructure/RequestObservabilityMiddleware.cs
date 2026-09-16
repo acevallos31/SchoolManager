@@ -96,19 +96,21 @@ public sealed class RequestObservabilityMiddleware
             stopwatch.Stop();
             route = GetSafeRoute(context);
             var elapsedMilliseconds = stopwatch.Elapsed.TotalMilliseconds;
+            var method = context.Request.Method;
+            var statusCode = context.Response.StatusCode;
 
             _metrics.RecordRequest(
-                context.Request.Method,
+                method,
                 route,
-                context.Response.StatusCode,
+                statusCode,
                 elapsedMilliseconds
             );
 
             _logger.LogInformation(
                 "HTTP request completed {Method} {Route} with {StatusCode} in {ElapsedMilliseconds:F2} ms",
-                context.Request.Method,
+                method,
                 route,
-                context.Response.StatusCode,
+                statusCode,
                 elapsedMilliseconds
             );
         }
