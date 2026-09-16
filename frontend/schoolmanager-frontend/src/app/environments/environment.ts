@@ -4,5 +4,6 @@ export const environment = {
   production: false,
   supabaseUrl: 'https://pzhcpdznjoyukbhhodjz.supabase.co',
   supabaseAnonKey: 'sb_publishable_aYvMS86koqWPDsy26HKeYQ_6pVo3xwF',
-  apiUrl: 'https://localhost:5001/api'
+  apiUrl: 'https://localhost:5001/api',
+  edgeSessionEnabled: true
 };
