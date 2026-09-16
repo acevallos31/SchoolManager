@@ -250,7 +250,29 @@ Rutas principales:
 - Quality Gate forma parte del CI y no debe forzarse reduciendo thresholds ni
   excluyendo archivos para ocultar hallazgos.
 - Deudas históricas #7 y #9 de Sonar/cobertura están resueltas como guardrails.
+- Los hallazgos `High` históricos de Sonar también están **resueltos**: PR #71
+  limpió los hallazgos visibles de seguridad/duplicación y PR #72 cerró el
+  último issue `High` del coverage gate; ambos fueron mergeados y el análisis
+  posterior quedó verde con ratings A.
 - El run #656 sobre el merge de PR #97 terminó `success`.
+- Deuda actual del workflow: varias actions oficiales siguen en majors que
+  apuntan a Node.js 20 (`checkout@v4`, `setup-dotnet@v4`, `setup-node@v4`,
+  `upload-artifact@v4`, `download-artifact@v4`). GitHub las está forzando
+  temporalmente a Node 24 y emite warnings de deprecación. Deben migrarse a
+  releases oficiales con runtime Node 24 sin debilitar los gates.
+
+## Trabajo técnico preparado sin merge
+
+### PR #99 — 043A errores de negocio seguros
+
+- Rama: `fix/043a-errores-negocio-seguros`.
+- Normaliza fallbacks de PostgreSQL sin exponer texto técnico generado por DB.
+- Conserva mensajes específicos de constraints conocidas.
+- Conserva mensajes `P0001` controlados por RPC.
+- Conserva status HTTP 400/403/404/409.
+- `ConfiguracionController` mantiene `{ error, code }` con mensaje normalizado.
+- CI #658: API 206/206, DB 207/207, frontend 374/374, Quality Gate PASS.
+- No mergear sin autorización explícita.
 
 ## E2E
 
@@ -270,9 +292,9 @@ Rutas principales:
 
 El registro canónico es `docs/technical-debt.md`. Después de 042 quedan:
 
-1. completar mapeo seguro/amigable de errores de negocio y evitar fallback de
-   texto PostgreSQL no controlado;
-2. auditar los `High` históricos de Sonar Overall Code;
+1. cerrar el mapeo seguro/amigable de errores de negocio (PR #99 preparado,
+   aún sin merge);
+2. migrar las GitHub Actions oficiales que todavía apuntan a Node.js 20;
 3. montar y ejecutar E2E autenticado en staging aislado;
 4. mejorar observabilidad más allá de health/readiness;
 5. completar prueba de carga del backend (issue #85).
@@ -284,21 +306,22 @@ Ya **no** deben listarse como deuda pendiente:
 - acceso directo de negocio a Supabase;
 - análisis C# real de Sonar;
 - cobertura sin guardrail;
+- hallazgos `High` históricos de Sonar;
 - pagos/cobranza;
 - grados/jornadas multiinstitución.
 
 ## Próximo bloque técnico recomendado
 
-**043A — normalización final de errores de negocio**:
+**043B — GitHub Actions sobre runtime Node 24**:
 
-- auditar constraints/RPC que pueden llegar a `ApiControllerBase`;
-- conservar mensajes de negocio existentes;
-- reemplazar el fallback técnico por respuesta segura;
-- conservar status HTTP 400/403/404/409;
-- agregar tests de integración;
-- no duplicar invariantes DB en C# o frontend.
+- actualizar los majors antiguos de las actions oficiales;
+- preferir referencias reproducibles;
+- conservar el comportamiento y parámetros actuales del workflow;
+- ejecutar CI + Sonar completos;
+- verificar que desaparece el warning `Node.js 20 is deprecated`;
+- no mezclar este hardening con cambios funcionales.
 
-Después: auditoría Sonar histórica y staging E2E como bloque separado.
+Después: staging E2E como bloque separado de infraestructura.
 
 ## Documentación
 
