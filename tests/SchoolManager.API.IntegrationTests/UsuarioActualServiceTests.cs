@@ -124,24 +124,31 @@ public sealed class UsuarioActualServiceTests : IAsyncLifetime
         Assert.Equal("CC", institucion.NombreCorto);
         Assert.Equal(["operador"], institucion.Roles);
         Assert.Contains("academico.alumnos.ver", institucion.Permisos);
+        Assert.True(institucion.Activo);
         Assert.Empty(actual.InstitucionesAdministrables);
     }
 
     [Fact]
-    public async Task Platform_admin_recibe_instituciones_administrables_sin_fabricar_membresias()
+    public async Task Platform_admin_recibe_todo_el_catalogo_institucional_sin_fabricar_membresias()
     {
         await CrearRolPlatformAdminAsync();
         var authUserId = Guid.NewGuid();
         await InsertarUsuarioAsync(authUserId, ["platform_admin"], activo: true);
         var activaA = await InsertarInstitucionAsync("Colegio Alfa", "A");
         var activaB = await InsertarInstitucionAsync("Colegio Beta", "B");
-        await InsertarInstitucionAsync("Colegio Cerrado", "C", activo: false);
+        var cerrada = await InsertarInstitucionAsync("Colegio Cerrado", "C", activo: false);
 
         var actual = await _service.ObtenerAsync(CrearPrincipal(authUserId.ToString()));
 
         Assert.Contains("platform_admin", actual.AmbitoGlobal.Roles);
         Assert.Empty(actual.Instituciones);
-        Assert.Equal([activaA, activaB], actual.InstitucionesAdministrables.Select(i => i.Id).ToArray());
+        Assert.Equal(
+            [activaA, activaB, cerrada],
+            actual.InstitucionesAdministrables.Select(i => i.Id).ToArray()
+        );
+        Assert.True(actual.InstitucionesAdministrables[0].Activo);
+        Assert.True(actual.InstitucionesAdministrables[1].Activo);
+        Assert.False(actual.InstitucionesAdministrables[2].Activo);
         Assert.All(actual.InstitucionesAdministrables, institucion =>
         {
             Assert.Empty(institucion.Roles);
@@ -235,7 +242,8 @@ public sealed class UsuarioActualServiceTests : IAsyncLifetime
     private async Task<Guid> InsertarInstitucionAsync(
         string nombre,
         string? nombreCorto = null,
-        bool activo = true)
+        bool activo = true
+    )
     {
         var id = Guid.NewGuid();
         await using var command = _dataSource.CreateCommand("""
