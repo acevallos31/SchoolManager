@@ -89,6 +89,27 @@ export interface ClonarPlantillaInput extends CrearRolInput {
   plantillaCodigo: string;
 }
 
+export interface PrepararInvitacionUsuarioInput {
+  institucionId: string;
+  nombres: string;
+  apellidos: string;
+  correo: string;
+  rolId: string;
+  origen?: 'administracion' | 'responsable';
+}
+
+export interface InvitacionUsuarioPreparada {
+  personaId: string;
+  usuarioId: string;
+  rolId: string;
+  invitacionId: string;
+  estado: string;
+  personaCreada: boolean;
+  usuarioCreado: boolean;
+  asignacionCreada: boolean;
+  invitacionCreada: boolean;
+}
+
 interface IdentificadorRespuesta { id: string; }
 
 export class SeguridadAccesoError extends Error {
@@ -112,6 +133,16 @@ export class SeguridadAccesoService {
   async obtenerUsuarios(institucionId: string): Promise<UsuarioSeguridad[]> {
     return this.obtenerJson<UsuarioSeguridad[]>(
       `${this.baseUrl}/usuarios?institucionId=${encodeURIComponent(institucionId)}`
+    );
+  }
+
+  async prepararInvitacionUsuario(
+    input: PrepararInvitacionUsuarioInput
+  ): Promise<InvitacionUsuarioPreparada> {
+    return this.ejecutar<InvitacionUsuarioPreparada>(
+      'POST',
+      '/usuarios/invitaciones/preparar',
+      { ...input, origen: input.origen ?? 'administracion' }
     );
   }
 
