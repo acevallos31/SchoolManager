@@ -81,7 +81,7 @@ public sealed class InvitacionesAccesoTests(PostgreSqlFixture fixture)
             AuthScalarTextAsync(actor.AuthUserId, """
                 select public.rpc_preparar_invitacion_usuario($1,$2,$3,$4,$5,$6)::text
                 """, institucion, "Ana", "Concurrente", correo, rolDestino, "administracion")));
-        var documentos = respuestas.Select(JsonDocument.Parse).ToArray();
+        var documentos = respuestas.Select(respuesta => JsonDocument.Parse(respuesta)).ToArray();
 
         try
         {
