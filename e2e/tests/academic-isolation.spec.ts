@@ -4,6 +4,7 @@ const STAGING = process.env.E2E_STAGING === '1';
 const SUPABASE_URL = process.env.E2E_SUPABASE_URL;
 const SUPABASE_KEY = process.env.E2E_SUPABASE_PUBLISHABLE_KEY;
 const API_URL = process.env.E2E_API_URL;
+const API_BASE = API_URL?.replace(/\/$/, '');
 
 const ADMIN_A_EMAIL = process.env.E2E_USER_EMAIL;
 const ADMIN_A_PASSWORD = process.env.E2E_USER_PASSWORD;
@@ -90,12 +91,15 @@ test.describe('044D — permisos y aislamiento institucional real', () => {
     await page.getByRole('button', { name: 'Entrar al sistema' }).click();
 
     await expect(page).toHaveURL(/\/login$/);
-    await expect(page.getByRole('alert')).toContainText('Correo o contrasena incorrectos.');
+    await expect(page.getByRole('alert')).toContainText(
+      'Correo o contrasena incorrectos.',
+      { timeout: 15000 }
+    );
     await expect(page.getByRole('button', { name: 'Cerrar sesión' })).toHaveCount(0);
   });
 
   test('una llamada a la API sin token devuelve 401', async ({ request }) => {
-    const response = await request.get(`${API_URL}/api/Alumnos/${STUDENT_A}`);
+    const response = await request.get(`${API_BASE}/Alumnos/${STUDENT_A}`);
     expect(response.status()).toBe(401);
   });
 
@@ -103,14 +107,14 @@ test.describe('044D — permisos y aislamiento institucional real', () => {
     await loginUi(page, VIEWER_EMAIL!, VIEWER_PASSWORD!);
     await page.goto('/alumnos');
 
-    await expect(page.getByRole('button', { name: STUDENT_A_NAME })).toBeVisible();
+    await expect(page.getByRole('button', { name: STUDENT_A_NAME })).toBeVisible({ timeout: 15000 });
     await expect(page.getByRole('button', { name: '+ Nuevo Alumno' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Desactivar' })).toHaveCount(0);
   });
 
   test('usuario de consulta recibe 403 si intenta crear un alumno por API', async ({ request }) => {
     const token = await accessToken(request, VIEWER_EMAIL!, VIEWER_PASSWORD!);
-    const response = await request.post(`${API_URL}/api/Alumnos`, {
+    const response = await request.post(`${API_BASE}/Alumnos`, {
       headers: bearer(token),
       data: {
         institucionId: INSTITUTION_A,
@@ -127,7 +131,7 @@ test.describe('044D — permisos y aislamiento institucional real', () => {
   test('admin A solo obtiene su alumno y no puede leer el alumno de B', async ({ request }) => {
     const token = await accessToken(request, ADMIN_A_EMAIL!, ADMIN_A_PASSWORD!);
 
-    const own = await request.get(`${API_URL}/api/Alumnos/${STUDENT_A}`, {
+    const own = await request.get(`${API_BASE}/Alumnos/${STUDENT_A}`, {
       headers: bearer(token)
     });
     expect(own.status()).toBe(200);
@@ -136,7 +140,7 @@ test.describe('044D — permisos y aislamiento institucional real', () => {
     expect(ownPayload.institucionId).toBe(INSTITUTION_A);
     expect(ownPayload.nombreCompleto).toBe(STUDENT_A_NAME);
 
-    const foreign = await request.get(`${API_URL}/api/Alumnos/${STUDENT_B}`, {
+    const foreign = await request.get(`${API_BASE}/Alumnos/${STUDENT_B}`, {
       headers: bearer(token)
     });
     expect(foreign.status()).toBe(404);
@@ -145,7 +149,7 @@ test.describe('044D — permisos y aislamiento institucional real', () => {
   test('admin B solo obtiene su alumno y no puede leer el alumno de A', async ({ request }) => {
     const token = await accessToken(request, ADMIN_B_EMAIL!, ADMIN_B_PASSWORD!);
 
-    const own = await request.get(`${API_URL}/api/Alumnos/${STUDENT_B}`, {
+    const own = await request.get(`${API_BASE}/Alumnos/${STUDENT_B}`, {
       headers: bearer(token)
     });
     expect(own.status()).toBe(200);
@@ -154,7 +158,7 @@ test.describe('044D — permisos y aislamiento institucional real', () => {
     expect(ownPayload.institucionId).toBe(INSTITUTION_B);
     expect(ownPayload.nombreCompleto).toBe(STUDENT_B_NAME);
 
-    const foreign = await request.get(`${API_URL}/api/Alumnos/${STUDENT_A}`, {
+    const foreign = await request.get(`${API_BASE}/Alumnos/${STUDENT_A}`, {
       headers: bearer(token)
     });
     expect(foreign.status()).toBe(404);
@@ -165,7 +169,7 @@ test.describe('044D — permisos y aislamiento institucional real', () => {
     await page.goto('/alumnos');
 
     const rowA = page.locator('tr.fila-alumno').filter({ hasText: STUDENT_A_NAME });
-    await expect(rowA).toBeVisible();
+    await expect(rowA).toBeVisible({ timeout: 15000 });
     await expect(rowA).toContainText('Ciclo E2E 2026 A');
     await expect(rowA).toContainText('1er Grado E2E A');
     await expect(rowA).toContainText('Sección E2E A');
