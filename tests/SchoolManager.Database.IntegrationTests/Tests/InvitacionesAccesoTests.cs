@@ -19,10 +19,10 @@ public sealed class InvitacionesAccesoTests(PostgreSqlFixture fixture)
         var rolDestino = await CrearRolAsync(institucion, ["academico.alumnos.ver"]);
         var correo = $"padre.{Guid.NewGuid():N}@schoolmanager.test";
 
-        var primera = await AuthScalarTextAsync(actor.AuthUserId, """
+        var primera = await BackendScalarTextAsync(actor.AuthUserId, """
             select public.rpc_preparar_invitacion_usuario($1,$2,$3,$4,$5,$6)::text
             """, institucion, "Maria", "Prueba", correo, rolDestino, "administracion");
-        var segunda = await AuthScalarTextAsync(actor.AuthUserId, """
+        var segunda = await BackendScalarTextAsync(actor.AuthUserId, """
             select public.rpc_preparar_invitacion_usuario($1,$2,$3,$4,$5,$6)::text
             """, institucion, "Maria", "Prueba", correo, rolDestino, "administracion");
 
@@ -57,10 +57,29 @@ public sealed class InvitacionesAccesoTests(PostgreSqlFixture fixture)
             ["identidad.usuarios.crear", "identidad.usuarios.asignar_roles"]);
         var rolDestino = await CrearRolAsync(institucion, ["academico.pagos.registrar"]);
 
-        var ex = await Assert.ThrowsAsync<PostgresException>(() => AuthScalarTextAsync(
+        var ex = await Assert.ThrowsAsync<PostgresException>(() => BackendScalarTextAsync(
             actor.AuthUserId,
             "select public.rpc_preparar_invitacion_usuario($1,$2,$3,$4,$5,$6)::text",
             institucion, "Carlos", "Prueba", $"carlos.{Guid.NewGuid():N}@schoolmanager.test",
+            rolDestino, "administracion"));
+
+        Assert.Equal("42501", ex.SqlState);
+    }
+
+    [Fact]
+    public async Task Preparar_invitacion_no_es_ejecutable_directamente_por_authenticated()
+    {
+        var institucion = await ScalarGuidAsync(
+            "insert into public.instituciones(nombre) values($1) returning id",
+            $"Institucion {Guid.NewGuid():N}");
+        var actor = await CrearActorAsync(institucion,
+            ["identidad.usuarios.crear", "identidad.usuarios.asignar_roles", "academico.alumnos.ver"]);
+        var rolDestino = await CrearRolAsync(institucion, ["academico.alumnos.ver"]);
+
+        var ex = await Assert.ThrowsAsync<PostgresException>(() => AuthenticatedDirectScalarTextAsync(
+            actor.AuthUserId,
+            "select public.rpc_preparar_invitacion_usuario($1,$2,$3,$4,$5,$6)::text",
+            institucion, "Directo", "Bloqueado", $"directo.{Guid.NewGuid():N}@schoolmanager.test",
             rolDestino, "administracion"));
 
         Assert.Equal("42501", ex.SqlState);
@@ -78,7 +97,7 @@ public sealed class InvitacionesAccesoTests(PostgreSqlFixture fixture)
         var correo = $"concurrente.{Guid.NewGuid():N}@schoolmanager.test";
 
         var respuestas = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ =>
-            AuthScalarTextAsync(actor.AuthUserId, """
+            BackendScalarTextAsync(actor.AuthUserId, """
                 select public.rpc_preparar_invitacion_usuario($1,$2,$3,$4,$5,$6)::text
                 """, institucion, "Ana", "Concurrente", correo, rolDestino, "administracion")));
         var documentos = respuestas.Select(respuesta => JsonDocument.Parse(respuesta)).ToArray();
@@ -135,7 +154,35 @@ public sealed class InvitacionesAccesoTests(PostgreSqlFixture fixture)
         return rolId;
     }
 
-    private async Task<string> AuthScalarTextAsync(Guid authUserId, string sql, params object[] values)
+    private async Task<string> BackendScalarTextAsync(Guid authUserId, string sql, params object[] values)
+    {
+        await using var connection = await fixture.DataSource.OpenConnectionAsync();
+        await using var transaction = await connection.BeginTransactionAsync();
+        try
+        {
+            await using (var auth = new NpgsqlCommand(
+                "select set_config('request.jwt.claim.sub',$1,true)", connection, transaction))
+            {
+                auth.Parameters.AddWithValue(authUserId.ToString());
+                await auth.ExecuteNonQueryAsync();
+            }
+            await using var command = new NpgsqlCommand(sql, connection, transaction);
+            AddParameters(command, values);
+            var result = (string)(await command.ExecuteScalarAsync())!;
+            await transaction.CommitAsync();
+            return result;
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
+    private async Task<string> AuthenticatedDirectScalarTextAsync(
+        Guid authUserId,
+        string sql,
+        params object[] values)
     {
         await using var connection = await fixture.DataSource.OpenConnectionAsync();
         await using var transaction = await connection.BeginTransactionAsync();
