@@ -10,7 +10,8 @@ public sealed record InstitucionAcceso(
     string Nombre,
     string? NombreCorto,
     IReadOnlyList<string> Roles,
-    IReadOnlyList<string> Permisos
+    IReadOnlyList<string> Permisos,
+    bool Activo = true
 );
 
 public sealed record UsuarioActual(
@@ -45,10 +46,12 @@ public sealed record UsuarioActual(
         = Array.Empty<InstitucionAcceso>();
 
     /// <summary>
-    /// Instituciones que un Superadministrador global puede seleccionar como
-    /// contexto operativo. No representa membresía ni concede permisos
-    /// institucionales: PostgreSQL/RPC/RLS continúan validando cada operación.
-    /// Para usuarios que no son platform_admin permanece vacío.
+    /// Catálogo institucional visible para un Superadministrador global,
+    /// independiente del modo mono/multi-institución de la implementación.
+    /// Puede incluir instituciones inactivas para administración de plataforma;
+    /// Activo indica si pueden usarse como contexto operativo. No representa
+    /// membresía ni concede permisos institucionales: PostgreSQL/RPC/RLS siguen
+    /// validando cada operación. Para otros usuarios permanece vacío.
     /// </summary>
     public IReadOnlyList<InstitucionAcceso> InstitucionesAdministrables { get; init; }
         = Array.Empty<InstitucionAcceso>();
