@@ -85,7 +85,7 @@ jobs:
         run: |
           cd e2e
           npm ci --ignore-scripts
-          E2E_BASE_URL=http://127.0.0.1:4200 npx playwright test --list
+          E2E_BASE_URL=http://127.0.0.1:4200 npm test -- --list
 
       - name: Ejecutar tests de rutas y funciones Vercel
         run: |
