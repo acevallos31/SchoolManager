@@ -2,8 +2,10 @@
 """Levanta un staging E2E local y desechable para SchoolManager.
 
 No acepta hosts remotos: usa exclusivamente Supabase local. El comando
-``start`` genera una copia efímera de las migraciones canónicas, elimina los
-volúmenes locales previos y levanta Auth/PostgREST/Postgres desde cero.
+``start`` genera una copia efímera del baseline consolidado y únicamente las
+migraciones posteriores a ese baseline, elimina los volúmenes locales previos
+y levanta Auth/PostgREST/Postgres desde cero. Los valores de runtime se guardan
+en ``.env.e2e.local`` (ignorado por Git) y nunca se imprimen en consola.
 """
 
 from __future__ import annotations
@@ -20,8 +22,15 @@ ROOT = Path(__file__).resolve().parents[2]
 BASELINE = ROOT / "database" / "baseline" / "001_schoolmanager_fase1a.sql"
 MIGRATIONS = ROOT / "database" / "migrations"
 GENERATED_MIGRATIONS = ROOT / "supabase" / "migrations"
+ENV_FILE = ROOT / ".env.e2e.local"
 LOCAL_SUPABASE_URL = "http://127.0.0.1:54321"
 LOCAL_API_URL = "http://127.0.0.1:5000/api"
+LOCAL_FRONTEND_URL = "http://127.0.0.1:4200"
+# El baseline consolidado se cerró con el esquema de la migración 017. Las
+# migraciones 007-017 son su fuente histórica y no deben volver a ejecutarse
+# encima del baseline (por ejemplo, 007 todavía esperaba usuarios.rol).
+BASELINE_HISTORY_START = 7
+BASELINE_COVERS_THROUGH = 17
 SUPABASE_EXCLUDES = (
     "studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,"
     "supavisor,postgres-meta,mailpit"
@@ -50,13 +59,60 @@ def run(
     )
 
 
-def active_migrations() -> list[Path]:
-    paths: list[Path] = []
+def migration_version(path: Path) -> int | None:
+    match = re.match(r"^(\d{3})_", path.name)
+    return int(match.group(1)) if match else None
+
+
+def canonical_migrations() -> dict[int, Path]:
+    result: dict[int, Path] = {}
     for path in sorted(MIGRATIONS.glob("*.sql")):
-        match = re.match(r"^(\d{3})_", path.name)
-        if match and int(match.group(1)) >= 7:
-            paths.append(path)
-    return paths
+        version = migration_version(path)
+        if version is not None:
+            result[version] = path
+    return result
+
+
+def require_contiguous_versions(
+    migrations: dict[int, Path], first: int, last: int, description: str
+) -> list[Path]:
+    expected = list(range(first, last + 1))
+    missing = [version for version in expected if version not in migrations]
+    if missing:
+        raise RuntimeError(
+            f"{description}: faltan migraciones {', '.join(f'{version:03d}' for version in missing)}."
+        )
+    return [migrations[version] for version in expected]
+
+
+def active_migrations() -> list[Path]:
+    migrations = canonical_migrations()
+    later_versions = sorted(
+        version for version in migrations if version > BASELINE_COVERS_THROUGH
+    )
+    if not later_versions:
+        raise RuntimeError(
+            f"No se encontraron migraciones posteriores al baseline {BASELINE_COVERS_THROUGH:03d}."
+        )
+
+    first = BASELINE_COVERS_THROUGH + 1
+    last = later_versions[-1]
+    return require_contiguous_versions(
+        migrations,
+        first,
+        last,
+        "La secuencia posterior al baseline no es continua",
+    )
+
+
+def baseline_history_migrations() -> list[Path]:
+    migrations = canonical_migrations()
+    return require_contiguous_versions(
+        migrations,
+        BASELINE_HISTORY_START,
+        BASELINE_COVERS_THROUGH,
+        "No se puede reconstruir el historial cubierto por el baseline",
+    )
 
 
 def generated_name(version: int, source: Path) -> str:
@@ -64,20 +120,45 @@ def generated_name(version: int, source: Path) -> str:
     return f"{version:014d}_{suffix}"
 
 
+def write_baseline_history_marker(sources: list[Path]) -> None:
+    rows: list[str] = []
+    for source in sources:
+        version = migration_version(source)
+        if version is None:
+            raise RuntimeError(f"Migración sin versión canónica: {source.name}")
+        name = source.stem.split("_", 1)[1].replace("'", "''")
+        rows.append(f"  ('{version:03d}', '{name}', null)")
+
+    sql = (
+        "-- Historial sintético del esquema ya incorporado por el baseline consolidado.\n"
+        "-- No ejecuta de nuevo las migraciones 007-017; solo satisface las\n"
+        "-- precondiciones explícitas de las migraciones incrementales posteriores.\n"
+        "begin;\n\n"
+        "insert into public.schema_migrations (version, nombre, checksum)\n"
+        "values\n"
+        + ",\n".join(rows)
+        + "\non conflict (version) do nothing;\n\ncommit;\n"
+    )
+    marker = GENERATED_MIGRATIONS / f"{BASELINE_COVERS_THROUGH:014d}_baseline_history.sql"
+    marker.write_text(sql, encoding="utf-8")
+
+
 def prepare_migrations() -> list[Path]:
     if not BASELINE.is_file():
         raise RuntimeError(f"No existe el baseline esperado: {BASELINE}")
 
+    covered = baseline_history_migrations()
     migrations = active_migrations()
-    if not migrations:
-        raise RuntimeError("No se encontraron migraciones activas desde 007.")
 
     shutil.rmtree(GENERATED_MIGRATIONS, ignore_errors=True)
     GENERATED_MIGRATIONS.mkdir(parents=True, exist_ok=True)
 
     shutil.copyfile(BASELINE, GENERATED_MIGRATIONS / generated_name(1, BASELINE))
+    write_baseline_history_marker(covered)
     for source in migrations:
-        version = int(source.name.split("_", 1)[0])
+        version = migration_version(source)
+        if version is None:
+            raise RuntimeError(f"Migración sin versión canónica: {source.name}")
         shutil.copyfile(source, GENERATED_MIGRATIONS / generated_name(version, source))
 
     return migrations
@@ -109,54 +190,86 @@ def npgsql_connection_from_db_url(raw_url: str) -> str | None:
     )
 
 
-def print_runtime_environment() -> None:
+def write_env_file(values: dict[str, str]) -> None:
+    lines = [
+        "# Generado por scripts/e2e/bootstrap-local-staging.py. NO versionar.",
+        "# Contiene credenciales exclusivamente locales y efímeras.",
+    ]
+    lines.extend(f"{key}={value}" for key, value in values.items())
+    ENV_FILE.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    try:
+        ENV_FILE.chmod(0o600)
+    except OSError:
+        # Windows puede ignorar permisos POSIX; el archivo sigue fuera de Git.
+        pass
+
+
+def write_runtime_environment() -> None:
     status = run(["supabase", "status", "-o", "env"], capture_output=True)
     values = parse_status_env(status.stdout)
     public_key = values.get("PUBLISHABLE_KEY") or values.get("ANON_KEY")
     db_url = values.get("DB_URL")
 
-    print("\nStaging local listo.")
-    print(f"E2E_SUPABASE_URL={LOCAL_SUPABASE_URL}")
-    if public_key:
-        print(f"E2E_SUPABASE_PUBLISHABLE_KEY={public_key}")
-    else:
-        print("E2E_SUPABASE_PUBLISHABLE_KEY=<copiar ANON_KEY de `supabase status -o env`>")
-    print(f"E2E_API_URL={LOCAL_API_URL}")
-    print("ASPNETCORE_ENVIRONMENT=Staging")
-    print("ASPNETCORE_URLS=http://127.0.0.1:5000")
+    if not public_key:
+        raise RuntimeError("Supabase local no devolvió PUBLISHABLE_KEY/ANON_KEY.")
+    if not db_url:
+        raise RuntimeError("Supabase local no devolvió DB_URL.")
 
-    if db_url:
-        connection = npgsql_connection_from_db_url(db_url)
-        if connection:
-            print(f"ConnectionStrings__PostgreSQL={connection}")
-            return
+    connection = npgsql_connection_from_db_url(db_url)
+    if not connection:
+        raise RuntimeError("No se pudo construir la cadena Npgsql del Supabase local.")
 
-    print("ConnectionStrings__PostgreSQL=<copiar DB URL local de `supabase status` a formato Npgsql>")
+    write_env_file(
+        {
+            "E2E_LOCAL_STACK": "1",
+            "E2E_STAGING": "1",
+            "E2E_BASE_URL": LOCAL_FRONTEND_URL,
+            "E2E_SUPABASE_URL": LOCAL_SUPABASE_URL,
+            "E2E_SUPABASE_PUBLISHABLE_KEY": public_key,
+            "E2E_API_URL": LOCAL_API_URL,
+            "ASPNETCORE_ENVIRONMENT": "Staging",
+            "ASPNETCORE_URLS": "http://127.0.0.1:5000",
+            "ConnectionStrings__PostgreSQL": connection,
+        }
+    )
 
 
 def start() -> None:
     require_executable("supabase")
     migrations = prepare_migrations()
+    ENV_FILE.unlink(missing_ok=True)
 
     # El entorno es deliberadamente efímero: no conserva datos entre ciclos.
-    run(["supabase", "stop", "--no-backup"], check=False)
-    run(["supabase", "start", "--exclude", SUPABASE_EXCLUDES])
+    run(["supabase", "stop", "--no-backup"], check=False, capture_output=True)
+    run(
+        ["supabase", "start", "--exclude", SUPABASE_EXCLUDES],
+        capture_output=True,
+    )
+    write_runtime_environment()
 
     latest = migrations[-1].name.split("_", 1)[0]
-    print(f"Baseline + migraciones 007-{latest} preparados y aplicados por Supabase CLI.")
-    print_runtime_environment()
+    first = migrations[0].name.split("_", 1)[0]
+    print(f"Baseline consolidado + migraciones {first}-{latest} aplicados en Supabase local.")
+    print("Runtime E2E guardado en .env.e2e.local; sus valores no se muestran.")
 
 
 def stop() -> None:
     require_executable("supabase")
-    run(["supabase", "stop", "--no-backup"], check=False)
+    run(["supabase", "stop", "--no-backup"], check=False, capture_output=True)
     shutil.rmtree(GENERATED_MIGRATIONS, ignore_errors=True)
-    print("Staging local detenido, volúmenes y migraciones generadas eliminados.")
+    ENV_FILE.unlink(missing_ok=True)
+    print("Staging local detenido; datos, migraciones generadas y runtime local eliminados.")
 
 
 def status() -> None:
     require_executable("supabase")
-    run(["supabase", "status"])
+    result = run(["supabase", "status", "-o", "env"], capture_output=True)
+    values = parse_status_env(result.stdout)
+    api_url = values.get("API_URL", LOCAL_SUPABASE_URL)
+    parsed = urlparse(api_url)
+    if parsed.hostname not in {"127.0.0.1", "localhost"}:
+        raise RuntimeError("El status recibido no corresponde al Supabase local esperado.")
+    print("Supabase local está activo; no se muestran claves ni cadenas de conexión.")
 
 
 def main() -> int:

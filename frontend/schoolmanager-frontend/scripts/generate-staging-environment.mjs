@@ -84,7 +84,8 @@ const environmentSource = `// Generado por scripts/generate-staging-environment.
   `  production: false,\n` +
   `  supabaseUrl: ${JSON.stringify(supabaseUrl)},\n` +
   `  supabaseAnonKey: ${JSON.stringify(publishableKey)},\n` +
-  `  apiUrl: ${JSON.stringify(apiUrl)}\n` +
+  `  apiUrl: ${JSON.stringify(apiUrl)},\n` +
+  `  edgeSessionEnabled: false\n` +
   `};\n`;
 
 const runtimeManifest = {

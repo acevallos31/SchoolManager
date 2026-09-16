@@ -51,9 +51,10 @@ var jwtIssuer = builder.Configuration["Jwt:Issuer"]
     ?? throw new InvalidOperationException("Jwt:Issuer is not configured.");
 var jwtAudience = builder.Configuration["Jwt:Audience"]
     ?? throw new InvalidOperationException("Jwt:Audience is not configured.");
-var requireHttpsMetadata = !builder.Environment.IsStaging()
-    || !Uri.TryCreate(jwtIssuer, UriKind.Absolute, out var issuerUri)
-    || issuerUri.Scheme == Uri.UriSchemeHttps;
+var jwtSigning = JwtSigningConfiguration.Resolve(
+    builder.Environment.IsStaging(),
+    jwtIssuer
+);
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -62,7 +63,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         options.MetadataAddress = $"{jwtIssuer.TrimEnd('/')}/.well-known/openid-configuration";
         options.Audience = jwtAudience;
         options.MapInboundClaims = false;
-        options.RequireHttpsMetadata = requireHttpsMetadata;
+        options.RequireHttpsMetadata = jwtSigning.RequireHttpsMetadata;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -71,7 +72,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidAudience = jwtAudience,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidAlgorithms = [SecurityAlgorithms.EcdsaSha256],
+            ValidAlgorithms = jwtSigning.ValidAlgorithms,
+            IssuerSigningKey = jwtSigning.IssuerSigningKey,
             NameClaimType = "sub"
         };
     });

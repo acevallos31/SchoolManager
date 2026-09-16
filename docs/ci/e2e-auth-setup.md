@@ -29,7 +29,7 @@ seguir llevando URLs productivas embebidas.
 
 ## Foundation 044B — backend staging + Supabase local efímero
 
-El backend también tiene ahora un modo `Staging` separado. Al arrancar con
+El backend también tiene un modo `Staging` separado. Al arrancar con
 `ASPNETCORE_ENVIRONMENT=Staging`, `StagingSafety` valida antes de registrar los
 servicios que:
 
@@ -57,44 +57,89 @@ del arranque genera temporalmente `supabase/migrations/` a partir de las fuentes
 canónicas del repositorio:
 
 - `database/baseline/001_schoolmanager_fase1a.sql`;
-- migraciones `007` en adelante de `database/migrations/`.
+- historial sintético para las migraciones ya incorporadas por el baseline;
+- migraciones incrementales posteriores al baseline desde `database/migrations/`.
 
-Esto reproduce el modelo usado por la instalación actual: baseline de Fase 1A
-más las migraciones posteriores, sin duplicar `001–006` sobre el baseline.
-`supabase/migrations/` está ignorado por Git y se elimina al detener el entorno.
+Esto reproduce el modelo usado por la instalación actual sin volver a ejecutar
+migraciones históricas ya consolidadas sobre el baseline. `supabase/migrations/`
+está ignorado por Git y se elimina al detener el entorno.
 
-Al terminar, el script imprime los valores locales necesarios para configurar
-frontend y backend, incluidos `E2E_SUPABASE_URL`, la clave pública local,
-`E2E_API_URL`, `ASPNETCORE_ENVIRONMENT`, `ASPNETCORE_URLS` y, cuando Supabase CLI
-la expone, `ConnectionStrings__PostgreSQL`.
+El runtime local se guarda en `.env.e2e.local`, también ignorado por Git. El
+script no imprime claves, contraseñas ni cadenas de conexión. Ese archivo contiene
+únicamente valores efímeros del stack local y se elimina con
+`bootstrap-local-staging.py stop`.
 
-Para destruir el entorno y sus datos:
+## 044C — seed local + Auth real
+
+Después de levantar el stack, ejecuta:
 
 ```bash
+python scripts/e2e/seed-local-staging.py seed
+```
+
+El seed tiene un firewall explícito: solo acepta Supabase en
+`127.0.0.1/localhost:54321`. Usa la credencial privilegiada de Supabase local
+en memoria y nunca la persiste. De forma idempotente crea:
+
+- una institución local `SchoolManager E2E`;
+- un usuario administrador E2E basado en la plantilla `school_admin`;
+- un usuario de consulta E2E basado en `demo_viewer`;
+- personas, usuarios internos y asignaciones institucionales coherentes con
+  `usuarios.auth_user_id`;
+- roles institucionales deterministas cuyos permisos se copian únicamente si
+  son institucionales, delegables y vigentes.
+
+Las contraseñas se generan aleatoriamente. Solo se guardan en
+`.env.e2e.local`; no se muestran en consola ni se versionan. El seed tampoco
+asigna `platform_admin`.
+
+Supabase CLI moderno firma las sesiones de usuario locales con ES256. El backend
+valida esa firma mediante el JWKS de Supabase Auth, igual que en producción. En
+staging local solo se permite que la metadata JWT viaje por HTTP cuando el issuer
+es exactamente loopback en el puerto `54321`; cualquier otro issuer HTTP se
+rechaza. No se persiste ni se consume `JWT_SECRET` para autenticar usuarios E2E.
+
+### Ejecución autenticada local
+
+Playwright carga automáticamente `.env.e2e.local`. Cuando detecta
+`E2E_LOCAL_STACK=1`, levanta como procesos hijos la API .NET en el puerto 5000 y
+Angular con configuración `staging` en el puerto 4200. Por eso no hace falta
+exportar contraseñas a la consola.
+
+```bash
+cd e2e
+npm ci
+./node_modules/.bin/playwright install chromium
+npm test -- auth.spec.ts
+```
+
+El flujo autenticado cubre login real, llegada al dashboard, navegación a una
+ruta protegida y logout. El build local de Angular no ejecuta funciones Vercel,
+por lo que `environment.staging.ts` desactiva exclusivamente la sincronización
+de la cookie edge. Desarrollo y producción mantienen esa protección habilitada.
+
+Al terminar:
+
+```bash
+cd ..
 python scripts/e2e/bootstrap-local-staging.py stop
 ```
 
-## Variables para preparar el frontend staging
+Esto elimina contenedores/volúmenes de Supabase, migraciones generadas y
+`.env.e2e.local`.
 
-```bash
-cd frontend/schoolmanager-frontend
+## Staging remoto controlado
 
-E2E_SUPABASE_URL=http://127.0.0.1:54321 \
-E2E_SUPABASE_PUBLISHABLE_KEY='<publishable-key-del-staging>' \
-E2E_API_URL=http://127.0.0.1:5000/api \
-npm run prepare:staging
-
-npm run build -- --configuration staging
-```
-
-Para un staging remoto controlado, agrega sus hostnames explícitamente:
+El generador de frontend y Playwright siguen permitiendo un staging remoto
+explícitamente autorizado mediante `E2E_ALLOWED_HOSTS`:
 
 ```bash
 E2E_ALLOWED_HOSTS='staging.example.com,api-staging.example.com,proyecto-staging.supabase.co'
 ```
 
 Los hosts productivos conocidos de SchoolManager siguen bloqueados aunque se
-intenten incluir en esa variable.
+intenten incluir en esa variable. El seed `seed-local-staging.py` no soporta
+modo remoto por diseño.
 
 ## Smoke público
 
@@ -103,47 +148,29 @@ El smoke no autenticado puede ejecutarse sin credenciales:
 ```bash
 cd e2e
 npm ci
-npx playwright install chromium
+./node_modules/.bin/playwright install chromium
 E2E_BASE_URL=http://127.0.0.1:4200 npm test
 ```
 
 Sin `E2E_STAGING=1`, `global-setup.ts` no exige el manifest porque el smoke
 público no autentica ni modifica datos.
 
-## E2E autenticado
-
-Requiere además un usuario y datos deterministas de prueba. Nunca usar las
-credenciales de producción.
-
-```bash
-cd e2e
-
-E2E_STAGING=1 \
-E2E_BASE_URL=http://127.0.0.1:4200 \
-E2E_USER_EMAIL='admin.e2e@example.test' \
-E2E_USER_PASSWORD='...' \
-npm test
-```
-
-Antes de ejecutar los specs autenticados, Playwright exige que el frontend
-publique `/e2e-runtime.staging.json` con `environment=staging`,
-`production=false` y URLs de Supabase/API permitidas.
-
 ## Estrategia sin costo adicional
 
-El camino preferido para 044 es un staging efímero en el runner o en la máquina
-local: Supabase local mediante Docker/CLI, API .NET local y frontend Angular
-staging local. Así no hace falta crear un segundo proyecto cloud para comenzar.
+El camino de 044 usa staging efímero en la máquina local: Supabase local mediante
+Docker/CLI, API .NET local y frontend Angular staging local. No se crea un
+segundo proyecto cloud ni se toca producción.
 
 Un proyecto Supabase o servicio remoto dedicado puede incorporarse más adelante
 para pruebas manuales persistentes, pero debe mantenerse completamente separado
 de producción y cualquier costo debe aprobarse antes de provisionarlo.
 
-## Lo que todavía falta después de 044B
+## Siguiente expansión
 
-1. Seed idempotente de institución, usuarios y datos mínimos de negocio.
-2. Crear credenciales Auth exclusivamente locales para los perfiles de prueba.
-3. Activar los casos autenticados y de aislamiento institucional.
-4. Workflow manual/nightly con artifacts de Playwright.
+Después de validar 044C con un run autenticado real, el siguiente bloque puede
+sembrar datos académicos mínimos y añadir casos negativos/aislamiento
+institucional. El workflow manual o nightly con artifacts de Playwright sigue
+siendo una fase posterior para no convertir el E2E completo en requisito de cada
+PR.
 
-El plan completo sigue en `docs/testing/e2e-staging-plan.md`.
+El plan completo está en `docs/testing/e2e-staging-plan.md`.

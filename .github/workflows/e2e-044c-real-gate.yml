@@ -1,0 +1,110 @@
+name: E2E 044C Real Local Gate
+
+on:
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  e2e-044c-real:
+    name: E2E 044C real local
+    if: ${{ github.event.pull_request.number == 103 && github.head_ref == 'feature/e2e-seed-auth-local-044c' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Configurar .NET 10
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.22.3
+          cache: npm
+          cache-dependency-path: |
+            frontend/schoolmanager-frontend/package-lock.json
+            e2e/package-lock.json
+
+      - name: Configurar npm
+        run: npm install -g npm@11.13.0 --ignore-scripts
+
+      - name: Configurar Supabase CLI
+        uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
+        with:
+          version: 2.117.0
+
+      - name: Verificar Supabase CLI y Docker
+        shell: bash
+        run: |
+          supabase --version
+          docker version
+
+      - name: Instalar dependencias frontend
+        working-directory: frontend/schoolmanager-frontend
+        run: npm ci --ignore-scripts
+
+      - name: Instalar dependencias E2E y Chromium
+        working-directory: e2e
+        run: |
+          npm ci --ignore-scripts
+          ./node_modules/.bin/playwright install --with-deps chromium
+
+      - name: Levantar staging local desechable
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import importlib.util
+          from pathlib import Path
+
+          path = Path('scripts/e2e/bootstrap-local-staging.py')
+          spec = importlib.util.spec_from_file_location('sm_bootstrap', path)
+          module = importlib.util.module_from_spec(spec)
+          assert spec and spec.loader
+          spec.loader.exec_module(module)
+          module.prepare_migrations()
+          PY
+
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          set +e
+          supabase start --exclude 'studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta,mailpit' > "$RUNNER_TEMP/supabase-start.log" 2>&1
+          rc=$?
+          set -e
+
+          if [ "$rc" -ne 0 ]; then
+            echo '=== Diagnóstico seguro de supabase start ==='
+            grep -Ei 'error|fatal|panic|failed|migration|syntax|duplicate|violat|does not exist|relation|function|column|constraint|permission|health|port|docker' "$RUNNER_TEMP/supabase-start.log" \
+              | grep -Eiv 'secret|token|password|service[_ -]?role|anon[_ -]?key|publishable[_ -]?key|db_url|api_url' \
+              | tail -n 160 || true
+            exit "$rc"
+          fi
+
+          python3 - <<'PY'
+          import importlib.util
+          from pathlib import Path
+
+          path = Path('scripts/e2e/bootstrap-local-staging.py')
+          spec = importlib.util.spec_from_file_location('sm_bootstrap', path)
+          module = importlib.util.module_from_spec(spec)
+          assert spec and spec.loader
+          spec.loader.exec_module(module)
+          module.write_runtime_environment()
+          PY
+
+      - name: Sembrar identidades y roles E2E
+        run: python3 scripts/e2e/seed-local-staging.py seed
+
+      - name: Ejecutar autenticación E2E real
+        working-directory: e2e
+        env:
+          CI: 'true'
+        run: npm test -- auth.spec.ts
+
+      - name: Destruir staging local
+        if: ${{ always() }}
+        run: python3 scripts/e2e/bootstrap-local-staging.py stop
