@@ -9,9 +9,13 @@
   en Bloque 030 / PR #53.
 - Bloque 042 de RBAC dinámico institucional y Superadministrador: **RESUELTO y
   mergeado** en PR #97 (`20bea4f9dd346836205620dce2add6f60d17b372`).
+- 043A de normalización final de errores de negocio: **RESUELTO y mergeado** en
+  PR #99 (`d622a1f50f3e78b00a9e83f2ae3d80c574e80a5a`).
+- 043B de GitHub Actions sobre runtime Node 24: **RESUELTO y mergeado** en PR
+  #100 (`e46c01343f3ac9ace3fbce29ca8ba4237ffc156f`).
 - Producción está en modo **monoinstitución** (`multiples_instituciones=false`)
-  con una institución activa, pero la implementación 042 soporta también modo
-  multiinstitución.
+  con una institución activa según la última verificación read-only; la
+  implementación 042 soporta también modo multiinstitución.
 - Migraciones activas del repositorio: `001` → `039`.
 
 ## Arquitectura
@@ -64,7 +68,7 @@ Consulta read-only en Supabase:
 - 1 asignación activa de `platform_admin`.
 
 No inferir este estado para otros entornos: staging/local deben verificarse por
-separado.
+separado. Los cambios 043A/043B no requirieron migraciones ni escrituras de datos.
 
 ## RBAC / Bloque 042
 
@@ -216,6 +220,21 @@ Bloque 030 está cerrado y mergeado mediante PR #53.
 - Reglas e invariantes permanecen en RPC/DB.
 - CI mantiene una verificación de frontera API del frontend.
 
+## Manejo de errores / Bloque 043A
+
+`ApiControllerBase` es el punto común de traducción de errores PostgreSQL/RPC
+hacia respuestas de aplicación:
+
+- constraints conocidas conservan mensajes de negocio específicos;
+- errores desconocidos ya no exponen `PostgresException.MessageText` crudo;
+- fallback por familia/SQLSTATE produce mensajes seguros;
+- `P0001` conserva mensajes de negocio controlados por las RPC;
+- se preservan los status HTTP 400/403/404/409;
+- `ConfiguracionController` mantiene el contrato `{ error, code }` usando el
+  normalizador compartido.
+
+PR #99 cerró esta deuda con pruebas de integración y CI verde.
+
 ## Frontend / UX
 
 - Foundation visual `sm-*` y AppShell global integrados.
@@ -254,25 +273,16 @@ Rutas principales:
   limpió los hallazgos visibles de seguridad/duplicación y PR #72 cerró el
   último issue `High` del coverage gate; ambos fueron mergeados y el análisis
   posterior quedó verde con ratings A.
-- El run #656 sobre el merge de PR #97 terminó `success`.
-- Deuda actual del workflow: varias actions oficiales siguen en majors que
-  apuntan a Node.js 20 (`checkout@v4`, `setup-dotnet@v4`, `setup-node@v4`,
-  `upload-artifact@v4`, `download-artifact@v4`). GitHub las está forzando
-  temporalmente a Node 24 y emite warnings de deprecación. Deben migrarse a
-  releases oficiales con runtime Node 24 sin debilitar los gates.
-
-## Trabajo técnico preparado sin merge
-
-### PR #99 — 043A errores de negocio seguros
-
-- Rama: `fix/043a-errores-negocio-seguros`.
-- Normaliza fallbacks de PostgreSQL sin exponer texto técnico generado por DB.
-- Conserva mensajes específicos de constraints conocidas.
-- Conserva mensajes `P0001` controlados por RPC.
-- Conserva status HTTP 400/403/404/409.
-- `ConfiguracionController` mantiene `{ error, code }` con mensaje normalizado.
-- CI #658: API 206/206, DB 207/207, frontend 374/374, Quality Gate PASS.
-- No mergear sin autorización explícita.
+- PR #99 / 043A pasó API 206/206, DB 207/207, frontend 374/374 y Sonar Quality
+  Gate antes del merge.
+- PR #100 / 043B migró y fijó por SHA las actions oficiales a releases con
+  runtime Node 24: `checkout` v7.0.1, `setup-dotnet` v6.0.0, `setup-node` v7.0.0,
+  `upload-artifact` v7.0.1 y `download-artifact` v8.0.1.
+- El CI de 043B pasó completo, incluidos upload/download de coberturas y Sonar
+  Quality Gate; desapareció el warning específico `Node.js 20 is deprecated`.
+- `download-artifact` v8.0.1 puede imprimir `DEP0005 Buffer() is deprecated`;
+  es un warning upstream diferente, no el warning de runtime Node 20, y no rompe
+  el workflow.
 
 ## E2E
 
@@ -290,17 +300,16 @@ Rutas principales:
 
 ## Deuda técnica real pendiente
 
-El registro canónico es `docs/technical-debt.md`. Después de 042 quedan:
+El registro canónico es `docs/technical-debt.md`. Después de 043B quedan:
 
-1. cerrar el mapeo seguro/amigable de errores de negocio (PR #99 preparado,
-   aún sin merge);
-2. migrar las GitHub Actions oficiales que todavía apuntan a Node.js 20;
-3. montar y ejecutar E2E autenticado en staging aislado;
-4. mejorar observabilidad más allá de health/readiness;
-5. completar prueba de carga del backend (issue #85).
+1. montar y ejecutar E2E autenticado en staging aislado;
+2. mejorar observabilidad más allá de health/readiness;
+3. completar prueba de carga del backend (issue #85).
 
 Ya **no** deben listarse como deuda pendiente:
 
+- mapeo seguro de errores PostgreSQL hacia UI (043A / PR #99);
+- GitHub Actions sobre runtime Node 20 (043B / PR #100);
 - selector global multiinstitución;
 - divergencia `academico.*` / aliases internos `configuracion.*`;
 - acceso directo de negocio a Supabase;
@@ -312,16 +321,17 @@ Ya **no** deben listarse como deuda pendiente:
 
 ## Próximo bloque técnico recomendado
 
-**043B — GitHub Actions sobre runtime Node 24**:
+**044 — E2E autenticado en staging aislado**:
 
-- actualizar los majors antiguos de las actions oficiales;
-- preferir referencias reproducibles;
-- conservar el comportamiento y parámetros actuales del workflow;
-- ejecutar CI + Sonar completos;
-- verificar que desaparece el warning `Node.js 20 is deprecated`;
-- no mezclar este hardening con cambios funcionales.
+- preparar Supabase + API + frontend separados de producción;
+- usar identidades y secretos exclusivamente de prueba;
+- ejecutar el plan `E2E-01` → `E2E-06`;
+- validar autenticación, permisos, contexto institucional y CRUD real;
+- incorporar el flujo a CI solo cuando sea reproducible y seguro;
+- no ejecutar pruebas destructivas contra producción.
 
-Después: staging E2E como bloque separado de infraestructura.
+Después: observabilidad estructurada y prueba de carga backend como bloques
+independientes.
 
 ## Documentación
 
