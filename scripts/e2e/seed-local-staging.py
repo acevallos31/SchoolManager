@@ -144,7 +144,8 @@ def run_status_env() -> dict[str, str]:
 
 
 def validate_local_supabase_url(raw_url: str) -> str:
-    parsed = urlparse(raw_url.strip())
+    normalized = raw_url.strip().rstrip("/")
+    parsed = urlparse(normalized)
     if parsed.scheme != "http":
         raise RuntimeError("El seed local exige Supabase por http en localhost.")
     if parsed.hostname not in {"127.0.0.1", "localhost"}:
@@ -155,7 +156,7 @@ def validate_local_supabase_url(raw_url: str) -> str:
         raise RuntimeError("La URL local de Supabase no debe incluir credenciales.")
     if parsed.path not in {"", "/"}:
         raise RuntimeError("La URL local de Supabase no debe incluir una ruta adicional.")
-    return f"http://{parsed.hostname}:{parsed.port}"
+    return normalized
 
 
 def load_env_file() -> dict[str, str]:
