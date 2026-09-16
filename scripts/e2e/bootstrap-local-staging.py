@@ -132,11 +132,14 @@ def write_runtime_environment() -> None:
     values = parse_status_env(status.stdout)
     public_key = values.get("PUBLISHABLE_KEY") or values.get("ANON_KEY")
     db_url = values.get("DB_URL")
+    jwt_secret = values.get("JWT_SECRET")
 
     if not public_key:
         raise RuntimeError("Supabase local no devolvió PUBLISHABLE_KEY/ANON_KEY.")
     if not db_url:
         raise RuntimeError("Supabase local no devolvió DB_URL.")
+    if not jwt_secret or len(jwt_secret.encode("utf-8")) < 32:
+        raise RuntimeError("Supabase local no devolvió un JWT_SECRET seguro de al menos 32 bytes.")
 
     connection = npgsql_connection_from_db_url(db_url)
     if not connection:
@@ -152,6 +155,7 @@ def write_runtime_environment() -> None:
             "E2E_API_URL": LOCAL_API_URL,
             "ASPNETCORE_ENVIRONMENT": "Staging",
             "ASPNETCORE_URLS": "http://127.0.0.1:5000",
+            "JWT_SECRET": jwt_secret,
             "ConnectionStrings__PostgreSQL": connection,
         }
     )
