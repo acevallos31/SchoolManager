@@ -29,6 +29,7 @@ LOCAL_FRONTEND_URL = "http://127.0.0.1:4200"
 # El baseline consolidado se cerró con el esquema de la migración 017. Las
 # migraciones 007-017 son su fuente histórica y no deben volver a ejecutarse
 # encima del baseline (por ejemplo, 007 todavía esperaba usuarios.rol).
+BASELINE_HISTORY_START = 7
 BASELINE_COVERS_THROUGH = 17
 SUPABASE_EXCLUDES = (
     "studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,"
@@ -63,27 +64,55 @@ def migration_version(path: Path) -> int | None:
     return int(match.group(1)) if match else None
 
 
-def active_migrations() -> list[Path]:
-    paths: list[Path] = []
+def canonical_migrations() -> dict[int, Path]:
+    result: dict[int, Path] = {}
     for path in sorted(MIGRATIONS.glob("*.sql")):
         version = migration_version(path)
-        if version is not None and version > BASELINE_COVERS_THROUGH:
-            paths.append(path)
+        if version is not None:
+            result[version] = path
+    return result
 
-    if not paths:
+
+def require_contiguous_versions(
+    migrations: dict[int, Path], first: int, last: int, description: str
+) -> list[Path]:
+    expected = list(range(first, last + 1))
+    missing = [version for version in expected if version not in migrations]
+    if missing:
+        raise RuntimeError(
+            f"{description}: faltan migraciones {', '.join(f'{version:03d}' for version in missing)}."
+        )
+    return [migrations[version] for version in expected]
+
+
+def active_migrations() -> list[Path]:
+    migrations = canonical_migrations()
+    later_versions = sorted(
+        version for version in migrations if version > BASELINE_COVERS_THROUGH
+    )
+    if not later_versions:
         raise RuntimeError(
             f"No se encontraron migraciones posteriores al baseline {BASELINE_COVERS_THROUGH:03d}."
         )
 
-    versions = [migration_version(path) for path in paths]
-    expected = list(range(BASELINE_COVERS_THROUGH + 1, int(versions[-1]) + 1))
-    if versions != expected:
-        raise RuntimeError(
-            "La secuencia de migraciones posteriores al baseline no es continua: "
-            f"esperada {expected}, encontrada {versions}."
-        )
+    first = BASELINE_COVERS_THROUGH + 1
+    last = later_versions[-1]
+    return require_contiguous_versions(
+        migrations,
+        first,
+        last,
+        "La secuencia posterior al baseline no es continua",
+    )
 
-    return paths
+
+def baseline_history_migrations() -> list[Path]:
+    migrations = canonical_migrations()
+    return require_contiguous_versions(
+        migrations,
+        BASELINE_HISTORY_START,
+        BASELINE_COVERS_THROUGH,
+        "No se puede reconstruir el historial cubierto por el baseline",
+    )
 
 
 def generated_name(version: int, source: Path) -> str:
@@ -91,16 +120,41 @@ def generated_name(version: int, source: Path) -> str:
     return f"{version:014d}_{suffix}"
 
 
+def write_baseline_history_marker(sources: list[Path]) -> None:
+    rows: list[str] = []
+    for source in sources:
+        version = migration_version(source)
+        if version is None:
+            raise RuntimeError(f"Migración sin versión canónica: {source.name}")
+        name = source.stem.split("_", 1)[1].replace("'", "''")
+        rows.append(f"  ('{version:03d}', '{name}', null)")
+
+    sql = (
+        "-- Historial sintético del esquema ya incorporado por el baseline consolidado.\n"
+        "-- No ejecuta de nuevo las migraciones 007-017; solo satisface las\n"
+        "-- precondiciones explícitas de las migraciones incrementales posteriores.\n"
+        "begin;\n\n"
+        "insert into public.schema_migrations (version, nombre, checksum)\n"
+        "values\n"
+        + ",\n".join(rows)
+        + "\non conflict (version) do nothing;\n\ncommit;\n"
+    )
+    marker = GENERATED_MIGRATIONS / f"{BASELINE_COVERS_THROUGH:014d}_baseline_history.sql"
+    marker.write_text(sql, encoding="utf-8")
+
+
 def prepare_migrations() -> list[Path]:
     if not BASELINE.is_file():
         raise RuntimeError(f"No existe el baseline esperado: {BASELINE}")
 
+    covered = baseline_history_migrations()
     migrations = active_migrations()
 
     shutil.rmtree(GENERATED_MIGRATIONS, ignore_errors=True)
     GENERATED_MIGRATIONS.mkdir(parents=True, exist_ok=True)
 
     shutil.copyfile(BASELINE, GENERATED_MIGRATIONS / generated_name(1, BASELINE))
+    write_baseline_history_marker(covered)
     for source in migrations:
         version = migration_version(source)
         if version is None:
