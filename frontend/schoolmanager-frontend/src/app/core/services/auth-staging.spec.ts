@@ -4,15 +4,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { environment } from '../../environments/environment';
 import { AuthService, SUPABASE_CLIENT } from './auth';
 
+type StagingAwareEnvironment = typeof environment & { edgeSessionEnabled?: boolean };
+const stagingEnvironment = environment as StagingAwareEnvironment;
+
 describe('AuthService en staging local', () => {
-  const originalEdgeSessionEnabled = environment.edgeSessionEnabled;
+  const originalEdgeSessionEnabled = stagingEnvironment.edgeSessionEnabled;
   const session = {
     access_token: 'token-staging-local',
     user: { id: 'auth-e2e-local' }
   } as unknown as Session;
 
   beforeEach(() => {
-    environment.edgeSessionEnabled = false;
+    stagingEnvironment.edgeSessionEnabled = false;
     const supabase = {
       auth: {
         onAuthStateChange: vi.fn().mockReturnValue({
@@ -32,7 +35,11 @@ describe('AuthService en staging local', () => {
   });
 
   afterEach(() => {
-    environment.edgeSessionEnabled = originalEdgeSessionEnabled;
+    if (originalEdgeSessionEnabled === undefined) {
+      delete stagingEnvironment.edgeSessionEnabled;
+    } else {
+      stagingEnvironment.edgeSessionEnabled = originalEdgeSessionEnabled;
+    }
     vi.restoreAllMocks();
     TestBed.resetTestingModule();
   });
