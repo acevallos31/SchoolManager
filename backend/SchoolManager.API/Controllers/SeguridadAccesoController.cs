@@ -119,6 +119,30 @@ public sealed class SeguridadAccesoController(NpgsqlDataSource dataSource)
             return Content(json, "application/json");
         }, ct);
 
+    [HttpPost("usuarios/invitaciones/preparar")]
+    public Task<IActionResult> PrepararInvitacionUsuario(
+        [FromBody] PrepararInvitacionUsuarioDto dto,
+        CancellationToken ct) =>
+        EnTransaccionComoUsuarioAsync(async (conexion, tx) =>
+        {
+            await using var comando = conexion.CreateCommand();
+            comando.Transaction = tx;
+            comando.CommandText = """
+                select public.rpc_preparar_invitacion_usuario(
+                  @institucion_id, @nombres, @apellidos, @correo, @rol_id, @origen
+                )::text
+                """;
+            comando.Parameters.AddWithValue("institucion_id", dto.InstitucionId);
+            comando.Parameters.AddWithValue("nombres", dto.Nombres);
+            comando.Parameters.AddWithValue("apellidos", dto.Apellidos);
+            comando.Parameters.AddWithValue("correo", dto.Correo);
+            comando.Parameters.AddWithValue("rol_id", dto.RolId);
+            comando.Parameters.AddWithValue("origen", dto.Origen);
+
+            var json = (string?)await comando.ExecuteScalarAsync(ct) ?? "{}";
+            return Content(json, "application/json");
+        }, ct);
+
     [HttpPost("roles")]
     public Task<IActionResult> CrearRol(
         [FromBody] CrearRolInstitucionalDto dto,
