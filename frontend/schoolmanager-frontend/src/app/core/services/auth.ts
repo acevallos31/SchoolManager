@@ -288,6 +288,13 @@ export class AuthService {
   }
 
   private async sincronizarSesionEdge(session: Session | null): Promise<void> {
+    // El build staging local no ejecuta las funciones Vercel ni su middleware.
+    // Producción y desarrollo conservan la cookie edge; staging valida la sesión
+    // directamente contra Supabase Auth + API .NET durante el E2E.
+    if (!environment.edgeSessionEnabled) {
+      return;
+    }
+
     const response = await fetch(EDGE_SESSION_ENDPOINT, {
       method: session ? 'POST' : 'DELETE',
       headers: session ? { Authorization: `Bearer ${session.access_token}` } : undefined,
