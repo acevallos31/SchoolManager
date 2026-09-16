@@ -109,6 +109,84 @@ public sealed class SeguridadAccesoControllerTests(SeguridadAccesoApiFactory fac
     }
 
     [Fact]
+    public async Task Administrador_prepara_invitacion_idempotente_por_API()
+    {
+        using var client = factory.Cliente(factory.AdministradorA);
+        var correo = $"invitado.{Guid.NewGuid():N}@schoolmanager.test";
+        var solicitud = new
+        {
+            institucionId = factory.InstitucionA,
+            nombres = "María",
+            apellidos = "Invitada",
+            correo,
+            rolId = factory.RolDestinoA,
+            origen = "administracion"
+        };
+
+        var primeraRespuesta = await client.PostAsJsonAsync(
+            "/api/configuracion/seguridad/usuarios/invitaciones/preparar", solicitud);
+        var segundaRespuesta = await client.PostAsJsonAsync(
+            "/api/configuracion/seguridad/usuarios/invitaciones/preparar", solicitud);
+
+        Assert.Equal(HttpStatusCode.OK, primeraRespuesta.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, segundaRespuesta.StatusCode);
+        var primera = await primeraRespuesta.Content.ReadFromJsonAsync<JsonElement>();
+        var segunda = await segundaRespuesta.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("pendiente", primera.GetProperty("estado").GetString());
+        Assert.Equal(correo, primera.GetProperty("correo").GetString());
+        Assert.True(primera.GetProperty("personaCreada").GetBoolean());
+        Assert.True(primera.GetProperty("usuarioCreado").GetBoolean());
+        Assert.True(primera.GetProperty("asignacionCreada").GetBoolean());
+        Assert.True(primera.GetProperty("invitacionCreada").GetBoolean());
+        Assert.False(segunda.GetProperty("personaCreada").GetBoolean());
+        Assert.False(segunda.GetProperty("usuarioCreado").GetBoolean());
+        Assert.False(segunda.GetProperty("asignacionCreada").GetBoolean());
+        Assert.False(segunda.GetProperty("invitacionCreada").GetBoolean());
+        Assert.Equal(
+            primera.GetProperty("usuarioId").GetGuid(),
+            segunda.GetProperty("usuarioId").GetGuid());
+        Assert.Equal(
+            primera.GetProperty("invitacionId").GetGuid(),
+            segunda.GetProperty("invitacionId").GetGuid());
+    }
+
+    [Fact]
+    public async Task Administrador_no_prepara_invitacion_en_otra_institucion()
+    {
+        using var client = factory.Cliente(factory.AdministradorA);
+        var response = await client.PostAsJsonAsync(
+            "/api/configuracion/seguridad/usuarios/invitaciones/preparar", new
+            {
+                institucionId = factory.InstitucionB,
+                nombres = "Usuario",
+                apellidos = "Ajeno",
+                correo = $"ajeno.{Guid.NewGuid():N}@schoolmanager.test",
+                rolId = factory.RolDestinoA,
+                origen = "administracion"
+            });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Preparar_invitacion_con_correo_invalido_Devuelve400()
+    {
+        using var client = factory.Cliente(factory.AdministradorA);
+        var response = await client.PostAsJsonAsync(
+            "/api/configuracion/seguridad/usuarios/invitaciones/preparar", new
+            {
+                institucionId = factory.InstitucionA,
+                nombres = "Usuario",
+                apellidos = "Invalido",
+                correo = "correo-invalido",
+                rolId = factory.RolDestinoA,
+                origen = "administracion"
+            });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Administrador_explicito_gestiona_rol_y_asignacion_de_extremo_a_extremo()
     {
         using var client = factory.Cliente(factory.AdministradorA);

@@ -66,6 +66,46 @@ public sealed class InvitacionesAccesoTests(PostgreSqlFixture fixture)
         Assert.Equal("42501", ex.SqlState);
     }
 
+    [Fact]
+    public async Task Preparar_invitacion_serializa_altas_concurrentes_del_mismo_correo()
+    {
+        var institucion = await ScalarGuidAsync(
+            "insert into public.instituciones(nombre) values($1) returning id",
+            $"Institucion {Guid.NewGuid():N}");
+        var actor = await CrearActorAsync(institucion,
+            ["identidad.usuarios.crear", "identidad.usuarios.asignar_roles", "academico.alumnos.ver"]);
+        var rolDestino = await CrearRolAsync(institucion, ["academico.alumnos.ver"]);
+        var correo = $"concurrente.{Guid.NewGuid():N}@schoolmanager.test";
+
+        var respuestas = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ =>
+            AuthScalarTextAsync(actor.AuthUserId, """
+                select public.rpc_preparar_invitacion_usuario($1,$2,$3,$4,$5,$6)::text
+                """, institucion, "Ana", "Concurrente", correo, rolDestino, "administracion")));
+        var documentos = respuestas.Select(JsonDocument.Parse).ToArray();
+
+        try
+        {
+            Assert.Single(documentos.Select(documento =>
+                documento.RootElement.GetProperty("personaId").GetGuid()).Distinct());
+            Assert.Single(documentos.Select(documento =>
+                documento.RootElement.GetProperty("usuarioId").GetGuid()).Distinct());
+            Assert.Single(documentos.Select(documento =>
+                documento.RootElement.GetProperty("invitacionId").GetGuid()).Distinct());
+            Assert.Single(documentos.Where(documento =>
+                documento.RootElement.GetProperty("personaCreada").GetBoolean()));
+            Assert.Single(documentos.Where(documento =>
+                documento.RootElement.GetProperty("invitacionCreada").GetBoolean()));
+            Assert.Equal(1, await ScalarLongAsync("""
+                select count(*) from public.personas
+                where lower(btrim(coalesce(correo,'')))=$1
+                """, correo));
+        }
+        finally
+        {
+            foreach (var documento in documentos) documento.Dispose();
+        }
+    }
+
     private async Task<Actor> CrearActorAsync(Guid institucion, IEnumerable<string> permisos)
     {
         var authId = Guid.NewGuid();

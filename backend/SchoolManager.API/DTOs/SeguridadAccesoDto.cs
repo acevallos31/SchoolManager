@@ -73,7 +73,7 @@ public sealed class PrepararInvitacionUsuarioDto
     [Required]
     public required Guid RolId { get; init; }
 
-    [MaxLength(30)]
+    [Required, MaxLength(30)]
     public string Origen { get; init; } = "administracion";
 }
 

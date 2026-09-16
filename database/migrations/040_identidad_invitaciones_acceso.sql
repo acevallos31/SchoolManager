@@ -70,6 +70,7 @@ declare
   v_correo text := lower(btrim(coalesce(p_correo, '')));
   v_nombres text := btrim(coalesce(p_nombres, ''));
   v_apellidos text := btrim(coalesce(p_apellidos, ''));
+  v_origen text := lower(btrim(coalesce(p_origen, '')));
   v_persona_id uuid;
   v_persona_estado text;
   v_usuario_id uuid;
@@ -106,7 +107,7 @@ begin
     raise exception 'Nombres, apellidos y correo son obligatorios.' using errcode = '22023';
   end if;
 
-  if p_origen not in ('administracion', 'responsable') then
+  if v_origen not in ('administracion', 'responsable') then
     raise exception 'Origen de invitacion no valido.' using errcode = '22023';
   end if;
 
@@ -137,6 +138,10 @@ begin
   ) then
     raise exception 'El rol contiene permisos que el actor no puede delegar.' using errcode = '42501';
   end if;
+
+  -- Serializa altas concurrentes del mismo correo. Sin este bloqueo, dos
+  -- transacciones podrian observar cero coincidencias y crear dos Personas.
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_correo, 0));
 
   select count(*)::integer
     into v_personas
@@ -220,7 +225,7 @@ begin
       origen, estado, solicitada_por
     ) values (
       p_institucion_id, v_persona_id, v_usuario_id, p_rol_id, v_correo, v_correo,
-      p_origen, 'pendiente', v_actor
+      v_origen, 'pendiente', v_actor
     ) returning id into v_invitacion_id;
     v_creo_invitacion := true;
   end if;
@@ -230,7 +235,7 @@ begin
       actor_usuario_id, institucion_id, accion, entidad_tipo, entidad_id, detalle
     ) values (
       v_actor, p_institucion_id, 'usuario.preparar_invitacion', 'usuario', v_usuario_id,
-      jsonb_build_object('persona_id', v_persona_id, 'correo', v_correo, 'origen', p_origen)
+      jsonb_build_object('persona_id', v_persona_id, 'correo', v_correo, 'origen', v_origen)
     );
   end if;
 
@@ -248,7 +253,7 @@ begin
       actor_usuario_id, institucion_id, accion, entidad_tipo, entidad_id, detalle
     ) values (
       v_actor, p_institucion_id, 'invitacion_acceso.crear', 'invitacion_acceso', v_invitacion_id,
-      jsonb_build_object('usuario_id', v_usuario_id, 'rol_id', p_rol_id, 'correo', v_correo, 'origen', p_origen)
+      jsonb_build_object('usuario_id', v_usuario_id, 'rol_id', p_rol_id, 'correo', v_correo, 'origen', v_origen)
     );
   end if;
 
