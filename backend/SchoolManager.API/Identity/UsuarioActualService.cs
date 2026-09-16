@@ -189,7 +189,8 @@ public sealed class UsuarioActualService(NpgsqlDataSource dataSource) : IUsuario
                 reader.GetString(1),
                 reader.IsDBNull(2) ? null : reader.GetString(2),
                 Array.AsReadOnly(reader.GetFieldValue<string[]>(3)),
-                Array.AsReadOnly(reader.GetFieldValue<string[]>(4))
+                Array.AsReadOnly(reader.GetFieldValue<string[]>(4)),
+                true
             ));
         }
 
@@ -200,11 +201,15 @@ public sealed class UsuarioActualService(NpgsqlDataSource dataSource) : IUsuario
         CancellationToken cancellationToken
     )
     {
+        // El catálogo global del Superadministrador NO depende del modo
+        // configuracion_implementacion.multiples_instituciones. Ese modo gobierna
+        // el contexto operativo de la instalación, no la visibilidad de plataforma.
+        // Incluimos también instituciones inactivas para que puedan verse y
+        // administrarse a nivel de plataforma, marcándolas como no seleccionables.
         await using var command = dataSource.CreateCommand("""
-            select i.id, i.nombre, i.nombre_corto
+            select i.id, i.nombre, i.nombre_corto, i.activo
             from public.instituciones i
-            where i.activo = true
-            order by lower(i.nombre), i.id
+            order by i.activo desc, lower(i.nombre), i.id
             """);
 
         var resultado = new List<InstitucionAcceso>();
@@ -216,7 +221,8 @@ public sealed class UsuarioActualService(NpgsqlDataSource dataSource) : IUsuario
                 reader.GetString(1),
                 reader.IsDBNull(2) ? null : reader.GetString(2),
                 Array.Empty<string>(),
-                Array.Empty<string>()
+                Array.Empty<string>(),
+                reader.GetBoolean(3)
             ));
         }
 
