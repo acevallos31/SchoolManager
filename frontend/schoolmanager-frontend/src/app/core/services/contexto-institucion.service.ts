@@ -33,6 +33,11 @@ function obtenerStorageSeguro(): Storage | null {
  * provenir de institucionesAdministrables, sin convertirlo en membresía ni
  * conceder permisos locales. Backend/RPC/RLS siguen siendo la autoridad real.
  *
+ * El Superadministrador puede ver el catálogo completo de instituciones aun si
+ * configuracion_implementacion está en modo mono-institución. Solo las activas
+ * pueden seleccionarse como contexto operativo; las inactivas siguen visibles
+ * para administración de plataforma.
+ *
  * Durante el preview puede ocurrir que el frontend nuevo apunte temporalmente a
  * un backend anterior que todavía no serializa institucionesAdministrables. En
  * modo mono-institución resolvemos únicamente la institución actual mediante el
@@ -62,8 +67,17 @@ export class ContextoInstitucionService implements OnDestroy {
     return this.institucionSubject.value;
   }
 
+  /** Instituciones activas que pueden utilizarse como contexto operativo. */
   institucionesDisponibles(): readonly InstitucionAcceso[] {
     return this.institucionesParaContexto(this.auth.usuarioActual());
+  }
+
+  /**
+   * Catálogo visible en UI. Para platform_admin incluye también instituciones
+   * inactivas; para usuarios normales coincide con sus contextos autorizados.
+   */
+  institucionesVisibles(): readonly InstitucionAcceso[] {
+    return this.institucionesCombinadas(this.auth.usuarioActual());
   }
 
   seleccionar(institucionId: string): boolean {
@@ -149,6 +163,10 @@ export class ContextoInstitucionService implements OnDestroy {
   }
 
   private institucionesParaContexto(usuario: UsuarioActual | null): InstitucionAcceso[] {
+    return this.institucionesCombinadas(usuario).filter(institucion => institucion.activo !== false);
+  }
+
+  private institucionesCombinadas(usuario: UsuarioActual | null): InstitucionAcceso[] {
     if (!usuario) return [];
     const extendido = usuario as UsuarioActualExtendido;
     const explicitas = usuario.instituciones ?? [];
@@ -187,7 +205,8 @@ export class ContextoInstitucionService implements OnDestroy {
         nombre: contexto.institucion.nombre,
         nombreCorto: null,
         roles: [],
-        permisos: []
+        permisos: [],
+        activo: true
       }];
       this.reconciliarConUsuario(usuario);
     } catch {
