@@ -91,9 +91,10 @@ public sealed class ConfiguracionController(
         }
         catch (PostgresException ex)
         {
-            // Los callers distinguen SM003 de otros errores 400. Conservamos
-            // el código estable solo en este contrato, sin cambiar otras APIs.
-            return StatusCode(ToError(ex).StatusCode!.Value, new { error = ex.MessageText, code = ex.SqlState });
+            // Los callers distinguen SM003 y otros códigos estables. Conservamos
+            // el código del contrato, pero el mensaje pasa por el normalizador
+            // común para no exponer texto técnico generado por PostgreSQL.
+            return StatusCode(ToError(ex).StatusCode!.Value, new { error = MensajeError(ex), code = ex.SqlState });
         }
     }
 }
