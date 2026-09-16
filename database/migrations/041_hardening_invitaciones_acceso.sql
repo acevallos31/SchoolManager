@@ -30,8 +30,7 @@ create index if not exists ix_invitaciones_acceso_rol_id
   on public.invitaciones_acceso(rol_id);
 
 create index if not exists ix_invitaciones_acceso_solicitada_por
-  on public.invitaciones_acceso(solicitada_por)
-  where solicitada_por is not null;
+  on public.invitaciones_acceso(solicitada_por);
 
 insert into public.schema_migrations(version, nombre, checksum)
 values ('041', 'hardening_invitaciones_acceso', null)
