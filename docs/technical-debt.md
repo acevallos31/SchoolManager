@@ -1,6 +1,6 @@
 # Deuda técnica registrada — SchoolManager
 
-Estado consolidado después de los Bloques 042, 043A, 043B, 044 y 045A, actualizado el 2026-09-16.
+Estado consolidado después de los Bloques 042, 043A, 043B, 044, 045A y 046A, actualizado el 2026-09-16.
 Este archivo enumera únicamente deuda técnica **real y verificable**. El historial
 de deudas cerradas se conserva al final para no volver a abrir problemas ya
 resueltos.
@@ -10,17 +10,16 @@ resueltos.
 
 ## Estado base verificado
 
-- Base funcional previa a 045A: merge `13e6771c0248cf82c7b97a2df05fad483b45a47b`
-  (PR #105 / Bloque 044E).
-- Migraciones activas del repositorio: `001` → `039`.
-- Última verificación read-only de producción: `schema_migrations` contiene
-  `baseline-001-fase1a` y las migraciones numéricas `007` → `039`.
-- Configuración observada en esa verificación: `multiples_instituciones = false`,
-  una institución activa y un `platform_admin` activo.
+- Base funcional previa a 046B: merge `b5dea649ea78f0b86b6eb6662a5bb4d49266feda`
+  (PR #108 / Bloque 046A).
+- Migraciones activas en `main`: `001` → `040`; 046B propone `041` como hardening
+  incremental y no modifica la migración 040 ya aplicada.
+- Producción/Supabase: 040 aplicada y validada el 2026-09-16; la migración no creó
+  datos de negocio y la prueba funcional posterior se ejecutó con rollback.
+- Configuración productiva conocida: `multiples_instituciones = false`; el código
+  conserva soporte para modo single y multiinstitución.
 - Arquitectura vigente: Angular → API .NET → PostgreSQL/Supabase/RPC; Supabase
   directo en frontend queda reservado a Auth.
-- CI post-merge de 044E terminó verde, incluyendo Sonar Quality Gate y despliegue
-  de producción.
 
 ---
 
@@ -38,6 +37,29 @@ resueltos.
 - **Criterio de cierre:** baseline de `/health`, escalado progresivo seguro y
   prueba autenticada read-only con identidad exclusiva de pruebas, documentando
   latencia, errores y umbral aceptable.
+
+### #15. Auditoría de RPC `SECURITY DEFINER` expuestas a `authenticated`
+
+- **Estado:** ABIERTA — issue #109.
+- **Evidencia:** el Security Advisor de Supabase ejecutado después de aplicar 040
+  reportó múltiples funciones `SECURITY DEFINER` del esquema `public` ejecutables
+  por `authenticated`. El caso nuevo de 040,
+  `rpc_preparar_invitacion_usuario(...)`, no necesita acceso directo por Data API
+  porque su consumidor funcional es la API .NET; 046B/041 lo corrige de forma
+  acotada. Los demás hallazgos son previos y abarcan varios módulos.
+- **Riesgo:** una RPC privilegiada expuesta innecesariamente por PostgREST amplía
+  la superficie de ataque y obliga a que todas sus validaciones internas sean una
+  frontera de seguridad perfecta. Una revocación masiva, sin embargo, podría
+  romper consumidores existentes.
+- **Prioridad:** Media-Alta.
+- **Plan:** terminar primero el flujo funcional de invitaciones y luego auditar
+  las RPC históricas por grupos pequeños, identificando consumidor real,
+  necesidad de `SECURITY DEFINER`, grants y esquema expuesto antes de cambiar
+  cada contrato.
+- **Criterio de cierre:** inventario versionado, clasificación por consumidor,
+  hardening incremental con pruebas positivas/negativas, Security Advisor sin
+  advertencias evitables o con excepciones justificadas, y cero regresiones en
+  API, DB, OAuth y módulos de negocio.
 
 ---
 
@@ -177,13 +199,20 @@ La migración 039 centraliza el puente canónico dentro de
 `usuario_tiene_permiso_actual`, manteniendo las RPC históricas sin exigir aliases
 internos ocultos a roles institucionales dinámicos.
 
+### 046B: hardening puntual de invitaciones — EN CURSO
+
+La nueva superficie introducida por 040 se corrige inmediatamente mediante 041:
+se retira `EXECUTE` directo de `rpc_preparar_invitacion_usuario` a
+`authenticated` y se agregan índices para sus cuatro FK no cubiertas. Esta acción
+no cierra #15: solo evita trasladar deuda nueva al siguiente bloque funcional.
+
 ---
 
 ## No clasificar como deuda técnica
 
-- **Crear/invitar usuarios nuevos:** es funcionalidad pendiente del roadmap de
-  identidad, no reparación de una deficiencia existente. Debe preservar
-  `Persona` global, `Usuario` global y vinculación explícita de Auth.
+- **Crear/invitar usuarios nuevos:** es funcionalidad de roadmap de identidad y
+  ya inició con 046A; envío, aceptación y aprobación siguen siendo funcionalidad
+  pendiente, no deuda técnica.
 - **Modo multiinstitución desactivado hoy:** es configuración de producción
   (`multiples_instituciones=false`), no una limitación; el código 042 soporta
   ambos modos.
