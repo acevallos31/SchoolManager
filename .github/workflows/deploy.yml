@@ -54,8 +54,10 @@ jobs:
 
       - name: Validar foundation backend staging local
         run: |
-          python3 -m py_compile scripts/e2e/bootstrap-local-staging.py
+          python3 -m py_compile scripts/e2e/bootstrap-local-staging.py scripts/e2e/seed-local-staging.py
           python3 scripts/e2e/bootstrap-local-staging.py --help > /dev/null
+          python3 scripts/e2e/seed-local-staging.py --help > /dev/null
+          python3 scripts/e2e/seed-local-staging.py check
           python3 - <<'PY'
           import json
           import tomllib
@@ -216,7 +218,7 @@ jobs:
           ARGS="${ARGS} /d:sonar.exclusions=**/node_modules/**,**/dist/**,**/bin/**,**/obj/**,**/coverage/**,**/*.min.js,coverage-backend/**,**/lcov.info,**/*.cobertura.xml,**/*.spec.ts,**/*.test.ts,e2e/**"
           # Tooling/CI, scripts PWA y adaptadores Vercel: se analizan estáticamente,
           # pero no forman parte del código instrumentado por Coverlet/LCOV.
-          ARGS="${ARGS} /d:sonar.coverage.exclusions=scripts/check-coverage-gate.py,scripts/e2e/bootstrap-local-staging.py,frontend/schoolmanager-frontend/scripts/generate-staging-environment.mjs,frontend/schoolmanager-frontend/public/sw.js,frontend/schoolmanager-frontend/public/register-sw.js,frontend/schoolmanager-frontend/middleware.ts,frontend/schoolmanager-frontend/api/**,frontend/schoolmanager-frontend/src/main.server.ts,frontend/schoolmanager-frontend/src/app/app.config.server.ts,frontend/schoolmanager-frontend/src/app/app.routes.server.ts"
+          ARGS="${ARGS} /d:sonar.coverage.exclusions=scripts/check-coverage-gate.py,scripts/e2e/bootstrap-local-staging.py,scripts/e2e/seed-local-staging.py,frontend/schoolmanager-frontend/scripts/generate-staging-environment.mjs,frontend/schoolmanager-frontend/public/sw.js,frontend/schoolmanager-frontend/public/register-sw.js,frontend/schoolmanager-frontend/middleware.ts,frontend/schoolmanager-frontend/api/**,frontend/schoolmanager-frontend/src/main.server.ts,frontend/schoolmanager-frontend/src/app/app.config.server.ts,frontend/schoolmanager-frontend/src/app/app.routes.server.ts"
           # Baseline y migraciones son artefactos SQL históricos/versionados. La presentación
           # de la raíz es la copia entregable del recurso publicado en public/presentacion.html.
           # Se conservan en análisis estático y se excluyen solo del detector de duplicación.
