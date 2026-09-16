@@ -33,6 +33,7 @@ export interface InstitucionAcceso {
   nombreCorto: string | null;
   roles: string[];
   permisos: string[];
+  activo?: boolean;
 }
 export interface UsuarioActual {
   id: string;
@@ -206,7 +207,8 @@ export class AuthService {
     const institucion = (i: InstitucionAcceso) => !!i && typeof i.id === 'string' && !!i.id
       && typeof i.nombre === 'string' && !!i.nombre
       && (i.nombreCorto === null || typeof i.nombreCorto === 'string')
-      && lista(i.roles) && lista(i.permisos);
+      && lista(i.roles) && lista(i.permisos)
+      && (i.activo === undefined || typeof i.activo === 'boolean');
     const globalOk = data.ambitoGlobal === undefined || (!!data.ambitoGlobal
       && lista(data.ambitoGlobal.roles) && lista(data.ambitoGlobal.permisos));
     const institucionesOk = data.instituciones === undefined
