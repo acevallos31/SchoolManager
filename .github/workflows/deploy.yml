@@ -52,6 +52,33 @@ jobs:
       - name: Ejecutar tests de base de datos
         run: dotnet test tests/SchoolManager.Database.IntegrationTests/SchoolManager.Database.IntegrationTests.csproj --configuration Release
 
+      - name: Validar foundation backend staging local
+        run: |
+          python3 -m py_compile scripts/e2e/bootstrap-local-staging.py
+          python3 scripts/e2e/bootstrap-local-staging.py --help > /dev/null
+          python3 - <<'PY'
+          import json
+          import tomllib
+          from pathlib import Path
+
+          config = tomllib.loads(Path('supabase/config.toml').read_text(encoding='utf-8'))
+          assert config['project_id'] == 'schoolmanager-e2e'
+          assert config['api']['port'] == 54321
+          assert config['db']['port'] == 54322
+          assert config['db']['major_version'] == 17
+          assert config['auth']['site_url'] == 'http://127.0.0.1:4200'
+
+          staging = json.loads(
+              Path('backend/SchoolManager.API/appsettings.Staging.json').read_text(encoding='utf-8')
+          )
+          assert staging['Jwt']['Issuer'] == 'http://127.0.0.1:54321/auth/v1'
+          assert staging['ConnectionStrings']['PostgreSQL'] == ''
+          assert all(
+              origin.startswith(('http://127.0.0.1', 'http://localhost'))
+              for origin in staging['Cors']['AllowedOrigins']
+          )
+          PY
+
       - name: Configurar Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0, Node 24
         with:
@@ -189,7 +216,7 @@ jobs:
           ARGS="${ARGS} /d:sonar.exclusions=**/node_modules/**,**/dist/**,**/bin/**,**/obj/**,**/coverage/**,**/*.min.js,coverage-backend/**,**/lcov.info,**/*.cobertura.xml,**/*.spec.ts,**/*.test.ts,e2e/**"
           # Tooling/CI, scripts PWA y adaptadores Vercel: se analizan estáticamente,
           # pero no forman parte del código instrumentado por Coverlet/LCOV.
-          ARGS="${ARGS} /d:sonar.coverage.exclusions=scripts/check-coverage-gate.py,frontend/schoolmanager-frontend/scripts/generate-staging-environment.mjs,frontend/schoolmanager-frontend/public/sw.js,frontend/schoolmanager-frontend/public/register-sw.js,frontend/schoolmanager-frontend/middleware.ts,frontend/schoolmanager-frontend/api/**,frontend/schoolmanager-frontend/src/main.server.ts,frontend/schoolmanager-frontend/src/app/app.config.server.ts,frontend/schoolmanager-frontend/src/app/app.routes.server.ts"
+          ARGS="${ARGS} /d:sonar.coverage.exclusions=scripts/check-coverage-gate.py,scripts/e2e/bootstrap-local-staging.py,frontend/schoolmanager-frontend/scripts/generate-staging-environment.mjs,frontend/schoolmanager-frontend/public/sw.js,frontend/schoolmanager-frontend/public/register-sw.js,frontend/schoolmanager-frontend/middleware.ts,frontend/schoolmanager-frontend/api/**,frontend/schoolmanager-frontend/src/main.server.ts,frontend/schoolmanager-frontend/src/app/app.config.server.ts,frontend/schoolmanager-frontend/src/app/app.routes.server.ts"
           # Baseline y migraciones son artefactos SQL históricos/versionados. La presentación
           # de la raíz es la copia entregable del recurso publicado en public/presentacion.html.
           # Se conservan en análisis estático y se excluyen solo del detector de duplicación.
