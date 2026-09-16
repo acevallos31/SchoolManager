@@ -41,32 +41,41 @@ resueltos.
 
 ### #11. Mapeo seguro y amigable de errores de negocio
 
-- **Estado:** PARCIAL.
-- **Evidencia:** `ApiControllerBase` ya centraliza `ToError` y traduce múltiples
-  constraints conocidas (`23505`, `23514`, etc.) a mensajes de negocio. Sin
-  embargo, cuando una constraint no está en `MensajesRestricciones`,
-  `MensajeError` devuelve `PostgresException.MessageText`; por tanto aún puede
-  llegar texto técnico de PostgreSQL a la UI.
+- **Estado:** PARCIAL. Implementación candidata preparada en PR #99, todavía sin
+  merge a `main`.
+- **Evidencia en `main`:** `ApiControllerBase` centraliza `ToError` y traduce
+  múltiples constraints conocidas (`23505`, `23514`, etc.) a mensajes de
+  negocio. Sin embargo, cuando una constraint no está en
+  `MensajesRestricciones`, `MensajeError` devuelve
+  `PostgresException.MessageText`; por tanto aún puede llegar texto técnico de
+  PostgreSQL a la UI.
 - **Riesgo:** mensajes inconsistentes, acoplamiento accidental a detalles de DB
   y posible exposición de información técnica innecesaria.
 - **Prioridad:** Media-Alta por ser un cambio pequeño y transversal.
-- **Criterio de cierre:** mantener PostgreSQL/RPC como autoridad, ampliar el mapa
-  solo para restricciones reales y usar un fallback seguro por familia de
-  error; agregar tests que demuestren que no se pierde la semántica 400/403/404/
-  409 ni se muestra texto técnico no controlado.
+- **Criterio de cierre:** mantener PostgreSQL/RPC como autoridad, conservar los
+  status 400/403/404/409 y usar fallback seguro por familia de error; agregar
+  tests que demuestren que no se muestra texto técnico no controlado.
 
-### #12. Auditoría de hallazgos `High` históricos de Sonar Overall Code
+### #12. GitHub Actions — migrar actions oficiales que aún apuntan a Node.js 20
 
 - **Estado:** ABIERTA.
-- **Evidencia:** el Quality Gate de código nuevo está verde y SonarScanner for
-  .NET analiza C# + TypeScript con cobertura real, pero la documentación vigente
-  aún registra hallazgos `High` del Overall Code pendientes de clasificación.
-- **Riesgo:** mezclar deuda histórica, falso positivo y vulnerabilidad real sin
-  una decisión documentada.
-- **Prioridad:** Media.
-- **Criterio de cierre:** revisar cada `High`, clasificarlo con evidencia y
-  corregir únicamente los hallazgos reales sin bajar reglas, thresholds ni
-  excluir código para forzar verde.
+- **Evidencia:** los runs actuales de CI muestran el warning de GitHub
+  `Node.js 20 is deprecated` y enumeran `actions/checkout@v4`,
+  `actions/setup-dotnet@v4`, `actions/setup-node@v4`,
+  `actions/upload-artifact@v4` y, en el job Sonar,
+  `actions/download-artifact@v4`. GitHub está forzándolas temporalmente a
+  ejecutarse con Node.js 24.
+- **Estado upstream verificado 2026-09-16:** existen releases oficiales con
+  runtime Node 24 para reemplazar esos majors antiguos (`checkout` v7,
+  `setup-dotnet` v6, `setup-node` v7, `upload-artifact` v7 y
+  `download-artifact` v8).
+- **Riesgo:** depender del modo de compatibilidad temporal del runner; futura
+  rotura del workflow cuando GitHub retire ese puente, además de mantener
+  dependencias de Actions obsoletas.
+- **Prioridad:** Media-Alta por afectar el pipeline que protege todos los PR.
+- **Criterio de cierre:** actualizar las actions oficiales a versiones con
+  runtime Node 24, preferiblemente fijadas de forma reproducible, ejecutar el
+  workflow completo y confirmar que desaparece el warning sin debilitar gates.
 
 ### #13. E2E autenticado completo en staging seguro
 
@@ -146,6 +155,15 @@ cobertura sigue siendo deseable, pero ya no es una deuda sin control.
 PR #53 fue fusionado a `main` (`61f77362ecc1830cccbf8e11d6a3b3ef1a414ce9`).
 Los módulos de negocio del frontend pasan por la API .NET; `auth.ts` conserva
 Supabase Auth como excepción deliberada.
+
+### Hallazgos `High` históricos de Sonar — RESUELTOS
+
+La auditoría ya había ocurrido antes de 042 y no debía permanecer como deuda
+abierta. PR #71 (`3835a59c86217534b6560a1d47bdcb5d9166f00d`) corrigió los
+hallazgos visibles de seguridad/duplicación sin bajar el Quality Gate. PR #72
+(`d4b654f333eeb9938b38db62d794a4266b1ab277`) cerró explícitamente el último
+issue de seguridad `High` en `scripts/check-coverage-gate.py`; su análisis Sonar
+terminó con Quality Gate verde y ratings A.
 
 ### Bloque 042: selector/contexto multiinstitución — RESUELTO
 
