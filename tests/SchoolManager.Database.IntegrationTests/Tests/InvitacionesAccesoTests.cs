@@ -110,10 +110,10 @@ public sealed class InvitacionesAccesoTests(PostgreSqlFixture fixture)
                 documento.RootElement.GetProperty("usuarioId").GetGuid()).Distinct());
             Assert.Single(documentos.Select(documento =>
                 documento.RootElement.GetProperty("invitacionId").GetGuid()).Distinct());
-            Assert.Single(documentos.Where(documento =>
-                documento.RootElement.GetProperty("personaCreada").GetBoolean()));
-            Assert.Single(documentos.Where(documento =>
-                documento.RootElement.GetProperty("invitacionCreada").GetBoolean()));
+            Assert.Single(documentos, documento =>
+                documento.RootElement.GetProperty("personaCreada").GetBoolean());
+            Assert.Single(documentos, documento =>
+                documento.RootElement.GetProperty("invitacionCreada").GetBoolean());
             Assert.Equal(1, await ScalarLongAsync("""
                 select count(*) from public.personas
                 where lower(btrim(coalesce(correo,'')))=$1
