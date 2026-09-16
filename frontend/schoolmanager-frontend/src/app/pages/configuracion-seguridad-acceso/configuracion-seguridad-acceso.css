@@ -236,6 +236,80 @@
   margin-top: 1rem;
 }
 
+.user-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.user-search {
+  width: min(100%, 24rem);
+}
+
+.user-identity {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 12rem;
+}
+
+.user-identity small {
+  color: var(--sm-text-muted, #64748b);
+  overflow-wrap: anywhere;
+}
+
+.user-roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  min-width: 12rem;
+}
+
+.user-role-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.4rem 0.25rem 0.55rem;
+  border: 1px solid var(--sm-border, #d7dce2);
+  border-radius: 999px;
+  background: var(--sm-surface-muted, #f6f8fa);
+  color: var(--sm-text-strong, #102a43);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.user-role-remove {
+  display: inline-grid;
+  width: 1.4rem;
+  height: 1.4rem;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--sm-danger, #b42318);
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.user-role-remove:hover:not(:disabled) {
+  background: var(--sm-error-soft, #fef3f2);
+}
+
+.user-role-remove:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.role-assignment-form {
+  display: grid;
+  grid-template-columns: minmax(11rem, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 17rem;
+}
+
 .sm-table-wrap {
   overflow-x: auto;
   margin-top: 1rem;
@@ -253,6 +327,7 @@
   padding: 0.75rem 0.85rem;
   border-bottom: 1px solid var(--sm-border, #e5e7eb);
   text-align: left;
+  vertical-align: top;
 }
 
 .security-shell .sm-table th {
@@ -279,6 +354,14 @@
   .capabilities {
     justify-content: flex-start;
   }
+
+  .user-toolbar {
+    justify-content: stretch;
+  }
+
+  .user-search {
+    width: 100%;
+  }
 }
 
 @media (max-width: 560px) {
@@ -294,5 +377,10 @@
   .permission-row > .sm-badge {
     grid-column: 2;
     justify-self: start;
+  }
+
+  .role-assignment-form {
+    grid-template-columns: 1fr;
+    min-width: 12rem;
   }
 }

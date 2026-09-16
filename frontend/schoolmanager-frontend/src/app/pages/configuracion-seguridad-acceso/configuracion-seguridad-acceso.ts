@@ -10,7 +10,9 @@ import {
   RolInstitucionalSeguridad,
   SeguridadAccesoError,
   SeguridadAccesoService,
-  SeguridadAccesoSnapshot
+  SeguridadAccesoSnapshot,
+  UsuarioRolSeguridad,
+  UsuarioSeguridad
 } from '../../core/services/seguridad-acceso.service';
 
 @Component({
@@ -22,10 +24,13 @@ import {
 })
 export class ConfiguracionSeguridadAcceso implements OnInit, OnDestroy {
   snapshot: SeguridadAccesoSnapshot | null = null;
+  usuarios: UsuarioSeguridad[] = [];
   cargando = false;
   guardando = false;
   mensaje = '';
   esError = false;
+  filtroUsuario = '';
+  rolPorUsuario: Record<string, string> = {};
 
   nuevoRol = { codigo: '', nombre: '', descripcion: '' };
   clonado = { plantillaCodigo: '', codigo: '', nombre: '', descripcion: '' };
@@ -69,6 +74,15 @@ export class ConfiguracionSeguridadAcceso implements OnInit, OnDestroy {
     return this.snapshot?.capacidades.usuariosAsignarRoles ?? false;
   }
 
+  get usuariosFiltrados(): UsuarioSeguridad[] {
+    const filtro = this.filtroUsuario.trim().toLocaleLowerCase();
+    if (!filtro) return this.usuarios;
+    return this.usuarios.filter(usuario =>
+      usuario.nombre.toLocaleLowerCase().includes(filtro)
+      || (usuario.correo?.toLocaleLowerCase().includes(filtro) ?? false)
+    );
+  }
+
   async ngOnInit(): Promise<void> {
     await this.cargar();
     // BehaviorSubject emite el contexto actual al suscribirse; se omite esa
@@ -78,6 +92,8 @@ export class ConfiguracionSeguridadAcceso implements OnInit, OnDestroy {
       .pipe(skip(1))
       .subscribe(() => {
         this.limpiarSeleccionRol();
+        this.filtroUsuario = '';
+        this.rolPorUsuario = {};
         void this.cargar();
       });
   }
@@ -90,6 +106,7 @@ export class ConfiguracionSeguridadAcceso implements OnInit, OnDestroy {
     const institucionId = this.institucionId;
     if (!institucionId) {
       this.snapshot = null;
+      this.usuarios = [];
       this.mostrarError('Seleccione una institución para administrar su seguridad.');
       this.cdr.detectChanges();
       return;
@@ -105,8 +122,20 @@ export class ConfiguracionSeguridadAcceso implements OnInit, OnDestroy {
       } else if (rol) {
         this.edicionRol = { nombre: rol.nombre, descripcion: rol.descripcion ?? '' };
       }
+
+      if (this.snapshot.capacidades.usuariosVer) {
+        try {
+          this.usuarios = await this.seguridad.obtenerUsuarios(institucionId);
+        } catch (error) {
+          this.usuarios = [];
+          this.mostrarError(this.mensajeError(error));
+        }
+      } else {
+        this.usuarios = [];
+      }
     } catch (error) {
       this.snapshot = null;
+      this.usuarios = [];
       this.mostrarError(this.mensajeError(error));
     } finally {
       this.cargando = false;
@@ -203,6 +232,38 @@ export class ConfiguracionSeguridadAcceso implements OnInit, OnDestroy {
       await this.seguridad.desactivarRol(rol.id, 'Desactivado desde Configuración > Seguridad y acceso');
       if (this.rolSeleccionadoId === rol.id) this.limpiarSeleccionRol();
       this.mostrarExito('Rol desactivado correctamente.');
+    });
+  }
+
+  rolesAsignables(usuario: UsuarioSeguridad): RolInstitucionalSeguridad[] {
+    const asignados = new Set(usuario.roles.map(rol => rol.rolId));
+    return (this.snapshot?.roles ?? []).filter(rol => rol.activo && !asignados.has(rol.id));
+  }
+
+  async asignarRolUsuario(usuario: UsuarioSeguridad): Promise<void> {
+    if (!this.puedeGestionarAsignaciones || !usuario.activo || this.guardando) return;
+    const rolId = this.rolPorUsuario[usuario.id];
+    const rol = this.rolesAsignables(usuario).find(candidato => candidato.id === rolId);
+    if (!rol) {
+      this.mostrarError('Seleccione un rol disponible para el usuario.');
+      return;
+    }
+
+    await this.ejecutar(async () => {
+      await this.seguridad.asignarRol(rol.id, usuario.id);
+      delete this.rolPorUsuario[usuario.id];
+      this.mostrarExito(`Rol ${rol.nombre} asignado a ${usuario.nombre || 'el usuario'}.`);
+    });
+  }
+
+  async retirarRolUsuario(usuario: UsuarioSeguridad, rol: UsuarioRolSeguridad): Promise<void> {
+    if (!this.puedeGestionarAsignaciones || this.guardando) return;
+    await this.ejecutar(async () => {
+      await this.seguridad.desactivarAsignacion(
+        rol.asignacionId,
+        'Asignación retirada desde Administración de usuarios'
+      );
+      this.mostrarExito(`Rol ${rol.nombre} retirado de ${usuario.nombre || 'el usuario'}.`);
     });
   }
 

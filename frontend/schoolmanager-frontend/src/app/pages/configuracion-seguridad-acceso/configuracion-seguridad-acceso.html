@@ -188,28 +188,108 @@
       <section class="sm-card">
         <div class="section-heading">
           <div>
-            <h2 class="sm-section-title">Asignaciones activas</h2>
-            <p class="sm-helper">Relaciones usuario–rol vigentes en esta institución.</p>
+            <h2 class="sm-section-title">Administración de usuarios</h2>
+            <p class="sm-helper">Gestiona el acceso y los roles institucionales. El Superadministrador puede consultar el directorio global; un administrador institucional solo ve usuarios con acceso a esta institución.</p>
           </div>
-          <span class="sm-badge sm-badge--neutral">{{ snapshot.asignaciones.length }}</span>
+          <span class="sm-badge sm-badge--neutral">{{ usuarios.length }} usuarios</span>
         </div>
-        @if (snapshot.asignaciones.length === 0) {
-          <div class="sm-state"><p>No hay asignaciones activas.</p></div>
+
+        <div class="user-toolbar">
+          <label class="sm-field user-search">
+            <span class="sm-label">Buscar usuario</span>
+            <input
+              class="sm-input"
+              name="filtroUsuario"
+              [(ngModel)]="filtroUsuario"
+              placeholder="Nombre o correo">
+          </label>
+        </div>
+
+        @if (usuarios.length === 0) {
+          <div class="sm-state"><p>No hay usuarios disponibles para administrar en este contexto.</p></div>
+        } @else if (usuariosFiltrados.length === 0) {
+          <div class="sm-state"><p>No hay usuarios que coincidan con la búsqueda.</p></div>
         } @else {
           <div class="sm-table-wrap">
             <table class="sm-table">
-              <thead><tr><th>Usuario</th><th>Rol</th><th>Tipo</th>@if (puedeGestionarAsignaciones) { <th>Acciones</th> }</tr></thead>
+              <thead>
+                <tr>
+                  <th>Usuario</th>
+                  <th>Estado</th>
+                  <th>Identidad</th>
+                  <th>Roles en la institución</th>
+                  @if (puedeGestionarAsignaciones) { <th>Asignar rol</th> }
+                </tr>
+              </thead>
               <tbody>
-                @for (asignacion of snapshot.asignaciones; track asignacion.id) {
+                @for (usuario of usuariosFiltrados; track usuario.id) {
                   <tr>
-                    <td>{{ asignacion.nombre || asignacion.usuarioId }}</td>
-                    <td>{{ asignacion.rolNombre }}</td>
-                    <td><span class="sm-badge sm-badge--neutral">{{ asignacion.rolTipo }}</span></td>
+                    <td>
+                      <div class="user-identity">
+                        <strong>{{ usuario.nombre || 'Usuario sin nombre' }}</strong>
+                        <small>{{ usuario.correo || 'Sin correo registrado' }}</small>
+                      </div>
+                    </td>
+                    <td>
+                      <span class="sm-badge" [class.sm-badge--success]="usuario.activo" [class.sm-badge--neutral]="!usuario.activo">
+                        {{ usuario.activo ? 'Activo' : 'Inactivo' }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="sm-badge" [class.sm-badge--success]="usuario.identidadVinculada" [class.sm-badge--warning]="!usuario.identidadVinculada">
+                        {{ usuario.identidadVinculada ? 'Vinculada' : 'Pendiente' }}
+                      </span>
+                    </td>
+                    <td>
+                      @if (usuario.roles.length === 0) {
+                        <span class="sm-helper">Sin rol en esta institución</span>
+                      } @else {
+                        <div class="user-roles">
+                          @for (rolUsuario of usuario.roles; track rolUsuario.asignacionId) {
+                            <span class="user-role-chip">
+                              <span>{{ rolUsuario.nombre }}</span>
+                              @if (puedeGestionarAsignaciones) {
+                                <button
+                                  type="button"
+                                  class="user-role-remove"
+                                  [attr.aria-label]="'Retirar rol ' + rolUsuario.nombre + ' de ' + usuario.nombre"
+                                  (click)="retirarRolUsuario(usuario, rolUsuario)"
+                                  [disabled]="guardando">
+                                  ×
+                                </button>
+                              }
+                            </span>
+                          }
+                        </div>
+                      }
+                    </td>
                     @if (puedeGestionarAsignaciones) {
                       <td>
-                        <button type="button" class="sm-btn sm-btn--secondary sm-btn--sm" (click)="retirarAsignacion(asignacion)" [disabled]="guardando">
-                          Retirar rol
-                        </button>
+                        @if (usuario.activo && rolesAsignables(usuario).length > 0) {
+                          <div class="role-assignment-form">
+                            <select
+                              class="sm-input"
+                              [name]="'rolUsuario-' + usuario.id"
+                              [(ngModel)]="rolPorUsuario[usuario.id]"
+                              [disabled]="guardando">
+                              <option value="">Seleccionar rol...</option>
+                              @for (rolDisponible of rolesAsignables(usuario); track rolDisponible.id) {
+                                <option [value]="rolDisponible.id">{{ rolDisponible.nombre }}</option>
+                              }
+                            </select>
+                            <button
+                              type="button"
+                              class="sm-btn sm-btn--primary sm-btn--sm"
+                              (click)="asignarRolUsuario(usuario)"
+                              [disabled]="guardando || !rolPorUsuario[usuario.id]">
+                              Asignar
+                            </button>
+                          </div>
+                        } @else if (!usuario.activo) {
+                          <span class="sm-helper">Usuario inactivo</span>
+                        } @else {
+                          <span class="sm-helper">Todos los roles disponibles ya están asignados</span>
+                        }
                       </td>
                     }
                   </tr>

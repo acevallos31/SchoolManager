@@ -31,6 +31,94 @@ public sealed class SeguridadAccesoController(NpgsqlDataSource dataSource)
             return Content(json, "application/json");
         }, ct);
 
+    [HttpGet("usuarios")]
+    public Task<IActionResult> ObtenerUsuarios(
+        [FromQuery] Guid institucionId,
+        CancellationToken ct) =>
+        EnTransaccionComoUsuarioAsync(async (conexion, tx) =>
+        {
+            await using var permiso = conexion.CreateCommand();
+            permiso.Transaction = tx;
+            permiso.CommandText = """
+                select public.usuario_tiene_permiso_institucional_estricto(
+                  'identidad.usuarios.ver', @institucion_id
+                )
+                """;
+            permiso.Parameters.AddWithValue("institucion_id", institucionId);
+            var puedeVer = (bool?)await permiso.ExecuteScalarAsync(ct) ?? false;
+            if (!puedeVer)
+                return Forbid();
+
+            await using var comando = conexion.CreateCommand();
+            comando.Transaction = tx;
+            comando.CommandText = """
+                with actor as (
+                  select public.usuario_actual_id() as usuario_id
+                ),
+                alcance as (
+                  select exists (
+                    select 1
+                    from actor a
+                    join public.usuarios_roles ur
+                      on ur.usuario_id = a.usuario_id
+                     and ur.activo
+                     and ur.institucion_id is null
+                    join public.roles r
+                      on r.id = ur.rol_id
+                     and r.activo
+                     and r.tipo = 'plataforma'
+                     and r.codigo = 'platform_admin'
+                  ) as es_platform_admin
+                )
+                select coalesce(jsonb_agg(
+                  jsonb_build_object(
+                    'id', u.id,
+                    'nombre', btrim(concat_ws(' ', pe.nombres, pe.apellidos)),
+                    'correo', pe.correo,
+                    'activo', u.activo,
+                    'identidadVinculada', u.auth_user_id is not null,
+                    'roles', coalesce((
+                      select jsonb_agg(
+                        jsonb_build_object(
+                          'asignacionId', ur2.id,
+                          'rolId', r2.id,
+                          'codigo', r2.codigo,
+                          'nombre', r2.nombre
+                        ) order by r2.nombre, r2.codigo
+                      )
+                      from public.usuarios_roles ur2
+                      join public.roles r2
+                        on r2.id = ur2.rol_id
+                       and r2.activo
+                       and r2.tipo = 'institucional'
+                      where ur2.usuario_id = u.id
+                        and ur2.institucion_id = @institucion_id
+                        and ur2.activo
+                    ), '[]'::jsonb)
+                  ) order by pe.apellidos nulls last, pe.nombres nulls last, u.id
+                ), '[]'::jsonb)::text
+                from public.usuarios u
+                left join public.personas pe on pe.id = u.persona_id
+                cross join alcance a
+                where a.es_platform_admin
+                   or exists (
+                     select 1
+                     from public.usuarios_roles ur3
+                     join public.roles r3
+                       on r3.id = ur3.rol_id
+                      and r3.activo
+                      and r3.tipo = 'institucional'
+                     where ur3.usuario_id = u.id
+                       and ur3.institucion_id = @institucion_id
+                       and ur3.activo
+                   )
+                """;
+            comando.Parameters.AddWithValue("institucion_id", institucionId);
+
+            var json = (string?)await comando.ExecuteScalarAsync(ct) ?? "[]";
+            return Content(json, "application/json");
+        }, ct);
+
     [HttpPost("roles")]
     public Task<IActionResult> CrearRol(
         [FromBody] CrearRolInstitucionalDto dto,

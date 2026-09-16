@@ -22,6 +22,7 @@ public sealed class SeguridadAccesoApiFactory : IAsyncLifetime
     public Guid InstitucionB { get; private set; }
     public Guid AdministradorA { get; private set; }
     public Guid AdminGlobal { get; private set; }
+    public Guid Superadmin { get; private set; }
     public Guid SinPermisos { get; private set; }
     public Guid UsuarioDestinoId { get; private set; }
 
@@ -47,6 +48,7 @@ public sealed class SeguridadAccesoApiFactory : IAsyncLifetime
         InstitucionB = await CrearInstitucionAsync();
         AdministradorA = await CrearAdministradorInstitucionalAsync(InstitucionA);
         AdminGlobal = await CrearAdminGlobalAsync();
+        Superadmin = await CrearSuperadminAsync();
         SinPermisos = (await CrearUsuarioAsync()).AuthUserId;
         UsuarioDestinoId = (await CrearUsuarioAsync()).UsuarioId;
     }
@@ -98,6 +100,22 @@ public sealed class SeguridadAccesoApiFactory : IAsyncLifetime
         await EjecutarAsync(
             "insert into public.usuarios_roles(usuario_id, rol_id) values ($1, $2)",
             usuario.UsuarioId, adminId);
+        return usuario.AuthUserId;
+    }
+
+    private async Task<Guid> CrearSuperadminAsync()
+    {
+        var usuario = await CrearUsuarioAsync();
+        var rolId = await ScalarGuidAsync("""
+            select id
+            from public.roles
+            where codigo = 'platform_admin'
+              and tipo = 'plataforma'
+              and institucion_id is null
+            """);
+        await EjecutarAsync(
+            "insert into public.usuarios_roles(usuario_id, rol_id) values ($1, $2)",
+            usuario.UsuarioId, rolId);
         return usuario.AuthUserId;
     }
 

@@ -6,7 +6,8 @@ import { ContextoInstitucionService } from '../../core/services/contexto-institu
 import {
   SeguridadAccesoError,
   SeguridadAccesoService,
-  SeguridadAccesoSnapshot
+  SeguridadAccesoSnapshot,
+  UsuarioSeguridad
 } from '../../core/services/seguridad-acceso.service';
 import { ConfiguracionSeguridadAcceso } from './configuracion-seguridad-acceso';
 
@@ -28,6 +29,11 @@ describe('ConfiguracionSeguridadAcceso', () => {
     id: 'asig-1', usuarioId: 'usuario-1', nombre: 'Ana Pérez',
     rolId: 'rol-1', rolCodigo: 'secretaria', rolNombre: 'Secretaría',
     rolTipo: 'institucional', activo: true, creadoEn: '2026-09-13T10:00:00Z'
+  };
+
+  const usuario: UsuarioSeguridad = {
+    id: 'usuario-1', nombre: 'Ana Pérez', correo: 'ana@example.com',
+    activo: true, identidadVinculada: true, roles: []
   };
 
   const snapshot: SeguridadAccesoSnapshot = {
@@ -56,10 +62,12 @@ describe('ConfiguracionSeguridadAcceso', () => {
     contexto$ = new BehaviorSubject<{ id: string; nombre: string } | null>(institucionActual);
     service = {
       obtener: vi.fn().mockResolvedValue(snapshot),
+      obtenerUsuarios: vi.fn().mockResolvedValue([usuario]),
       crearRol: vi.fn().mockResolvedValue('rol-nuevo'),
       clonarPlantilla: vi.fn().mockResolvedValue('rol-clonado'),
       editarRol: vi.fn().mockResolvedValue(undefined),
       reemplazarPermisos: vi.fn().mockResolvedValue(undefined),
+      asignarRol: vi.fn().mockResolvedValue('asig-nueva'),
       desactivarRol: vi.fn().mockResolvedValue(undefined),
       desactivarAsignacion: vi.fn().mockResolvedValue(undefined)
     };
@@ -90,9 +98,11 @@ describe('ConfiguracionSeguridadAcceso', () => {
     fixture.detectChanges();
   }
 
-  it('carga el snapshot y expone institución y capacidades', async () => {
+  it('carga el snapshot, directorio de usuarios y capacidades', async () => {
     await crearComponente();
     expect(service['obtener']).toHaveBeenCalledWith('inst-1');
+    expect(service['obtenerUsuarios']).toHaveBeenCalledWith('inst-1');
+    expect(component.usuarios).toEqual([usuario]);
     expect(component.institucionId).toBe('inst-1');
     expect(component.institucionNombre).toBe('Colegio Alfa');
     expect(component.puedeCrear).toBe(true);
@@ -105,6 +115,7 @@ describe('ConfiguracionSeguridadAcceso', () => {
     institucionActual = null;
     await crearComponente();
     expect(service['obtener']).not.toHaveBeenCalled();
+    expect(service['obtenerUsuarios']).not.toHaveBeenCalled();
     expect(component.snapshot).toBeNull();
     expect(component.institucionNombre).toBe('Sin institución seleccionada');
     expect(component.mensaje).toContain('Seleccione una institución');
@@ -115,12 +126,14 @@ describe('ConfiguracionSeguridadAcceso', () => {
     await crearComponente();
     const snapshotBeta = { ...snapshot, institucionId: 'inst-2', roles: [] };
     service['obtener'].mockResolvedValueOnce(snapshotBeta);
+    service['obtenerUsuarios'].mockResolvedValueOnce([]);
     institucionActual = { id: 'inst-2', nombre: 'Colegio Beta' };
     contexto$.next(institucionActual);
 
     await vi.waitFor(() => expect(service['obtener']).toHaveBeenCalledWith('inst-2'));
     expect(component.institucionNombre).toBe('Colegio Beta');
     expect(component.snapshot?.institucionId).toBe('inst-2');
+    expect(component.usuarios).toEqual([]);
   });
 
   it('crea un rol normalizando código, nombre y descripción y conserva la confirmación', async () => {
@@ -196,6 +209,38 @@ describe('ConfiguracionSeguridadAcceso', () => {
     expect(component.mensaje).toBe('Rol desactivado correctamente.');
   });
 
+  it('asigna un rol desde el administrador de usuarios y recarga el directorio', async () => {
+    await crearComponente();
+    component.rolPorUsuario[usuario.id] = rol.id;
+    await component.asignarRolUsuario(usuario);
+    expect(service['asignarRol']).toHaveBeenCalledWith('rol-1', 'usuario-1');
+    expect(component.rolPorUsuario[usuario.id]).toBeUndefined();
+    expect(component.mensaje).toContain('Rol Secretaría asignado');
+    expect(service['obtenerUsuarios']).toHaveBeenCalledTimes(2);
+  });
+
+  it('retira un rol desde el administrador de usuarios', async () => {
+    const usuarioConRol: UsuarioSeguridad = {
+      ...usuario,
+      roles: [{ asignacionId: 'asig-1', rolId: 'rol-1', codigo: 'secretaria', nombre: 'Secretaría' }]
+    };
+    service['obtenerUsuarios'].mockResolvedValue([usuarioConRol]);
+    await crearComponente();
+    await component.retirarRolUsuario(usuarioConRol, usuarioConRol.roles[0]);
+    expect(service['desactivarAsignacion']).toHaveBeenCalledWith(
+      'asig-1', 'Asignación retirada desde Administración de usuarios'
+    );
+    expect(component.mensaje).toContain('Rol Secretaría retirado');
+  });
+
+  it('filtra usuarios por nombre o correo', async () => {
+    await crearComponente();
+    component.filtroUsuario = 'ANA@EXAMPLE';
+    expect(component.usuariosFiltrados).toEqual([usuario]);
+    component.filtroUsuario = 'nadie';
+    expect(component.usuariosFiltrados).toEqual([]);
+  });
+
   it('retira una asignación solo con capacidad usuarios.asignar_roles', async () => {
     await crearComponente();
     await component.retirarAsignacion(asignacion);
@@ -217,14 +262,26 @@ describe('ConfiguracionSeguridadAcceso', () => {
     await crearComponente();
     component.seleccionarRol(rol);
     component.alternarPermiso('academico.pagos.ver', true);
+    component.rolPorUsuario[usuario.id] = rol.id;
     await component.guardarRol();
     await component.guardarPermisos();
     await component.desactivarRol(rol);
+    await component.asignarRolUsuario(usuario);
     await component.retirarAsignacion(asignacion);
     expect(service['editarRol']).not.toHaveBeenCalled();
     expect(service['reemplazarPermisos']).not.toHaveBeenCalled();
     expect(service['desactivarRol']).not.toHaveBeenCalled();
+    expect(service['asignarRol']).not.toHaveBeenCalled();
     expect(service['desactivarAsignacion']).not.toHaveBeenCalled();
+  });
+
+  it('mantiene roles visibles si falla únicamente el directorio de usuarios', async () => {
+    service['obtenerUsuarios'].mockRejectedValueOnce(new SeguridadAccesoError('Directorio no disponible.', 500));
+    await crearComponente();
+    expect(component.snapshot).toEqual(snapshot);
+    expect(component.usuarios).toEqual([]);
+    expect(component.mensaje).toBe('Directorio no disponible.');
+    expect(component.esError).toBe(true);
   });
 
   it('presenta el error funcional de seguridad y libera el estado guardando', async () => {

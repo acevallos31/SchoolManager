@@ -53,6 +53,22 @@ export interface AsignacionRolSeguridad {
   creadoEn: string;
 }
 
+export interface UsuarioRolSeguridad {
+  asignacionId: string;
+  rolId: string;
+  codigo: string;
+  nombre: string;
+}
+
+export interface UsuarioSeguridad {
+  id: string;
+  nombre: string;
+  correo: string | null;
+  activo: boolean;
+  identidadVinculada: boolean;
+  roles: UsuarioRolSeguridad[];
+}
+
 export interface SeguridadAccesoSnapshot {
   institucionId: string;
   capacidades: SeguridadCapacidades;
@@ -88,9 +104,15 @@ export class SeguridadAccesoService {
   private readonly baseUrl = `${environment.apiUrl}/configuracion/seguridad`;
 
   async obtener(institucionId: string): Promise<SeguridadAccesoSnapshot> {
-    return firstValueFrom(this.http.get<SeguridadAccesoSnapshot>(
+    return this.obtenerJson<SeguridadAccesoSnapshot>(
       `${this.baseUrl}?institucionId=${encodeURIComponent(institucionId)}`
-    ));
+    );
+  }
+
+  async obtenerUsuarios(institucionId: string): Promise<UsuarioSeguridad[]> {
+    return this.obtenerJson<UsuarioSeguridad[]>(
+      `${this.baseUrl}/usuarios?institucionId=${encodeURIComponent(institucionId)}`
+    );
   }
 
   async crearRol(input: CrearRolInput): Promise<string> {
@@ -130,20 +152,51 @@ export class SeguridadAccesoService {
     );
   }
 
+  private async obtenerJson<T>(url: string): Promise<T> {
+    try {
+      return await firstValueFrom(this.http.get<T>(url));
+    } catch (error) {
+      throw this.mapearError(error);
+    }
+  }
+
   private async ejecutar<T = unknown>(method: string, path: string, body: unknown): Promise<T> {
     try {
       return await firstValueFrom(this.http.request<T>(method, `${this.baseUrl}${path}`, { body }));
     } catch (error) {
-      if (error instanceof HttpErrorResponse) {
-        const payload = error.error as { error?: unknown } | null;
-        const mensaje = payload && typeof payload.error === 'string'
-          ? payload.error
-          : error.status === 403
-            ? 'No tienes permiso para administrar la seguridad de esta institución.'
-            : 'No se pudo completar la operación de seguridad.';
-        throw new SeguridadAccesoError(mensaje, error.status);
-      }
-      throw new SeguridadAccesoError('No se pudo completar la operación de seguridad.', 0);
+      throw this.mapearError(error);
     }
+  }
+
+  private mapearError(error: unknown): SeguridadAccesoError {
+    if (!(error instanceof HttpErrorResponse)) {
+      return new SeguridadAccesoError('No se pudo completar la operación de seguridad.', 0);
+    }
+
+    const payload = error.error as { error?: unknown } | null;
+    if (payload && typeof payload === 'object' && typeof payload.error === 'string') {
+      return new SeguridadAccesoError(payload.error, error.status);
+    }
+
+    if (error.status === 403) {
+      return new SeguridadAccesoError(
+        'No tienes permiso para administrar la seguridad de esta institución.',
+        error.status
+      );
+    }
+    if (error.status === 404) {
+      return new SeguridadAccesoError(
+        'La API desplegada todavía no incluye esta operación de Seguridad y acceso.',
+        error.status
+      );
+    }
+    if (error.status >= 500) {
+      return new SeguridadAccesoError(
+        'La API de seguridad no pudo completar la operación. Revisa el despliegue del backend.',
+        error.status
+      );
+    }
+
+    return new SeguridadAccesoError('No se pudo completar la operación de seguridad.', error.status);
   }
 }

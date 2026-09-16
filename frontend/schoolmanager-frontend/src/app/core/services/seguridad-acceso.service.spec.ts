@@ -34,6 +34,19 @@ describe('SeguridadAccesoService', () => {
     await expect(result).resolves.toEqual(snapshot);
   });
 
+  it('obtiene el directorio de usuarios administrable', async () => {
+    const usuarios = [{
+      id: 'u1', nombre: 'Ana Pérez', correo: 'ana@example.com', activo: true,
+      identidadVinculada: true,
+      roles: [{ asignacionId: 'a1', rolId: 'r1', codigo: 'secretaria', nombre: 'Secretaría' }]
+    }];
+    const result = service.obtenerUsuarios('inst 1');
+    const request = http.expectOne(`${baseUrl}/usuarios?institucionId=inst%201`);
+    expect(request.request.method).toBe('GET');
+    request.flush(usuarios);
+    await expect(result).resolves.toEqual(usuarios);
+  });
+
   it('crea y clona roles devolviendo el identificador', async () => {
     const crear = service.crearRol({ institucionId: 'i1', codigo: 'caja', nombre: 'Caja' });
     let request = http.expectOne(`${baseUrl}/roles`);
@@ -116,5 +129,17 @@ describe('SeguridadAccesoService', () => {
     });
     http.expectOne(`${baseUrl}/roles/r1/desactivar`).error(new ProgressEvent('error'));
     await networkAssertion;
+  });
+
+  it('explica cuando el frontend preview apunta a una API sin el módulo de seguridad', async () => {
+    const result = service.obtener('i1');
+    const assertion = expect(result).rejects.toMatchObject({
+      status: 404,
+      message: 'La API desplegada todavía no incluye esta operación de Seguridad y acceso.'
+    });
+    http.expectOne(`${baseUrl}?institucionId=i1`).flush(
+      'Not Found', { status: 404, statusText: 'Not Found' }
+    );
+    await assertion;
   });
 });

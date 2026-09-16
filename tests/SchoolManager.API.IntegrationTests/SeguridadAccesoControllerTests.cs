@@ -40,6 +40,48 @@ public sealed class SeguridadAccesoControllerTests(SeguridadAccesoApiFactory fac
     }
 
     [Fact]
+    public async Task Administrador_explicito_lista_solo_usuarios_con_acceso_a_su_institucion()
+    {
+        using var client = factory.Cliente(factory.AdministradorA);
+        var response = await client.GetAsync(
+            $"/api/configuracion/seguridad/usuarios?institucionId={factory.InstitucionA}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var usuarios = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(JsonValueKind.Array, usuarios.ValueKind);
+        Assert.NotEmpty(usuarios.EnumerateArray());
+        Assert.DoesNotContain(usuarios.EnumerateArray(),
+            usuario => usuario.GetProperty("id").GetGuid() == factory.UsuarioDestinoId);
+        Assert.All(usuarios.EnumerateArray(), usuario =>
+        {
+            Assert.Equal(JsonValueKind.Array, usuario.GetProperty("roles").ValueKind);
+            Assert.True(usuario.GetProperty("identidadVinculada").GetBoolean());
+        });
+    }
+
+    [Fact]
+    public async Task Superadministrador_lista_directorio_global_para_gestionar_accesos()
+    {
+        using var client = factory.Cliente(factory.Superadmin);
+        var response = await client.GetAsync(
+            $"/api/configuracion/seguridad/usuarios?institucionId={factory.InstitucionA}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var usuarios = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Contains(usuarios.EnumerateArray(),
+            usuario => usuario.GetProperty("id").GetGuid() == factory.UsuarioDestinoId);
+    }
+
+    [Fact]
+    public async Task Admin_global_legacy_no_puede_consultar_directorio_de_usuarios()
+    {
+        using var client = factory.Cliente(factory.AdminGlobal);
+        var response = await client.GetAsync(
+            $"/api/configuracion/seguridad/usuarios?institucionId={factory.InstitucionA}");
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Admin_global_legacy_no_puede_usar_autoridad_institucional_implicita()
     {
         using var client = factory.Cliente(factory.AdminGlobal);
