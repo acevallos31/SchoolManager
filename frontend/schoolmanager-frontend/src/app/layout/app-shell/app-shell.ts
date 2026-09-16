@@ -73,13 +73,13 @@ export class AppShell implements OnDestroy {
       const extendido = usuario as UsuarioActualExtendido | null;
       this.nombrePerfil = extendido?.nombreCompleto?.trim() || '';
       this.actualizarNombreVisible();
-      this.instituciones = this.institucionesParaContexto(extendido);
+      this.instituciones = this.contextoInstitucion.institucionesVisibles();
       this.cdr.markForCheck();
     });
 
     this.contextoSubscription = this.contextoInstitucion.institucionActual$.subscribe(institucion => {
       this.institucionActual = institucion;
-      this.instituciones = this.contextoInstitucion.institucionesDisponibles();
+      this.instituciones = this.contextoInstitucion.institucionesVisibles();
       this.cdr.markForCheck();
     });
   }
@@ -118,7 +118,8 @@ export class AppShell implements OnDestroy {
   }
 
   get requiereSeleccionInstitucion(): boolean {
-    return this.instituciones.length > 1 && this.institucionActual === null;
+    const activas = this.instituciones.filter(institucion => institucion.activo !== false);
+    return activas.length > 1 && this.institucionActual === null;
   }
 
   mostrarItem(item: NavItem): boolean {
@@ -157,15 +158,5 @@ export class AppShell implements OnDestroy {
   private actualizarNombreVisible(): void {
     this.nombreUsuario = this.nombrePerfil || this.nombreSesion || 'Usuario';
     this.cdr.markForCheck();
-  }
-
-  private institucionesParaContexto(usuario: UsuarioActualExtendido | null): readonly InstitucionAcceso[] {
-    if (!usuario) return [];
-    const porId = new Map<string, InstitucionAcceso>();
-    const administrables = usuario.ambitoGlobal?.roles.includes('platform_admin')
-      ? usuario.institucionesAdministrables ?? [] : [];
-    for (const institucion of administrables) porId.set(institucion.id, institucion);
-    for (const institucion of usuario.instituciones ?? []) porId.set(institucion.id, institucion);
-    return [...porId.values()];
   }
 }
