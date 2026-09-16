@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 
 /**
  * E2E AUTENTICADO — requiere un entorno de STAGING controlado.
@@ -26,6 +26,43 @@ const EMAIL = process.env.E2E_USER_EMAIL;
 const PASSWORD = process.env.E2E_USER_PASSWORD;
 const STAGING = process.env.E2E_STAGING === '1';
 
+async function iniciarSesionConDiagnosticoSeguro(page: Page): Promise<void> {
+  let authTokenStatus: number | null = null;
+  let authMeStatus: number | null = null;
+
+  page.on('response', response => {
+    const url = new URL(response.url());
+    if (url.pathname.endsWith('/auth/v1/token')) {
+      authTokenStatus = response.status();
+    }
+    if (url.pathname.endsWith('/api/auth/me')) {
+      authMeStatus = response.status();
+    }
+  });
+
+  await page.goto('/login');
+  await page.locator('#correo').fill(EMAIL!);
+  await page.locator('#password').fill(PASSWORD!);
+  await page.getByRole('button', { name: 'Entrar al sistema' }).click();
+
+  try {
+    await expect(page.getByRole('button', { name: 'Cerrar sesión' })).toBeVisible({ timeout: 15000 });
+  } catch (error) {
+    const alerta = page.getByRole('alert');
+    const mensaje = (await alerta.count()) > 0
+      ? (await alerta.first().textContent())?.trim() || 'sin texto'
+      : 'sin alerta visible';
+    const ruta = new URL(page.url()).pathname;
+    throw new Error(
+      `Login E2E no completado: ruta=${ruta}; ` +
+      `authTokenStatus=${authTokenStatus ?? 'sin respuesta'}; ` +
+      `authMeStatus=${authMeStatus ?? 'sin solicitud'}; ` +
+      `ui=${mensaje}`,
+      { cause: error }
+    );
+  }
+}
+
 test.describe('autenticación y navegación protegida (staging)', () => {
   test.beforeEach(() => {
     const missing = [
@@ -41,13 +78,7 @@ test.describe('autenticación y navegación protegida (staging)', () => {
   });
 
   test('login correcto llega al dashboard y la sesión persiste en rutas protegidas', async ({ page }) => {
-    await page.goto('/login');
-
-    await page.locator('#correo').fill(EMAIL!);
-    await page.locator('#password').fill(PASSWORD!);
-    await page.getByRole('button', { name: 'Entrar al sistema' }).click();
-
-    await expect(page.getByRole('button', { name: 'Cerrar sesión' })).toBeVisible({ timeout: 15000 });
+    await iniciarSesionConDiagnosticoSeguro(page);
     await expect(page).toHaveURL(/\/dashboard$/);
 
     await page.goto('/alumnos');
@@ -56,12 +87,7 @@ test.describe('autenticación y navegación protegida (staging)', () => {
   });
 
   test('logout devuelve al login y limpia la sesión', async ({ page }) => {
-    await page.goto('/login');
-    await page.locator('#correo').fill(EMAIL!);
-    await page.locator('#password').fill(PASSWORD!);
-    await page.getByRole('button', { name: 'Entrar al sistema' }).click();
-
-    await expect(page.getByRole('button', { name: 'Cerrar sesión' })).toBeVisible({ timeout: 15000 });
+    await iniciarSesionConDiagnosticoSeguro(page);
     await page.getByRole('button', { name: 'Cerrar sesión' }).click();
 
     await expect(page.locator('form.login-form')).toBeVisible();
