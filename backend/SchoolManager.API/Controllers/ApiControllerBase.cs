@@ -80,19 +80,19 @@ public abstract class ApiControllerBase(NpgsqlDataSource dataSource) : Controlle
         new ObjectResult(new { error = MensajeError(ex) })
         {
             // P0001 (raise_exception generico) no se trata como 403: cae en el default.
-            // "SM001"/"SM003" son codigos de contexto de la implementacion (validacion
-            // de negocio) y se mapean a 400, igual que los codigos 22023/23503.
+            // Los codigos SM00x son validaciones de contexto/implementacion y deben
+            // conservar el contrato 400 aunque el mensaje mostrado sea normalizado.
             StatusCode = ex.SqlState switch
             {
                 "42501" => StatusCodes.Status403Forbidden,
                 "P0002" => StatusCodes.Status404NotFound,
                 "23505" or "23514" => StatusCodes.Status409Conflict,
-                "22023" or "23503" or "SM001" or "SM003" => StatusCodes.Status400BadRequest,
+                "22023" or "23503" or "SM001" or "SM002" or "SM003" or "SM004" => StatusCodes.Status400BadRequest,
                 _ => StatusCodes.Status400BadRequest
             }
         };
 
-    private static string MensajeError(PostgresException ex)
+    protected static string MensajeError(PostgresException ex)
     {
         if (!string.IsNullOrWhiteSpace(ex.ConstraintName) &&
             MensajesRestricciones.TryGetValue(ex.ConstraintName, out var mensaje))
@@ -100,9 +100,24 @@ public abstract class ApiControllerBase(NpgsqlDataSource dataSource) : Controlle
             return mensaje;
         }
 
-        // Los RAISE de las RPC ya usan mensajes de negocio y normalmente no
-        // incluyen ConstraintName. Se conservan tal cual; solo se oculta el
-        // detalle tecnico de restricciones conocidas que PostgreSQL genera.
-        return ex.MessageText ?? "Error en base de datos";
+        // Nunca devolver el MessageText generado por PostgreSQL para errores
+        // estructurales: puede contener nombres de tablas, constraints o detalle
+        // interno. Los P0001 sí proceden de RAISE EXCEPTION controlados por nuestras
+        // RPC y conservan su mensaje de negocio intencional.
+        return ex.SqlState switch
+        {
+            "42501" => "No tienes permiso para realizar esta operación.",
+            "P0002" => "No se encontró el recurso solicitado.",
+            "23505" => "Ya existe un registro que entra en conflicto con los datos ingresados.",
+            "23514" => "Los datos ingresados no cumplen una regla de negocio.",
+            "22023" => "Los datos enviados no son válidos para esta operación.",
+            "23503" => "La operación hace referencia a datos inexistentes o que no están disponibles.",
+            "SM001" => "Falta la configuración requerida para completar la operación.",
+            "SM002" => "La configuración institucional actual es inconsistente.",
+            "SM003" => "Debes seleccionar una institución válida para continuar.",
+            "SM004" => "La operación no es válida para la configuración institucional actual.",
+            "P0001" => ex.MessageText,
+            _ => "No se pudo completar la operación solicitada."
+        };
     }
 }
