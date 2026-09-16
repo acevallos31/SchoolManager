@@ -1,5 +1,5 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { Component, inject, OnInit, PLATFORM_ID } from '@angular/core';
+import { ChangeDetectorRef, Component, inject, OnInit, PLATFORM_ID } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthAppError, AuthService } from '../../core/services/auth';
@@ -25,7 +25,8 @@ export class Login implements OnInit {
   constructor(
     private auth: AuthService,
     private oauth: OAuthProviderService,
-    private router: Router
+    private router: Router,
+    private readonly cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -53,6 +54,9 @@ export class Login implements OnInit {
       await this.router.navigate([ruta ?? '/acceso-pendiente']);
     } catch (error: unknown) {
       this.error = this.obtenerMensajeError(error);
+      // En modo zoneless, una mutación de campo después de un await no programa
+      // por sí sola un render. Publicamos el error antes de cualquier cleanup.
+      this.cdr.markForCheck();
 
       try {
         await this.auth.logout();
@@ -64,6 +68,7 @@ export class Login implements OnInit {
       }
     } finally {
       this.cargando = false;
+      this.cdr.markForCheck();
     }
   }
 
@@ -89,8 +94,10 @@ export class Login implements OnInit {
       }
     } catch (error: unknown) {
       this.error = this.obtenerMensajeError(error);
+      this.cdr.markForCheck();
     } finally {
       this.proveedorCargando = null;
+      this.cdr.markForCheck();
     }
   }
 

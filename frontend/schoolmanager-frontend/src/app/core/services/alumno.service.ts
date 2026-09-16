@@ -1,6 +1,7 @@
-import { inject, Injectable } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { environment } from '../../environments/environment';
+import { ContextoInstitucionService } from './contexto-institucion.service';
 
 export interface MatriculaActualAlumno {
   id: string;
@@ -58,11 +59,14 @@ export class AlumnoServiceError extends Error {
 export class AlumnoService {
   private readonly baseUrl = `${environment.apiUrl}/alumnos`;
 
-  constructor(private readonly http: HttpClient) {}
+  constructor(
+    private readonly http: HttpClient,
+    private readonly contextoInstitucion: ContextoInstitucionService
+  ) {}
 
   listar(): Promise<AlumnoListado[]> {
     return this.http
-      .get<AlumnoListado[]>(this.baseUrl)
+      .get<AlumnoListado[]>(this.baseUrl, { params: this.parametrosContexto() })
       .toPromise()
       .then(items => (items ?? []) as AlumnoListado[])
       .catch(err => Promise.reject(this.mapError(err)));
@@ -72,6 +76,8 @@ export class AlumnoService {
    *  antes de devolver filas. Evita descargar todos los alumnos. */
   buscarPaginado(filtro: FiltroAlumnos = {}): Promise<PaginatedAlumnos> {
     const params = new Map<string, string>();
+    const institucionId = this.contextoInstitucion.institucionActual()?.id;
+    if (institucionId) params.set('institucionId', institucionId);
     if (filtro.termino) params.set('termino', filtro.termino);
     if (filtro.estado) params.set('estado', filtro.estado);
     if (filtro.page) params.set('page', String(filtro.page));
@@ -136,6 +142,11 @@ export class AlumnoService {
       .toPromise()
       .then(() => undefined)
       .catch(err => Promise.reject(this.esAlumnoError(err) ? err : this.mapError(err)));
+  }
+
+  private parametrosContexto(): Record<string, string> {
+    const institucionId = this.contextoInstitucion.institucionActual()?.id;
+    return institucionId ? { institucionId } : {};
   }
 
   private nullIfBlank(value: string | null): string | null {

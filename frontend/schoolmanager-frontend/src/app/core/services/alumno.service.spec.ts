@@ -1,9 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideHttpClient } from '@angular/common/http';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { environment } from '../../environments/environment';
 import { AlumnoService, AlumnoServiceError } from './alumno.service';
+import { ContextoInstitucionService } from './contexto-institucion.service';
 
 const BASE = `${environment.apiUrl}/alumnos`;
 
@@ -22,10 +23,16 @@ const ALUMNO = {
 describe('AlumnoService', () => {
   let service: AlumnoService;
   let http: HttpTestingController;
+  let contexto: { institucionActual: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
+    contexto = { institucionActual: vi.fn().mockReturnValue(null) };
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting()]
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: ContextoInstitucionService, useValue: contexto }
+      ]
     });
     service = TestBed.inject(AlumnoService);
     http = TestBed.inject(HttpTestingController);
@@ -98,6 +105,15 @@ describe('AlumnoService', () => {
     expect(alumnos[0]).toMatchObject({ nombreCompleto: 'Ana López', identidad: '0801', matriculaActual: null });
   });
 
+  it('listar envía la institución seleccionada cuando existe contexto explícito', async () => {
+    contexto.institucionActual.mockReturnValue({ id: 'i1' });
+    const promesa = service.listar();
+    const req = http.expectOne(`${BASE}?institucionId=i1`);
+    expect(req.request.method).toBe('GET');
+    req.flush([ALUMNO]);
+    await expect(promesa).resolves.toHaveLength(1);
+  });
+
   it('listar preserva matriculaActual y codigoInterno de la respuesta', async () => {
     const promesa = service.listar();
     http.expectOne(BASE).flush([{
@@ -139,11 +155,21 @@ describe('AlumnoService', () => {
     expect(r.totalPages).toBe(5);
   });
 
-  it('buscarPaginado sin filtros no envía query params', async () => {
+  it('buscarPaginado combina contexto institucional y filtros', async () => {
+    contexto.institucionActual.mockReturnValue({ id: 'i1' });
+    const promesa = service.buscarPaginado({ page: 1, pageSize: 10 });
+    const req = http.expectOne(`${BASE}?institucionId=i1&page=1&pageSize=10`);
+    expect(req.request.method).toBe('GET');
+    req.flush({ items: [ALUMNO], page: 1, pageSize: 10, totalItems: 1, totalPages: 1 });
+    await expect(promesa).resolves.toMatchObject({ totalItems: 1 });
+  });
+
+  it('buscarPaginado sin filtros no envía query params ajenos al paginado', async () => {
     const promesa = service.buscarPaginado({ page: 1, pageSize: 10 });
     const req = http.expectOne(`${BASE}?page=1&pageSize=10`);
     expect(req.request.params.has('termino')).toBe(false);
     expect(req.request.params.has('estado')).toBe(false);
+    expect(req.request.params.has('institucionId')).toBe(false);
     req.flush({ items: [], page: 1, pageSize: 10, totalItems: 0, totalPages: 0 });
     await promesa;
   });
