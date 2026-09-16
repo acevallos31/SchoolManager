@@ -1,10 +1,9 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 import { defineConfig } from '@playwright/test';
 import { assertAllowedStagingUrl } from './staging-safety';
 
-const e2eDir = dirname(fileURLToPath(import.meta.url));
+const e2eDir = __dirname;
 const repoRoot = resolve(e2eDir, '..');
 const localEnvPath = resolve(repoRoot, '.env.e2e.local');
 
