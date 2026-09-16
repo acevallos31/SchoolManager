@@ -64,6 +64,21 @@ jobs:
       - name: Levantar staging local desechable
         run: python3 scripts/e2e/bootstrap-local-staging.py start
 
+      - name: Diagnosticar Supabase local si no levanta
+        if: ${{ failure() }}
+        shell: bash
+        run: |
+          echo '=== Contenedores Supabase ==='
+          docker ps -a --filter 'name=supabase_' --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' || true
+          echo '=== Errores seguros de Postgres ==='
+          db_container="$(docker ps -a --filter 'name=supabase_db_' --format '{{.Names}}' | head -n 1)"
+          if [ -n "$db_container" ]; then
+            docker logs "$db_container" 2>&1 \
+              | grep -Ei 'ERROR|FATAL|PANIC|migration|syntax|duplicate|violat|does not exist|permission denied|failed' \
+              | tail -n 120 \
+              | sed -E 's/(password|secret|token|key)=?[^ ,;]*/\1=[REDACTED]/Ig' || true
+          fi
+
       - name: Sembrar identidades y roles E2E
         run: python3 scripts/e2e/seed-local-staging.py seed
 
