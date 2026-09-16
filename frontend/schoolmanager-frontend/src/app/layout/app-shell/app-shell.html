@@ -31,8 +31,8 @@
           (change)="seleccionarInstitucion($event)">
           <option value="" disabled>Selecciona una institución</option>
           @for (institucion of instituciones; track institucion.id) {
-            <option [value]="institucion.id">
-              {{ institucion.nombreCorto || institucion.nombre }}
+            <option [value]="institucion.id" [disabled]="institucion.activo === false">
+              {{ institucion.nombreCorto || institucion.nombre }}{{ institucion.activo === false ? ' · Inactiva' : '' }}
             </option>
           }
         </select>
