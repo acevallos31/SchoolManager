@@ -267,16 +267,20 @@
                       <td>
                         @if (usuario.activo && rolesAsignables(usuario).length > 0) {
                           <div class="role-assignment-form">
-                            <select
-                              class="sm-input"
-                              [name]="'rolUsuario-' + usuario.id"
-                              [(ngModel)]="rolPorUsuario[usuario.id]"
-                              [disabled]="guardando">
-                              <option value="">Seleccionar rol...</option>
-                              @for (rolDisponible of rolesAsignables(usuario); track rolDisponible.id) {
-                                <option [value]="rolDisponible.id">{{ rolDisponible.nombre }}</option>
-                              }
-                            </select>
+                            <div class="sm-field">
+                              <label class="sm-label" [for]="'rolUsuario-' + usuario.id">Rol</label>
+                              <select
+                                class="sm-input"
+                                [id]="'rolUsuario-' + usuario.id"
+                                [name]="'rolUsuario-' + usuario.id"
+                                [(ngModel)]="rolPorUsuario[usuario.id]"
+                                [disabled]="guardando">
+                                <option value="">Seleccionar rol...</option>
+                                @for (rolDisponible of rolesAsignables(usuario); track rolDisponible.id) {
+                                  <option [value]="rolDisponible.id">{{ rolDisponible.nombre }}</option>
+                                }
+                              </select>
+                            </div>
                             <button
                               type="button"
                               class="sm-btn sm-btn--primary sm-btn--sm"
