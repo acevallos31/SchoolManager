@@ -1,6 +1,6 @@
 # Deuda técnica registrada — SchoolManager
 
-Estado consolidado después del Bloque 042 / PR #97, actualizado el 2026-09-16.
+Estado consolidado después de los Bloques 042, 043A y 043B, actualizado el 2026-09-16.
 Este archivo enumera únicamente deuda técnica **real y verificable**. El historial
 de deudas cerradas se conserva al final para no volver a abrir problemas ya
 resueltos.
@@ -10,14 +10,18 @@ resueltos.
 
 ## Estado base verificado
 
-- `main`: merge commit `20bea4f9dd346836205620dce2add6f60d17b372` (PR #97).
+- Base funcional verificada antes de este cierre documental: merge
+  `e46c01343f3ac9ace3fbce29ca8ba4237ffc156f` (PR #100), precedido por
+  `d622a1f50f3e78b00a9e83f2ae3d80c574e80a5a` (PR #99).
 - Migraciones activas del repositorio: `001` → `039`.
-- Producción: `schema_migrations` contiene `baseline-001-fase1a` y las migraciones
-  numéricas `007` → `039`.
-- Configuración actual de producción: `multiples_instituciones = false`, una
-  institución activa y un `platform_admin` activo.
+- Última verificación read-only de producción: `schema_migrations` contiene
+  `baseline-001-fase1a` y las migraciones numéricas `007` → `039`.
+- Configuración observada en esa verificación: `multiples_instituciones = false`,
+  una institución activa y un `platform_admin` activo.
 - Arquitectura vigente: Angular → API .NET → PostgreSQL/Supabase/RPC; Supabase
   directo en frontend queda reservado a Auth.
+- CI de 043A y 043B terminó verde, incluyendo Sonar Quality Gate. Las actions
+  oficiales migradas en 043B ya usan releases con runtime Node 24 fijadas por SHA.
 
 ---
 
@@ -38,44 +42,6 @@ resueltos.
   contexto seguro de ruta/usuario cuando aplique, y una estrategia de métricas
   y alertas que no exponga datos sensibles.
 - **Referencia:** `docs/observabilidad.md`.
-
-### #11. Mapeo seguro y amigable de errores de negocio
-
-- **Estado:** PARCIAL. Implementación candidata preparada en PR #99, todavía sin
-  merge a `main`.
-- **Evidencia en `main`:** `ApiControllerBase` centraliza `ToError` y traduce
-  múltiples constraints conocidas (`23505`, `23514`, etc.) a mensajes de
-  negocio. Sin embargo, cuando una constraint no está en
-  `MensajesRestricciones`, `MensajeError` devuelve
-  `PostgresException.MessageText`; por tanto aún puede llegar texto técnico de
-  PostgreSQL a la UI.
-- **Riesgo:** mensajes inconsistentes, acoplamiento accidental a detalles de DB
-  y posible exposición de información técnica innecesaria.
-- **Prioridad:** Media-Alta por ser un cambio pequeño y transversal.
-- **Criterio de cierre:** mantener PostgreSQL/RPC como autoridad, conservar los
-  status 400/403/404/409 y usar fallback seguro por familia de error; agregar
-  tests que demuestren que no se muestra texto técnico no controlado.
-
-### #12. GitHub Actions — migrar actions oficiales que aún apuntan a Node.js 20
-
-- **Estado:** ABIERTA.
-- **Evidencia:** los runs actuales de CI muestran el warning de GitHub
-  `Node.js 20 is deprecated` y enumeran `actions/checkout@v4`,
-  `actions/setup-dotnet@v4`, `actions/setup-node@v4`,
-  `actions/upload-artifact@v4` y, en el job Sonar,
-  `actions/download-artifact@v4`. GitHub está forzándolas temporalmente a
-  ejecutarse con Node.js 24.
-- **Estado upstream verificado 2026-09-16:** existen releases oficiales con
-  runtime Node 24 para reemplazar esos majors antiguos (`checkout` v7,
-  `setup-dotnet` v6, `setup-node` v7, `upload-artifact` v7 y
-  `download-artifact` v8).
-- **Riesgo:** depender del modo de compatibilidad temporal del runner; futura
-  rotura del workflow cuando GitHub retire ese puente, además de mantener
-  dependencias de Actions obsoletas.
-- **Prioridad:** Media-Alta por afectar el pipeline que protege todos los PR.
-- **Criterio de cierre:** actualizar las actions oficiales a versiones con
-  runtime Node 24, preferiblemente fijadas de forma reproducible, ejecutar el
-  workflow completo y confirmar que desaparece el warning sin debilitar gates.
 
 ### #13. E2E autenticado completo en staging seguro
 
@@ -155,6 +121,29 @@ cobertura sigue siendo deseable, pero ya no es una deuda sin control.
 PR #53 fue fusionado a `main` (`61f77362ecc1830cccbf8e11d6a3b3ef1a414ce9`).
 Los módulos de negocio del frontend pasan por la API .NET; `auth.ts` conserva
 Supabase Auth como excepción deliberada.
+
+### #11. Mapeo seguro y amigable de errores de negocio — RESUELTA
+
+PR #99 (`d622a1f50f3e78b00a9e83f2ae3d80c574e80a5a`) cerró el fallback que
+podía exponer `PostgresException.MessageText` para errores no reconocidos.
+`ApiControllerBase` conserva mensajes específicos para constraints conocidas,
+normaliza familias/SQLSTATE con fallback seguro y mantiene la semántica HTTP
+400/403/404/409. `P0001` conserva el mensaje de negocio controlado por las RPC.
+Se agregaron pruebas específicas para errores conocidos, desconocidos y fallback.
+
+### #12. GitHub Actions sobre runtime Node 24 — RESUELTA
+
+PR #100 (`e46c01343f3ac9ace3fbce29ca8ba4237ffc156f`) migró las actions oficiales
+que todavía apuntaban a Node.js 20 hacia releases con runtime Node 24, fijadas por
+SHA: `checkout` v7.0.1, `setup-dotnet` v6.0.0, `setup-node` v7.0.0,
+`upload-artifact` v7.0.1 y `download-artifact` v8.0.1. El CI completo y Sonar
+Quality Gate pasaron; upload/download de coberturas funcionó y desapareció el
+warning específico `Node.js 20 is deprecated` para esas actions.
+
+> Nota: `download-artifact` v8.0.1 puede emitir un warning upstream distinto,
+> `DEP0005 Buffer() is deprecated`. No es el warning de runtime Node 20 que
+> motivó 043B y no rompe el workflow; si persiste en futuras releases se evalúa
+> como dependencia upstream, no como reapertura automática de #12.
 
 ### Hallazgos `High` históricos de Sonar — RESUELTOS
 
