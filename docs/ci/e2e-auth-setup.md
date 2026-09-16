@@ -1,77 +1,105 @@
-# E2E autenticado seguro (staging) — Bloque 029
+# E2E autenticado seguro — staging aislado
 
-> **Acción humana requerida para el E2E autenticado.** La parte *no
-> autenticada* (smoke del login) ya está lista y corre en local sin
-> credenciales. El E2E *autenticado* necesita un entorno de staging controlado
-> que NO se puede provisionar desde el repo ni contra producción.
+El E2E autenticado de SchoolManager se ejecuta únicamente contra un entorno de
+staging explícito. Producción queda fuera de alcance: no se usan usuarios reales,
+no se escriben datos reales y no existe un bypass para ejecutar la suite sobre
+los hosts productivos conocidos.
 
-## Lo que ya funciona (sin credenciales)
+## Foundation 044A
 
-El harness Playwright vive en `e2e/`, aislado del frontend Angular:
+La primera capa ya está preparada en código:
+
+- Angular dispone de configuración `staging` separada de `production`.
+- `npm run prepare:staging` genera `environment.staging.ts` desde variables de
+  entorno y un manifest público `e2e-runtime.staging.json`.
+- Los dos archivos generados están ignorados por Git y no contienen secretos
+  versionados.
+- El generador bloquea hosts conocidos de producción y solo acepta localhost o
+  hosts añadidos explícitamente a `E2E_ALLOWED_HOSTS`.
+- Playwright usa la misma política de allowlist para `E2E_BASE_URL`.
+- Cuando `E2E_STAGING=1`, `global-setup.ts` consulta el manifest que realmente
+  sirve el frontend y valida también `supabaseUrl` y `apiUrl` antes de ejecutar
+  cualquier login.
+- CI construye la configuración staging con valores locales inertes, valida el
+  manifest y después construye producción verificando que el manifest E2E no se
+  publique en el artefacto productivo.
+
+Esto cierra el vacío anterior donde un frontend servido desde localhost podía
+seguir llevando URLs productivas embebidas.
+
+## Variables para preparar el frontend staging
+
+```bash
+cd frontend/schoolmanager-frontend
+
+E2E_SUPABASE_URL=http://127.0.0.1:54321 \
+E2E_SUPABASE_PUBLISHABLE_KEY='<publishable-key-del-staging>' \
+E2E_API_URL=http://127.0.0.1:5000/api \
+npm run prepare:staging
+
+npm run build -- --configuration staging
+```
+
+Para un staging remoto controlado, agrega sus hostnames explícitamente:
+
+```bash
+E2E_ALLOWED_HOSTS='staging.example.com,api-staging.example.com,proyecto-staging.supabase.co'
+```
+
+Los hosts productivos conocidos de SchoolManager siguen bloqueados aunque se
+intenten incluir en esa variable.
+
+## Smoke público
+
+El smoke no autenticado puede ejecutarse sin credenciales:
 
 ```bash
 cd e2e
-npm install
+npm ci
 npx playwright install chromium
-E2E_BASE_URL=http://localhost:4200 npm test        # smoke público (/login)
+E2E_BASE_URL=http://127.0.0.1:4200 npm test
 ```
 
-El spec `smoke.spec.ts` valida que el SPA arranca, sirve `/login` y renderiza el
-formulario de acceso. No usa Supabase Auth ni datos, por lo que es seguro contra
-cualquier build local.
+Sin `E2E_STAGING=1`, `global-setup.ts` no exige el manifest porque el smoke
+público no autentica ni modifica datos.
 
-**Guardrails de seguridad integrados** (no opcionales):
-- `playwright.config.ts` **aborta todo el run** si `E2E_BASE_URL` apunta a un
-  host de producción (`onrender.com`, `vercel.app`, `supabase.co`), salvo que se
-  fuerce con `E2E_ALLOW_PROD=1` (explícitamente no recomendado).
-- `auth.spec.ts` solo se activa con `E2E_STAGING=1` + credenciales; si falta
-  algo, se **skipea** (nunca falso-verde).
+## E2E autenticado
 
-## Qué se necesita para activar el E2E autenticado (acciones humanas)
-
-El E2E autenticado (`auth.spec.ts`) exige un **entorno de staging controlado**,
-porque la app por defecto (entornos commiteados) apunta a Supabase de producción
-`pzhcpdznjoyukbhhodjz.supabase.co` — y autenticar ahí tocaría producción, lo que
-está prohibido.
-
-1. **Proyecto Supabase de staging** (no el de producción): puede ser un proyecto
-   nuevo de Supabase cloud o `supabase start` local (Docker).
-   - Aplica el esquema y **siembra SOLO datos de prueba** (ciclos, alumnos,
-     planes, un usuario con los permisos de la demo).
-   - Anota `SUPABASE_URL` y una clave publicable de staging. En Vercel puedes\n     guardarla como `SUPABASE_PUBLISHABLE_KEY` (preferido) o\n     `SUPABASE_ANON_KEY` (nombre compatible).
-2. **Backend .NET de staging** apuntando a ese Supabase (variables de entorno de
-   la API: conexión/URL Supabase). Cualquiera de los dos:
-   - Backend local (`dotnet run`) con `SUPABASE_URL`/`SUPABASE_ANON_KEY` del
-     staging.
-   - Deploy de preview en Render/Vercel apuntando al staging (sin tocar el
-     servicio de producción `schoolmanager-xdxx`).
-3. **Build del frontend apuntando a staging**: añade
-   `src/environments/environment.staging.ts` (con URL/anon key del staging) y
-   construye con `--configuration staging`, o edita `environment.ts` solo en un
-   clone de staging (nunca commitees secretos: `.gitignore` ya cubre
-   `**/environment.secret.ts`).
-4. **Credenciales de prueba**: crea un usuario de prueba en el staging (rol con
-   permisos `academico.*`, `configuracion.*`) y pásalo vía env:
-   `E2E_USER_EMAIL`, `E2E_USER_PASSWORD`.
-
-Luego ejecutas:
+Requiere un Supabase/Auth y backend de staging reales, además de un usuario de
+prueba. Nunca usar las credenciales de producción.
 
 ```bash
+cd e2e
+
 E2E_STAGING=1 \
-E2E_BASE_URL=http://localhost:4200 \
-E2E_USER_EMAIL=admin.demo@example.com \
+E2E_BASE_URL=http://127.0.0.1:4200 \
+E2E_USER_EMAIL='admin.e2e@example.test' \
 E2E_USER_PASSWORD='...' \
-npm test --prefix e2e
+npm test
 ```
 
-`auth.spec.ts` cubre: login correcto → dashboard → navegación a `/alumnos`,
-logout → vuelta al login, y redirección de ruta protegida sin sesión.
+Antes de ejecutar los specs autenticados, Playwright exige que el frontend
+publique `/e2e-runtime.staging.json` con `environment=staging`,
+`production=false` y URLs de Supabase/API permitidas.
 
-## Por qué no se corre el E2E autenticado ahora
+## Estrategia sin costo adicional
 
-No existe staging provisionado, no hay credenciales de prueba y está prohibido
-escribir datos de prueba en producción. El harness y los guardrails están
-completos y verificados; el smoke público se ejecutó con éxito en local
-(detalles en `docs/handoffs/029-calidad-sonar-e2e.md`). El E2E autenticado queda
-listo para activarse en cuanto se provisione el staging con las acciones
-anteriores.
+El camino preferido para 044 es un staging efímero en el runner o en la máquina
+local: Supabase local mediante Docker/CLI, API .NET local y frontend Angular
+staging local. Así no hace falta crear un segundo proyecto cloud para comenzar.
+
+Un proyecto Supabase o servicio remoto dedicado puede incorporarse más adelante
+para pruebas manuales persistentes, pero debe mantenerse completamente separado
+de producción y cualquier costo debe aprobarse antes de provisionarlo.
+
+## Lo que todavía falta después de 044A
+
+1. Arranque seguro del backend con `ASPNETCORE_ENVIRONMENT=Staging`, incluyendo
+   fail-fast si Jwt/DB apuntan a producción.
+2. Supabase local/staging con migraciones 001→039 y datos exclusivamente de
+   prueba.
+3. Seed idempotente de instituciones, usuarios y datos mínimos de negocio.
+4. Activar los casos autenticados y de aislamiento institucional.
+5. Workflow manual/nightly con artifacts de Playwright.
+
+El plan completo sigue en `docs/testing/e2e-staging-plan.md`.
