@@ -40,7 +40,7 @@ No se hará una revocación masiva sobre las RPC históricas. La auditoría tran
   - `ix_invitaciones_acceso_persona_id`;
   - `ix_invitaciones_acceso_usuario_id`;
   - `ix_invitaciones_acceso_rol_id`;
-  - `ix_invitaciones_acceso_solicitada_por` (parcial para valores no nulos);
+  - `ix_invitaciones_acceso_solicitada_por`;
 - registra `041` en `schema_migrations`.
 
 Se incluye rollback que restaura el contrato de permisos de 040 y elimina únicamente los cuatro índices de 041.
