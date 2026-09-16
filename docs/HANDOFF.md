@@ -1,154 +1,137 @@
-# HANDOFF — Producción alineada hasta migración 026
+# HANDOFF — cierre post-042 y deuda técnica consolidada
 
 ## Fecha
-2026-09-09 (UTC-6).
+2026-09-16 (UTC-6).
 
-## Rama de documentación
-`docs/cierre-prod-019-025`
+## Base verificada
 
-## Estado general
-Producción quedó alineada con el esquema esperado por `main` hasta la migración 026.
-El incidente de permisos/carga de `/configuracion/estructura-academica` quedó resuelto.
-La rematrícula tras anulación quedó corregida y validada funcionalmente en producción.
+- `main`: `20bea4f9dd346836205620dce2add6f60d17b372`.
+- PR #97 `feat(rbac): 042 - roles dinámicos institucionales y Superadministrador`: **MERGEADO**.
+- CI/CD run #656 sobre `main`: **SUCCESS**.
+- Render desplegó el mismo commit y quedó `live`.
+- Vercel reportó deployment `success` para el mismo commit.
+- Rama de esta actualización documental: `docs/deuda-tecnica-post-042`.
 
-## Qué ocurrió
-El frontend/backend ya consumían contratos y permisos introducidos después de la migración 018, pero la base de datos de producción seguía detenida en 018.
+## Estado real de producción
 
-Esto provocaba en Estructura Académica:
-- `No tienes permiso para realizar esta operación`;
-- listado de grados vacío;
-- comportamiento inconsistente entre código desplegado y esquema real.
+La verificación read-only del 2026-09-16 confirma:
 
-Posteriormente se detectó otro problema funcional en Matrículas: una fila anulada seguía ocupando la unicidad global `(alumno_id, ciclo_id)` y bloqueaba una nueva matrícula en el mismo ciclo.
+- `schema_migrations` contiene `baseline-001-fase1a`;
+- migraciones numéricas registradas `007` → `039`;
+- `multiples_instituciones = false`;
+- exactamente 1 institución activa;
+- exactamente 1 asignación activa de `platform_admin`.
 
-## Auditoría previa
-Se confirmó en producción que:
-- `schema_migrations` llegaba únicamente hasta 018;
-- 019→025 no estaban registradas;
-- tampoco existían físicamente sus objetos principales;
-- el gate de datos de 020 no tenía conflictos:
-  - 1 institución activa;
-  - 0 grados huérfanos;
-  - 0 jornadas huérfanas;
-  - 0 grados compartidos;
-  - 0 jornadas compartidas;
-  - 0 duplicados por institución.
+Durante esta actualización documental no se ejecutaron migraciones ni escrituras
+en Supabase/producción.
 
-## Backup
-Antes de aplicar 019→025 se generó backup restorable del schema `public` con PostgreSQL 17 `pg_dump`.
-No restaurar sobre producción salvo incidente real y procedimiento explícito.
+## Bloque 042 — estado cerrado
 
-## PR #60 — validaciones de migraciones
-Mergeado en `main`:
-- merge SHA: `0ede6ff9a5d9f9ff69da3f1e0a693ce89c304d59`;
-- añade validaciones faltantes de 019 y 022;
-- fortalece `MigrationTests` para exigir relación 1:1 migración/rollback/validation;
-- CI run #287: verde;
-- Sonar Quality Gate: verde;
-- no se bajaron thresholds ni se excluyeron validaciones.
+Quedó integrado en `main`:
 
-## Migraciones aplicadas a producción
-Se ejecutaron 019→025 una por una con PostgreSQL 17 `psql`, `ON_ERROR_STOP=1`, deteniéndose después de cada una para validar:
-
-1. `019_cargos_mensualidades_obligaciones.sql` — COMMIT — validación: 0 hallazgos.
-2. `020_grados_jornadas_multiinstitucion.sql` — COMMIT — validación: 0 hallazgos.
-3. `021_pagos_cobranza.sql` — COMMIT — validación: 0 hallazgos.
-4. `022_portal_responsable_lectura.sql` — COMMIT — validación: 0 hallazgos.
-5. `023_rbac_permisos_aplicacion_ciclos.sql` — COMMIT — validación: 0 hallazgos.
-6. `024_rbac_permisos_aplicacion_estructura.sql` — COMMIT — validación: 0 hallazgos.
-7. `025_fix_unicidad_grados_jornadas_institucion.sql` — COMMIT — validación: 0 hallazgos.
-
-Después del merge del PR #63 se aplicó:
-
-8. `026_permitir_rematricula_tras_anulacion.sql` — aplicada — validación: 0 hallazgos.
-
-## PR #62 — navegación y UX
-Mergeado en `main`:
-- merge SHA: `d08235132b4c3c0f8b84d3bd8f8560bdbd49fdf5`;
-- Ciclos Escolares y Estructura Académica visibles desde AppShell según permisos;
-- Cargos/Pagos con selector de alumno y preservación de `?alumnoId=...`;
-- fixes zoneless en Cargos, Pagos y Matrículas;
-- errores de Matrículas dentro del formulario/modal activo;
-- validación manual confirmó que los alumnos cargan de forma consistente en los selectores;
-- CI y Sonar Quality Gate verdes antes del merge.
-
-## PR #63 — rematrícula tras anulación
-Mergeado en `main`:
-- merge SHA: `e51188b032c31a8f8dcff42a32e7d3b4b4b06893`;
-- migración 026;
-- reemplaza la restricción UNIQUE global de matrícula alumno+ciclo por índice UNIQUE parcial con el mismo nombre `uq_matriculas_alumno_ciclo`;
-- predicado: `estado <> 'anulada'`;
-- una matrícula anulada libera alumno+ciclo para una nueva matrícula;
-- una matrícula no anulada sigue bloqueando duplicados;
-- añade `ix_matriculas_alumno` para historial completo;
-- rollback seguro: aborta si revertir implicaría perder consistencia;
-- validation 026 + tests específicos;
-- CI run #317 completamente verde, incluidos tests DB y Sonar Quality Gate.
-
-## Resultado funcional
-Después de refrescar sesión/login:
-- `/configuracion/estructura-academica` carga correctamente;
-- desapareció el mensaje de falta de permiso;
-- los datos académicos vuelven a mostrarse;
-- no se observaron errores visibles en la prueba manual.
-
-Pruebas manuales de 026 en producción:
-- matrícula previa `anulada` -> nueva matrícula en el mismo ciclo: permitida;
-- matrícula `activa` -> nueva matrícula en el mismo ciclo: bloqueada;
-- matrícula `finalizada` -> nueva matrícula en el mismo ciclo: bloqueada.
-
-La regla queda: solo `anulada` libera alumno+ciclo; `pendiente`, `activa`, `finalizada`, `retirada` y `trasladada` siguen protegidas por la unicidad parcial.
-
-## Estado de producción
-```text
-001-018  ya aplicadas previamente
-019      aplicada + validada
-020      aplicada + validada
-021      aplicada + validada
-022      aplicada + validada
-023      aplicada + validada
-024      aplicada + validada
-025      aplicada + validada
-026      aplicada + validada
-```
-
-## Puntos importantes
-- 025 corrige el residual histórico de unicidad global de grados/jornadas que 020 no cubría para todos los nombres de constraints legacy.
-- La unicidad final de grados/jornadas es por institución con índices:
-  - `ux_grados_institucion_nombre`;
-  - `ux_jornadas_institucion_nombre`;
-  ambos `UNIQUE` sobre `(institucion_id, lower(btrim(nombre)))`.
-- 023/024 agregan permisos de aplicación para ciclos y estructura.
-- 026 conserva historial de matrícula y cambia únicamente la regla de unicidad para el estado `anulada`.
-- La capa interna DB conserva permisos `configuracion.*`; no mezclar con namespaces de aplicación sin una decisión explícita de arquitectura.
+- roles institucionales dinámicos;
+- rol global protegido `platform_admin`;
+- autoridad institucional estricta e aislamiento entre instituciones;
+- crear/clonar/editar/desactivar roles institucionales;
+- reemplazar permisos de un rol;
+- asignar y retirar roles de usuarios;
+- protección del último administrador institucional y del último
+  Superadministrador;
+- API `/api/configuracion/seguridad`;
+- UI **Configuración → Seguridad y acceso**;
+- directorio de usuarios existentes con búsqueda, estado, identidad vinculada y
+  roles de la institución activa;
+- `platform_admin` puede consultar el directorio global manteniendo las
+  asignaciones institucionales filtradas por el contexto operativo;
+- compatibilidad real con modo monoinstitución y multiinstitución;
+- selector de institución en AppShell cuando hay varios contextos visibles;
+- resolución automática de la única institución en modo single;
+- persistencia del contexto por usuario;
+- migración 039 como puente canónico entre permisos de aplicación
+  `academico.*` y aliases internos históricos `configuracion.*`.
 
 ## Arquitectura vigente
-- Angular -> API .NET -> PostgreSQL/Supabase/RPC.
-- Supabase directo en frontend únicamente para Auth (`auth.ts`).
-- Deuda #10 de Supabase directo de negocio: resuelta en Bloque 030 / PR #53.
+
+- Angular → API .NET → PostgreSQL/Supabase/RPC.
+- Supabase directo en frontend únicamente para autenticación (`auth.ts`).
 - `PermissionGuard` es el guard vigente.
 - `AdminGuard`/`PadreGuard` no deben reintroducirse.
-- `/portal-padre` sigue fuera del AppShell administrativo y es read-only.
+- Autorización .NET y RLS/RPC siguen siendo capas separadas.
+- Los roles institucionales son dinámicos; los permisos de plataforma no son
+  delegables a una institución.
+- `Persona` y `Usuario` son identidades globales; las asignaciones de rol pueden
+  tener ámbito institucional.
 
-## Deuda técnica pendiente
-- Mensajes de error de negocio amigables: algunos conflictos `23505` todavía muestran texto crudo de PostgreSQL en UI.
-- Auditoría de issues `High` del Overall Code en Sonar.
-- E2E autenticado completo en staging seguro.
-- Selector global multiinstitución.
-- Revisión futura de divergencia de namespaces de permisos app/DB.
-- Observabilidad adicional si se necesita trazabilidad más allá de `/health` y `/health/ready`.
+## Deuda técnica realmente abierta
 
-## Próximos pasos
-1. Mejorar mapeo de errores de negocio sin debilitar las invariantes DB.
-2. Auditar issues `High` históricos de Sonar.
-3. Preparar/ejecutar E2E autenticado en staging seguro.
-4. Más adelante: selector global multiinstitución y observabilidad adicional.
+1. **Errores de negocio amigables:** `ApiControllerBase` ya mapea muchas
+   constraints, pero una constraint no reconocida todavía puede devolver
+   `PostgresException.MessageText` a la UI.
+2. **Auditoría Sonar Overall Code:** clasificar los `High` históricos sin
+   debilitar reglas ni thresholds.
+3. **E2E autenticado en staging:** Playwright existe, pero falta el entorno
+   aislado Supabase + API + frontend y sus identidades de prueba.
+4. **Observabilidad adicional:** faltan logging estructurado, correlación,
+   métricas y alertas más allá de `/health` y `/health/ready`.
+5. **Prueba de carga backend:** issue #85; falta baseline seguro de la API y una
+   lectura autenticada end-to-end.
+
+El registro canónico actualizado está en `docs/technical-debt.md`.
+
+## Deudas que ya NO deben aparecer como pendientes
+
+- acceso directo de negocio a Supabase (#10): resuelto y mergeado por PR #53;
+- selector global multiinstitución: implementado por 042;
+- divergencia `academico.*` / `configuracion.*`: resuelta por migración 039;
+- análisis C# real en Sonar y cobertura importada: resuelto;
+- pagos/cobranza: resuelto;
+- grados/jornadas multiinstitución: resuelto;
+- validaciones y checksum de migraciones: resueltos.
+
+## Siguiente bloque recomendado
+
+### 043A — normalización final de errores de negocio
+
+Objetivo mínimo y seguro:
+
+1. auditar qué constraints/RPC pueden llegar hoy a `ApiControllerBase`;
+2. mantener los mensajes de negocio existentes;
+3. evitar que una constraint desconocida exponga texto técnico de PostgreSQL;
+4. conservar los status HTTP vigentes (400/403/404/409);
+5. agregar pruebas de integración para constraints conocidas y fallback seguro;
+6. no mover invariantes desde PostgreSQL/RPC al frontend ni duplicar reglas.
+
+Después de 043A, continuar con la auditoría `High` de Sonar y luego preparar
+staging E2E como bloque independiente de infraestructura.
+
+## Funcionalidad futura — no deuda
+
+El siguiente bloque funcional de identidad puede incorporar **Crear/Invitar
+usuario**, pero debe permanecer separado del hardening anterior. Debe:
+
+- buscar/reutilizar explícitamente una `Persona` existente o crear una nueva;
+- crear/reutilizar `Usuario` global sin duplicar identidad;
+- asignar rol en la institución activa;
+- dejar la cuenta pendiente de invitación/vinculación cuando corresponda;
+- ejecutar cualquier operación privilegiada de Supabase Auth desde backend
+  seguro, nunca desde Angular;
+- no vincular identidades automáticamente solo por coincidencia de correo.
+
+## Inconsistencia documental detectada fuera de este cambio
+
+`README.md` continúa describiendo el proyecto como si llegara solo a migración
+018 y como si pagos/portal no tuvieran backend. Esa información ya no coincide
+con `main`. No se modifica en este checkpoint para mantener el alcance de la
+limpieza en `technical-debt.md`, `HANDOFF.md` y `AI_CONTEXT.md`; debe actualizarse
+en un cambio documental separado o ampliando explícitamente el alcance.
 
 ## Reglas operativas
+
 - Siempre rama; no escribir directo a `main`.
 - No force push.
 - No secretos en repo.
 - No E2E destructivo en producción.
 - No aplicar migraciones fuera de orden.
-- Validar cada migración antes de continuar.
+- No ejecutar migraciones ni cambios de datos reales sin autorización explícita.
+- Validar con CI/Quality Gate antes de cualquier merge.
 - `AGENTS.md` sigue siendo la referencia operativa del repositorio.
