@@ -25,6 +25,7 @@ public sealed class SeguridadAccesoApiFactory : IAsyncLifetime
     public Guid Superadmin { get; private set; }
     public Guid SinPermisos { get; private set; }
     public Guid UsuarioDestinoId { get; private set; }
+    public Guid RolDestinoA { get; private set; }
 
     public async Task InitializeAsync()
     {
@@ -51,6 +52,7 @@ public sealed class SeguridadAccesoApiFactory : IAsyncLifetime
         Superadmin = await CrearSuperadminAsync();
         SinPermisos = (await CrearUsuarioAsync()).AuthUserId;
         UsuarioDestinoId = (await CrearUsuarioAsync()).UsuarioId;
+        RolDestinoA = await CrearRolDestinoAsync(InstitucionA);
     }
 
     public HttpClient Cliente(Guid? identidad = null)
@@ -81,7 +83,9 @@ public sealed class SeguridadAccesoApiFactory : IAsyncLifetime
               'identidad.roles.editar',
               'identidad.roles.asignar_permisos',
               'identidad.usuarios.ver',
-              'identidad.usuarios.asignar_roles'
+              'identidad.usuarios.crear',
+              'identidad.usuarios.asignar_roles',
+              'academico.alumnos.ver'
             )
             """, rolId);
         await EjecutarAsync("""
@@ -90,6 +94,22 @@ public sealed class SeguridadAccesoApiFactory : IAsyncLifetime
             """, usuario.UsuarioId, rolId, institucionId);
 
         return usuario.AuthUserId;
+    }
+
+    private async Task<Guid> CrearRolDestinoAsync(Guid institucionId)
+    {
+        var rolId = await ScalarGuidAsync("""
+            insert into public.roles(codigo, nombre, tipo, institucion_id, activo)
+            values ($1, 'Consulta de alumnos', 'institucional', $2, true)
+            returning id
+            """, $"consulta_{Guid.NewGuid():N}", institucionId);
+        await EjecutarAsync("""
+            insert into public.roles_permisos(rol_id, permiso_id)
+            select $1, id
+            from public.permisos
+            where codigo = 'academico.alumnos.ver'
+            """, rolId);
+        return rolId;
     }
 
     private async Task<Guid> CrearAdminGlobalAsync()
