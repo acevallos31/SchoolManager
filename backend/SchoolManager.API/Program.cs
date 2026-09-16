@@ -4,8 +4,11 @@ using Microsoft.IdentityModel.Tokens;
 using Npgsql;
 using SchoolManager.API.Authorization;
 using SchoolManager.API.Identity;
+using SchoolManager.API.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
+
+StagingSafety.Validate(builder.Configuration, builder.Environment.IsStaging());
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -48,6 +51,9 @@ var jwtIssuer = builder.Configuration["Jwt:Issuer"]
     ?? throw new InvalidOperationException("Jwt:Issuer is not configured.");
 var jwtAudience = builder.Configuration["Jwt:Audience"]
     ?? throw new InvalidOperationException("Jwt:Audience is not configured.");
+var requireHttpsMetadata = !builder.Environment.IsStaging()
+    || !Uri.TryCreate(jwtIssuer, UriKind.Absolute, out var issuerUri)
+    || issuerUri.Scheme == Uri.UriSchemeHttps;
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -56,7 +62,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         options.MetadataAddress = $"{jwtIssuer.TrimEnd('/')}/.well-known/openid-configuration";
         options.Audience = jwtAudience;
         options.MapInboundClaims = false;
-        options.RequireHttpsMetadata = true;
+        options.RequireHttpsMetadata = requireHttpsMetadata;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
