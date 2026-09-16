@@ -43,3 +43,5 @@ appsettings.Development.json
 .env
 s
 
+.vercel
+.env*

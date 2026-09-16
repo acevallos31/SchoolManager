@@ -1,0 +1,308 @@
+<main class="security-shell">
+  <div class="page-header">
+    <div>
+      <p class="sm-eyebrow">Configuración · Seguridad y acceso</p>
+      <h1 class="sm-page-title">Roles y permisos</h1>
+      <p class="sm-helper">Administra el acceso de <strong>{{ institucionNombre }}</strong>. Los permisos disponibles respetan tu propio alcance.</p>
+    </div>
+    <button type="button" class="sm-btn sm-btn--secondary" (click)="volver()">Volver</button>
+  </div>
+
+  @if (mensaje) {
+    <div class="sm-alert" [class.sm-alert--error]="esError" [class.sm-alert--success]="!esError" role="status">
+      {{ mensaje }}
+    </div>
+  }
+
+  @if (cargando) {
+    <div class="sm-state"><span class="sm-spinner" aria-hidden="true"></span><p>Cargando seguridad y acceso...</p></div>
+  } @else if (snapshot) {
+    <section class="sm-card summary-card">
+      <div>
+        <p class="sm-eyebrow">Ámbito institucional</p>
+        <h2 class="sm-section-title">{{ institucionNombre }}</h2>
+        <p class="sm-helper">Los cambios se aplican únicamente a esta institución. Los permisos de plataforma no son delegables aquí.</p>
+      </div>
+      <div class="capabilities" aria-label="Capacidades actuales">
+        <span class="sm-badge" [class.sm-badge--success]="snapshot.capacidades.rolesCrear">Crear roles</span>
+        <span class="sm-badge" [class.sm-badge--success]="snapshot.capacidades.rolesEditar">Editar roles</span>
+        <span class="sm-badge" [class.sm-badge--success]="snapshot.capacidades.rolesAsignarPermisos">Asignar permisos</span>
+        <span class="sm-badge" [class.sm-badge--success]="snapshot.capacidades.usuariosAsignarRoles">Asignar roles</span>
+      </div>
+    </section>
+
+    @if (puedeCrear) {
+      <div class="creation-grid">
+        <section class="sm-card">
+          <h2 class="sm-section-title">Crear rol personalizado</h2>
+          <p class="sm-helper">Crea una definición vacía y luego selecciona sus permisos delegables.</p>
+          <form (ngSubmit)="crearRol()" class="form-stack">
+            <label class="sm-field">
+              <span class="sm-label">Código *</span>
+              <input class="sm-input" name="nuevoCodigo" [(ngModel)]="nuevoRol.codigo" placeholder="secretaria" required>
+            </label>
+            <label class="sm-field">
+              <span class="sm-label">Nombre *</span>
+              <input class="sm-input" name="nuevoNombre" [(ngModel)]="nuevoRol.nombre" placeholder="Secretaría" required>
+            </label>
+            <label class="sm-field">
+              <span class="sm-label">Descripción</span>
+              <textarea class="sm-input" name="nuevoDescripcion" [(ngModel)]="nuevoRol.descripcion" rows="2"></textarea>
+            </label>
+            <button type="submit" class="sm-btn sm-btn--primary" [disabled]="guardando">Crear rol</button>
+          </form>
+        </section>
+
+        <section class="sm-card">
+          <h2 class="sm-section-title">Crear desde plantilla</h2>
+          <p class="sm-helper">Las plantillas sirven como base. Solo se habilitan cuando puedes delegar sus capacidades.</p>
+          <form (ngSubmit)="clonarPlantilla()" class="form-stack">
+            <label class="sm-field">
+              <span class="sm-label">Plantilla *</span>
+              <select class="sm-input" name="plantilla" [(ngModel)]="clonado.plantillaCodigo" required>
+                <option value="">Seleccionar...</option>
+                @for (plantilla of snapshot.plantillas; track plantilla.id) {
+                  <option [value]="plantilla.codigo" [disabled]="!plantilla.clonable">
+                    {{ plantilla.nombre }}{{ plantilla.clonable ? '' : ' — fuera de tu alcance' }}
+                  </option>
+                }
+              </select>
+            </label>
+            <label class="sm-field">
+              <span class="sm-label">Código del nuevo rol *</span>
+              <input class="sm-input" name="clonCodigo" [(ngModel)]="clonado.codigo" required>
+            </label>
+            <label class="sm-field">
+              <span class="sm-label">Nombre *</span>
+              <input class="sm-input" name="clonNombre" [(ngModel)]="clonado.nombre" required>
+            </label>
+            <label class="sm-field">
+              <span class="sm-label">Descripción</span>
+              <textarea class="sm-input" name="clonDescripcion" [(ngModel)]="clonado.descripcion" rows="2"></textarea>
+            </label>
+            <button type="submit" class="sm-btn sm-btn--primary" [disabled]="guardando">Crear desde plantilla</button>
+          </form>
+        </section>
+      </div>
+    }
+
+    <section class="sm-card">
+      <div class="section-heading">
+        <div>
+          <h2 class="sm-section-title">Roles de mi institución</h2>
+          <p class="sm-helper">Selecciona un rol para revisar o modificar su definición y los permisos que puedes delegar.</p>
+        </div>
+        <span class="sm-badge sm-badge--neutral">{{ snapshot.roles.length }} roles</span>
+      </div>
+
+      @if (snapshot.roles.length === 0) {
+        <div class="sm-state"><p>Aún no hay roles institucionales personalizados.</p></div>
+      } @else {
+        <div class="roles-layout">
+          <div class="role-list" role="list">
+            @for (rol of snapshot.roles; track rol.id) {
+              <button
+                type="button"
+                class="role-item"
+                [class.role-item--selected]="rolSeleccionadoId === rol.id"
+                (click)="seleccionarRol(rol)">
+                <span>
+                  <strong>{{ rol.nombre }}</strong>
+                  <small>{{ rol.codigo }}</small>
+                </span>
+                <span class="sm-badge" [class.sm-badge--success]="rol.activo" [class.sm-badge--neutral]="!rol.activo">
+                  {{ rol.activo ? 'Activo' : 'Inactivo' }}
+                </span>
+              </button>
+            }
+          </div>
+
+          <div class="permission-panel">
+            @if (rolSeleccionado; as rol) {
+              <div class="section-heading compact">
+                <div>
+                  <h3 class="sm-section-title">{{ rol.nombre }}</h3>
+                  <p class="sm-helper">Código estable: <strong>{{ rol.codigo }}</strong></p>
+                </div>
+                @if (puedeEditar && rol.activo && !rol.protegido) {
+                  <button type="button" class="sm-btn sm-btn--secondary sm-btn--sm" (click)="desactivarRol(rol)" [disabled]="guardando">
+                    Desactivar
+                  </button>
+                }
+              </div>
+
+              @if (puedeEditar && rol.activo && !rol.protegido) {
+                <form (ngSubmit)="guardarRol()" class="form-stack role-definition-form">
+                  <label class="sm-field">
+                    <span class="sm-label">Nombre del rol *</span>
+                    <input class="sm-input" name="editarRolNombre" [(ngModel)]="edicionRol.nombre" required [disabled]="guardando">
+                  </label>
+                  <label class="sm-field">
+                    <span class="sm-label">Descripción</span>
+                    <textarea class="sm-input" name="editarRolDescripcion" [(ngModel)]="edicionRol.descripcion" rows="2" [disabled]="guardando"></textarea>
+                  </label>
+                  <div class="actions">
+                    <button type="submit" class="sm-btn sm-btn--secondary sm-btn--sm" [disabled]="guardando">Guardar definición</button>
+                  </div>
+                </form>
+              } @else {
+                <p class="sm-helper">{{ rol.descripcion || 'Sin descripción.' }}</p>
+              }
+
+              @if (puedeAsignarPermisos) {
+                <div class="permission-list">
+                  @for (permiso of snapshot.permisosDelegables; track permiso.codigo) {
+                    <label class="permission-row">
+                      <input
+                        type="checkbox"
+                        [checked]="permisoSeleccionado(permiso)"
+                        (change)="alternarPermiso(permiso.codigo, $any($event.target).checked)"
+                        [disabled]="guardando || !rol.activo">
+                      <span>
+                        <strong>{{ permiso.nombre }}</strong>
+                        <small>{{ permiso.codigo }}</small>
+                      </span>
+                      <span class="sm-badge" [class.sm-badge--warning]="permiso.riesgo === 'alto'" [class.sm-badge--error]="permiso.riesgo === 'critico'">
+                        {{ permiso.riesgo }}
+                      </span>
+                    </label>
+                  }
+                </div>
+                <div class="actions">
+                  <button type="button" class="sm-btn sm-btn--primary" (click)="guardarPermisos()" [disabled]="guardando || !rol.activo">
+                    {{ guardando ? 'Guardando...' : 'Guardar permisos' }}
+                  </button>
+                </div>
+              } @else {
+                <p class="sm-helper">Puedes consultar el rol, pero no modificar sus permisos.</p>
+              }
+            } @else {
+              <div class="sm-state"><p>Selecciona un rol para ver sus permisos.</p></div>
+            }
+          </div>
+        </div>
+      }
+    </section>
+
+    @if (snapshot.capacidades.usuariosVer) {
+      <section class="sm-card">
+        <div class="section-heading">
+          <div>
+            <h2 class="sm-section-title">Administración de usuarios</h2>
+            <p class="sm-helper">Gestiona el acceso y los roles institucionales. El Superadministrador puede consultar el directorio global; un administrador institucional solo ve usuarios con acceso a esta institución.</p>
+          </div>
+          <span class="sm-badge sm-badge--neutral">{{ usuarios.length }} usuarios</span>
+        </div>
+
+        <div class="user-toolbar">
+          <label class="sm-field user-search">
+            <span class="sm-label">Buscar usuario</span>
+            <input
+              class="sm-input"
+              name="filtroUsuario"
+              [(ngModel)]="filtroUsuario"
+              placeholder="Nombre o correo">
+          </label>
+        </div>
+
+        @if (usuarios.length === 0) {
+          <div class="sm-state"><p>No hay usuarios disponibles para administrar en este contexto.</p></div>
+        } @else if (usuariosFiltrados.length === 0) {
+          <div class="sm-state"><p>No hay usuarios que coincidan con la búsqueda.</p></div>
+        } @else {
+          <div class="sm-table-wrap">
+            <table class="sm-table">
+              <thead>
+                <tr>
+                  <th>Usuario</th>
+                  <th>Estado</th>
+                  <th>Identidad</th>
+                  <th>Roles en la institución</th>
+                  @if (puedeGestionarAsignaciones) { <th>Asignar rol</th> }
+                </tr>
+              </thead>
+              <tbody>
+                @for (usuario of usuariosFiltrados; track usuario.id) {
+                  <tr>
+                    <td>
+                      <div class="user-identity">
+                        <strong>{{ usuario.nombre || 'Usuario sin nombre' }}</strong>
+                        <small>{{ usuario.correo || 'Sin correo registrado' }}</small>
+                      </div>
+                    </td>
+                    <td>
+                      <span class="sm-badge" [class.sm-badge--success]="usuario.activo" [class.sm-badge--neutral]="!usuario.activo">
+                        {{ usuario.activo ? 'Activo' : 'Inactivo' }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="sm-badge" [class.sm-badge--success]="usuario.identidadVinculada" [class.sm-badge--warning]="!usuario.identidadVinculada">
+                        {{ usuario.identidadVinculada ? 'Vinculada' : 'Pendiente' }}
+                      </span>
+                    </td>
+                    <td>
+                      @if (usuario.roles.length === 0) {
+                        <span class="sm-helper">Sin rol en esta institución</span>
+                      } @else {
+                        <div class="user-roles">
+                          @for (rolUsuario of usuario.roles; track rolUsuario.asignacionId) {
+                            <span class="user-role-chip">
+                              <span>{{ rolUsuario.nombre }}</span>
+                              @if (puedeGestionarAsignaciones) {
+                                <button
+                                  type="button"
+                                  class="user-role-remove"
+                                  [attr.aria-label]="'Retirar rol ' + rolUsuario.nombre + ' de ' + usuario.nombre"
+                                  (click)="retirarRolUsuario(usuario, rolUsuario)"
+                                  [disabled]="guardando">
+                                  ×
+                                </button>
+                              }
+                            </span>
+                          }
+                        </div>
+                      }
+                    </td>
+                    @if (puedeGestionarAsignaciones) {
+                      <td>
+                        @if (usuario.activo && rolesAsignables(usuario).length > 0) {
+                          <div class="role-assignment-form">
+                            <div class="sm-field">
+                              <label class="sm-label" [for]="'rolUsuario-' + usuario.id">Rol</label>
+                              <select
+                                class="sm-input"
+                                [id]="'rolUsuario-' + usuario.id"
+                                [name]="'rolUsuario-' + usuario.id"
+                                [(ngModel)]="rolPorUsuario[usuario.id]"
+                                [disabled]="guardando">
+                                <option value="">Seleccionar rol...</option>
+                                @for (rolDisponible of rolesAsignables(usuario); track rolDisponible.id) {
+                                  <option [value]="rolDisponible.id">{{ rolDisponible.nombre }}</option>
+                                }
+                              </select>
+                            </div>
+                            <button
+                              type="button"
+                              class="sm-btn sm-btn--primary sm-btn--sm"
+                              (click)="asignarRolUsuario(usuario)"
+                              [disabled]="guardando || !rolPorUsuario[usuario.id]">
+                              Asignar
+                            </button>
+                          </div>
+                        } @else if (!usuario.activo) {
+                          <span class="sm-helper">Usuario inactivo</span>
+                        } @else {
+                          <span class="sm-helper">Todos los roles disponibles ya están asignados</span>
+                        }
+                      </td>
+                    }
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </section>
+    }
+  }
+</main>

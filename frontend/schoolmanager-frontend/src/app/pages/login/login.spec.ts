@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { vi } from 'vitest';
 
 import { AuthAppError, AuthService } from '../../core/services/auth';
+import { OAuthProviderService } from '../../core/services/oauth-provider.service';
 import { Login } from './login';
 
 describe('Login', () => {
@@ -10,21 +11,33 @@ describe('Login', () => {
   let fixture: ComponentFixture<Login>;
   let auth: {
     login: ReturnType<typeof vi.fn>;
-    loginWithGoogle: ReturnType<typeof vi.fn>;
     logout: ReturnType<typeof vi.fn>;
     consumirMensajeSesionInvalida: ReturnType<typeof vi.fn>;
   };
+  let oauth: {
+    continuarConGoogle: ReturnType<typeof vi.fn>;
+    continuarConMicrosoft: ReturnType<typeof vi.fn>;
+  };
   let router: { navigate: ReturnType<typeof vi.fn> };
 
-  const rolAdmin = { id: 'u1', personaId: 'p1', roles: ['admin'], permisos: [] };
+  const rolAdmin = {
+    id: 'u1', personaId: 'p1', roles: ['admin'], permisos: ['academico.alumnos.ver']
+  };
   const rolPadre = { id: 'u2', personaId: 'p2', roles: ['padre'], permisos: [] };
+  const rolDinamico = {
+    id: 'u3', personaId: 'p3', roles: ['secretaria'], permisos: ['academico.matriculas.ver']
+  };
+  const rolSinDestino = { id: 'u4', personaId: 'p4', roles: ['student'], permisos: [] };
 
   beforeEach(async () => {
     auth = {
       login: vi.fn(),
-      loginWithGoogle: vi.fn().mockResolvedValue(undefined),
       logout: vi.fn().mockResolvedValue(undefined),
       consumirMensajeSesionInvalida: vi.fn().mockReturnValue(null)
+    };
+    oauth = {
+      continuarConGoogle: vi.fn().mockResolvedValue(undefined),
+      continuarConMicrosoft: vi.fn().mockResolvedValue(undefined)
     };
     router = { navigate: vi.fn().mockResolvedValue(true) };
 
@@ -32,6 +45,7 @@ describe('Login', () => {
       imports: [Login],
       providers: [
         { provide: AuthService, useValue: auth },
+        { provide: OAuthProviderService, useValue: oauth },
         { provide: Router, useValue: router }
       ]
     }).compileComponents();
@@ -54,12 +68,31 @@ describe('Login', () => {
     expect(component.cargando).toBe(false);
   });
 
+  it('un rol institucional dinamico navega por permisos y no por nombre', async () => {
+    auth.login.mockResolvedValue(rolDinamico);
+    component.correo = 'secretaria@schoolmanager.com';
+    component.password = 'secreto';
+
+    await component.login();
+
+    expect(router.navigate).toHaveBeenCalledWith(['/dashboard']);
+    expect(component.error).toBe('');
+  });
+
   it('inicia el flujo OAuth con Google', async () => {
     await component.loginWithGoogle();
 
-    expect(auth.loginWithGoogle).toHaveBeenCalledOnce();
+    expect(oauth.continuarConGoogle).toHaveBeenCalledOnce();
     expect(component.error).toBe('');
-    expect(component.cargandoGoogle).toBe(false);
+    expect(component.proveedorCargando).toBeNull();
+  });
+
+  it('inicia el flujo OAuth con Microsoft', async () => {
+    await component.loginWithMicrosoft();
+
+    expect(oauth.continuarConMicrosoft).toHaveBeenCalledOnce();
+    expect(component.error).toBe('');
+    expect(component.proveedorCargando).toBeNull();
   });
 
   it('inicia sesion como padre y navega al portal', async () => {
@@ -70,6 +103,18 @@ describe('Login', () => {
     await component.login();
 
     expect(router.navigate).toHaveBeenCalledWith(['/portal-padre']);
+    expect(component.error).toBe('');
+  });
+
+  it('un usuario valido sin destino conserva la sesion y navega a acceso pendiente', async () => {
+    auth.login.mockResolvedValue(rolSinDestino);
+    component.correo = 'alumno@schoolmanager.com';
+    component.password = 'secreto';
+
+    await component.login();
+
+    expect(router.navigate).toHaveBeenCalledWith(['/acceso-pendiente']);
+    expect(auth.logout).not.toHaveBeenCalled();
     expect(component.error).toBe('');
   });
 
@@ -103,9 +148,9 @@ describe('Login', () => {
     expect(auth.logout).toHaveBeenCalled();
   });
 
-  it('muestra el motivo conservado por AuthService al volver de Google sin vínculo', () => {
+  it('muestra el motivo conservado cuando una identidad externa aún no tiene vínculo', () => {
     auth.consumirMensajeSesionInvalida.mockReturnValue(
-      'Tu cuenta de Google no esta vinculada a un usuario de SchoolManager.'
+      'Tu identidad externa no esta vinculada a un usuario de SchoolManager.'
     );
 
     component.ngOnInit();
@@ -121,7 +166,7 @@ describe('Login', () => {
 
     await component.login();
 
-    expect(component.error).toContain('no esta vinculada a un usuario de SchoolManager');
+    expect(component.error).toContain('perfil habilitado de SchoolManager');
     expect(component.error).not.toContain('detalle interno');
     expect(auth.logout).toHaveBeenCalled();
   });
@@ -129,10 +174,7 @@ describe('Login', () => {
   it('entra en loading mientras autentica y bloquea doble submit', async () => {
     let resolver!: (usuario: typeof rolAdmin) => void;
     auth.login.mockImplementation(
-      () =>
-        new Promise<typeof rolAdmin>((resolve) => {
-          resolver = resolve;
-        })
+      () => new Promise<typeof rolAdmin>((resolve) => { resolver = resolve; })
     );
 
     component.correo = 'admin@schoolmanager.com';
@@ -140,7 +182,6 @@ describe('Login', () => {
 
     const promesa = component.login();
 
-    // Tras iniciar, el componente queda en loading (la promesa aun no resuelve).
     expect(component.cargando).toBe(true);
     expect(component.error).toBe('');
 

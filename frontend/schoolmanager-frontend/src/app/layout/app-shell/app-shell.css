@@ -1,5 +1,5 @@
 /* ==========================================================================
-   AppShell global — estructura: topbar + sidebar (drawer en móvil) + contenido.
+   AppShell global — topbar + sidebar + contenido.
    Consume tokens de styles.css. Ver docs/ui/design-system.md.
    ========================================================================== */
 
@@ -14,15 +14,16 @@
   background: var(--sm-bg);
 }
 
-/* ---- Topbar ---- */
 .sm-topbar {
   grid-area: topbar;
   display: flex;
   align-items: center;
   gap: var(--sm-space-3);
-  padding: 0 var(--sm-space-4);
-  background: var(--sm-surface);
+  padding: 0 var(--sm-space-5);
+  background: rgba(255, 255, 255, 0.97);
   border-bottom: 1px solid var(--sm-border);
+  box-shadow: 0 2px 16px rgba(15, 42, 67, 0.05);
+  backdrop-filter: blur(12px);
   z-index: var(--sm-z-sticky);
 }
 
@@ -30,8 +31,8 @@
   display: none;
   align-items: center;
   justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 2.4rem;
+  height: 2.4rem;
   border: 1px solid var(--sm-border-strong);
   border-radius: var(--sm-radius-md);
   background: var(--sm-surface);
@@ -52,6 +53,7 @@
   font-size: var(--sm-fs-lg);
   font-weight: var(--sm-weight-bold);
   color: var(--sm-text-strong);
+  letter-spacing: -0.025em;
 }
 
 .sm-topbar__brand-sub {
@@ -66,7 +68,44 @@
   gap: var(--sm-space-3);
 }
 
-/* ---- Overlay (móvil) ---- */
+.sm-contexto {
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-2);
+  min-width: 0;
+  padding: 0.42rem 0.75rem;
+  border: 1px solid var(--sm-border);
+  border-radius: 999px;
+  background: var(--sm-bg);
+}
+
+.sm-contexto__label {
+  font-size: var(--sm-fs-xs);
+  color: var(--sm-text-soft);
+  white-space: nowrap;
+}
+
+.sm-contexto__value {
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--sm-text-strong);
+  font-size: var(--sm-fs-sm);
+}
+
+.sm-contexto__select {
+  max-width: 15rem;
+  min-width: 9rem;
+  border: 0;
+  background: transparent;
+  color: var(--sm-text-strong);
+  font: inherit;
+  font-size: var(--sm-fs-sm);
+  cursor: pointer;
+  outline-offset: 2px;
+}
+
 .sm-shell__overlay {
   position: fixed;
   inset: 0;
@@ -82,89 +121,160 @@
   to { opacity: 1; }
 }
 
-/* ---- Sidebar ---- */
 .sm-sidebar {
   grid-area: sidebar;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, var(--sm-inverse) 0%, var(--sm-inverse-soft) 100%);
+  background: linear-gradient(180deg, #143554 0%, #173f62 54%, #12324e 100%);
   color: var(--sm-text-on-inverse);
   overflow-y: auto;
+  border-right: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .sm-sidebar__brand {
-  padding: var(--sm-space-5) var(--sm-space-4) var(--sm-space-4);
+  padding: 1.45rem 1.25rem 1.2rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.sm-sidebar__brand .sm-eyebrow {
-  color: var(--sm-accent);
-  margin-bottom: var(--sm-space-1);
+.sm-sidebar__brand-kicker {
+  display: block;
+  margin-bottom: 0.3rem;
+  color: #f0a24b;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
 }
 
 .sm-sidebar__brand-name {
-  font-size: var(--sm-fs-xl);
+  display: block;
+  color: #fff;
+  font-size: 1.28rem;
   font-weight: var(--sm-weight-bold);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
+}
+
+.sm-sidebar__contexto {
+  display: block;
+  margin-top: 0.32rem;
+  color: rgba(245, 240, 231, 0.66);
+  font-size: var(--sm-fs-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sm-sidebar__notice {
+  margin: var(--sm-space-3);
+  padding: var(--sm-space-3);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--sm-radius-md);
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(245, 240, 231, 0.82);
+  font-size: var(--sm-fs-sm);
+  line-height: 1.4;
 }
 
 .sm-sidebar__nav {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: var(--sm-space-1);
-  padding: var(--sm-space-4) var(--sm-space-3);
+  gap: 0.2rem;
+  padding: 1rem 0.75rem;
+}
+
+.sm-sidebar__section-title {
+  padding: 0 0.75rem 0.48rem;
+  color: rgba(245, 240, 231, 0.42);
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
 }
 
 .sm-sidebar__link {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: var(--sm-space-3);
-  padding: 0.6rem 0.85rem;
-  border-radius: var(--sm-radius-md);
-  color: rgba(245, 240, 231, 0.82);
-  font-size: var(--sm-fs-md);
+  gap: 0.72rem;
+  min-height: 2.62rem;
+  padding: 0.48rem 0.78rem;
+  border: 1px solid transparent;
+  border-radius: 0.72rem;
+  color: rgba(245, 240, 231, 0.84);
+  font-size: 0.86rem;
   font-weight: var(--sm-weight-medium);
   text-decoration: none;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
 
 .sm-sidebar__link:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.05);
   color: #ffffff;
+  transform: translateX(2px);
 }
 
 .sm-sidebar__link--active {
-  background: rgba(15, 95, 168, 0.55);
+  background: rgba(21, 100, 168, 0.92);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 6px 16px rgba(7, 24, 41, 0.16);
   color: #ffffff;
 }
 
+.sm-sidebar__link--active::before {
+  content: '';
+  position: absolute;
+  left: -0.14rem;
+  top: 0.48rem;
+  bottom: 0.48rem;
+  width: 0.2rem;
+  border-radius: 999px;
+  background: #f0a24b;
+}
+
 .sm-sidebar__link--active:hover {
-  background: rgba(15, 95, 168, 0.55);
+  background: rgba(21, 100, 168, 0.97);
 }
 
-.sm-sidebar__link-dot {
-  width: 0.4rem;
-  height: 0.4rem;
-  border-radius: 50%;
-  background: rgba(245, 240, 231, 0.4);
+.sm-sidebar__link-mark {
+  width: 0.42rem;
+  height: 0.42rem;
   flex: none;
+  border: 2px solid rgba(255, 255, 255, 0.34);
+  border-radius: 50%;
+  background: transparent;
 }
 
-.sm-sidebar__link--active .sm-sidebar__link-dot {
-  background: var(--sm-accent);
+.sm-sidebar__link--active .sm-sidebar__link-mark {
+  border-color: #f3b76e;
+  background: #f0a24b;
+}
+
+.sm-sidebar__link-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sm-sidebar__footer {
-  padding: var(--sm-space-4);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 1.2rem;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sm-sidebar__status-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: #68c58b;
+  box-shadow: 0 0 0 3px rgba(104, 197, 139, 0.12);
 }
 
 .sm-sidebar__footer .sm-metadata {
   color: rgba(245, 240, 231, 0.55);
 }
 
-/* ---- Contenido ---- */
 .sm-content {
   grid-area: content;
   padding: var(--sm-space-5);
@@ -173,9 +283,6 @@
   min-width: 0;
 }
 
-/* ---- Responsive: tablet (<= 1100px) y móvil (<= 768px) ---- */
-
-/* Tablet vertical: sidebar se colapsa a drawer con el toggle visible. */
 @media (max-width: 1100px) {
   .sm-shell {
     grid-template-columns: 1fr;
@@ -196,8 +303,6 @@
     width: var(--sm-sidebar-w);
     max-width: 85vw;
     transform: translateX(-100%);
-    /* visibility retardada: al cerrar se oculta del árbol/a11y y del tab-order
-       recién cuando termina el slide-out; al abrir se muestra de inmediato. */
     visibility: hidden;
     transition: transform 0.22s ease, visibility 0s linear 0.22s;
     z-index: var(--sm-z-drawer);
@@ -213,14 +318,54 @@
   .sm-topbar__brand-sub {
     display: inline;
   }
+
+  .sm-contexto__label {
+    display: none;
+  }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 720px) {
+  .sm-topbar {
+    gap: var(--sm-space-2);
+    padding: 0 var(--sm-space-3);
+  }
+
   .sm-content {
     padding: var(--sm-space-4);
   }
 
   .sm-topbar__brand-name {
     font-size: var(--sm-fs-md);
+  }
+
+  .sm-topbar__brand-sub {
+    display: none;
+  }
+
+  .sm-contexto {
+    max-width: 38vw;
+    padding: 0.3rem 0.4rem;
+  }
+
+  .sm-contexto__select,
+  .sm-contexto__value {
+    max-width: 32vw;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .sm-topbar__brand {
+    display: none;
+  }
+
+  .sm-contexto {
+    margin-right: auto;
+    max-width: 45vw;
+  }
+
+  .sm-contexto__select,
+  .sm-contexto__value {
+    max-width: 38vw;
   }
 }

@@ -11,98 +11,76 @@ import { ConfiguracionCiclos } from './pages/configuracion-ciclos/configuracion-
 import { ConfiguracionEstructuraAcademica } from './pages/configuracion-estructura-academica/configuracion-estructura-academica';
 import { permissionGuard } from './core/guards/permission.guard';
 
-// Ruta de panel usada como destino cuando el guard niega un permiso.
 const PANEL = '/dashboard';
 
-/**
- * Rutas de área autenticada de administración: todas las secciones cuelgan del
- * AppShell global (topbar + sidebar + drawer responsive). El guard en la ruta
- * padre exige sesión; los guards en las rutas hijas exigen permisos concretos.
- * /portal-padre (responsable) y /login quedan fuera del shell por diseño.
- */
 export const routes: Routes = [
-  // AppShell padre de todas las rutas admin (dashboard, alumnos, matriculas,
-  // responsables, cargos, pagos, configuracion y subvistas).
   {
     path: '',
     component: AppShell,
     canActivate: [permissionGuard],
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
-
-      // Dashboard: autenticación pura (sin permiso concreto).
       { path: 'dashboard', component: Dashboard },
-
       {
-        path: 'alumnos',
-        component: Alumnos,
-        canActivate: [permissionGuard],
+        path: 'alumnos', component: Alumnos, canActivate: [permissionGuard],
         data: { permiso: 'academico.alumnos.ver' }
       },
-
       {
-        path: 'matriculas',
-        component: Matriculas,
-        canActivate: [permissionGuard],
+        path: 'matriculas', component: Matriculas, canActivate: [permissionGuard],
         data: { permiso: 'academico.matriculas.ver' }
       },
-
-      // Configuración raíz mantiene autenticación pura; cada submódulo con
-      // permiso de aplicación conocido protege su ruta de forma explícita.
       { path: 'configuracion', component: Configuracion },
       {
-        path: 'configuracion/ciclos',
-        component: ConfiguracionCiclos,
+        path: 'configuracion/seguridad-acceso',
         canActivate: [permissionGuard],
-        data: { permiso: 'academico.ciclos.ver' }
+        data: {
+          permisosCualquiera: ['identidad.roles.ver', 'identidad.usuarios.ver'],
+          permitirSuperadministrador: true
+        },
+        loadComponent: () => import('./pages/configuracion-seguridad-acceso/configuracion-seguridad-acceso').then(m => m.ConfiguracionSeguridadAcceso)
       },
       {
-        path: 'configuracion/estructura-academica',
-        component: ConfiguracionEstructuraAcademica,
-        canActivate: [permissionGuard],
-        data: { permiso: 'academico.estructura.ver' }
+        path: 'configuracion/ciclos', component: ConfiguracionCiclos,
+        canActivate: [permissionGuard], data: { permiso: 'academico.ciclos.ver' }
       },
       {
-        path: 'configuracion/conceptos-financieros',
-        canActivate: [permissionGuard],
+        path: 'configuracion/estructura-academica', component: ConfiguracionEstructuraAcademica,
+        canActivate: [permissionGuard], data: { permiso: 'academico.estructura.ver' }
+      },
+      {
+        path: 'configuracion/conceptos-financieros', canActivate: [permissionGuard],
         data: { permiso: 'configuracion.conceptos_financieros.ver' },
         loadComponent: () => import('./pages/configuracion-conceptos-financieros/configuracion-conceptos-financieros').then(m => m.ConfiguracionConceptosFinancieros)
       },
       {
-        path: 'configuracion/planes-pago',
-        canActivate: [permissionGuard],
+        path: 'configuracion/planes-pago', canActivate: [permissionGuard],
         data: { permiso: 'configuracion.planes_pago.ver' },
         loadComponent: () => import('./pages/configuracion-planes-pago/configuracion-planes-pago').then(m => m.ConfiguracionPlanesPago)
       },
       {
-        path: 'responsables',
-        canActivate: [permissionGuard],
+        path: 'responsables', canActivate: [permissionGuard],
         data: { permiso: 'academico.responsables.ver' },
         loadComponent: () => import('./pages/responsables/responsables').then(m => m.Responsables)
       },
       {
-        path: 'cargos',
-        canActivate: [permissionGuard],
+        path: 'cargos', canActivate: [permissionGuard],
         data: { permiso: 'academico.cargos.ver' },
         loadComponent: () => import('./pages/cargos/cargos').then(m => m.Cargos)
       },
       {
-        path: 'pagos',
-        canActivate: [permissionGuard],
+        path: 'pagos', canActivate: [permissionGuard],
         data: { permiso: 'academico.pagos.ver' },
         loadComponent: () => import('./pages/pagos/pagos').then(m => m.Pagos)
       }
     ]
   },
-
-  // Rutas fuera del shell admin.
   { path: 'login', component: Login },
   { path: 'auth/callback', component: AuthCallback },
-
-  // portal-padre (bloque 022): consume la API .NET (PortalResponsableController)
-  // en modo lectura. Sin guard adicional: la autorización la valida el backend.
   { path: 'portal-padre', component: PortalPadre },
-
+  {
+    path: 'acceso-pendiente',
+    loadComponent: () => import('./pages/acceso-pendiente/acceso-pendiente').then(m => m.AccesoPendiente)
+  },
   { path: 'home', redirectTo: 'dashboard', pathMatch: 'full' },
   { path: '**', redirectTo: PANEL }
 ];

@@ -30,7 +30,7 @@ public sealed class ResponsablesControllerTests : IClassFixture<MatriculasApiFac
             nombres = "Gloria",
             apellidos = "Paredes",
             tipoIdentificacion = "CI",
-            numeroIdentificacion = $"9000-{Guid.NewGuid():N}"[..8],
+            numeroIdentificacion = $"9000-{Guid.NewGuid():N}"[..16],
             telefono = "0999888777",
             correo = "gloria@test.com"
         }));
@@ -52,7 +52,7 @@ public sealed class ResponsablesControllerTests : IClassFixture<MatriculasApiFac
     {
         var institucion = _factory.InstitucionA;
         var cliente = _factory.CrearCliente(SubA);
-        var documento = $"1710-{Guid.NewGuid():N}"[..8];
+        var documento = $"1710-{Guid.NewGuid():N}"[..16];
 
         var body = Body(new
         {
@@ -259,9 +259,9 @@ public sealed class ResponsablesControllerTests : IClassFixture<MatriculasApiFac
         {
             institucionId = institucion,
             nombres = "Responsable",
-            apellidos = $"Prueba {Guid.NewGuid():N}"[..8],
+            apellidos = $"Prueba {Guid.NewGuid():N}"[..16],
             tipoIdentificacion = "CI",
-            numeroIdentificacion = $"8001-{Guid.NewGuid():N}"[..8]
+            numeroIdentificacion = $"8001-{Guid.NewGuid():N}"[..16]
         }));
         var bodyRespuesta = await response.Content.ReadAsStringAsync();
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
