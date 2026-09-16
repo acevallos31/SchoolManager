@@ -92,6 +92,7 @@ export class ConfiguracionSeguridadAcceso implements OnInit, OnDestroy {
       .pipe(skip(1))
       .subscribe(() => {
         this.limpiarSeleccionRol();
+        this.usuarios = [];
         this.filtroUsuario = '';
         this.rolPorUsuario = {};
         void this.cargar();
