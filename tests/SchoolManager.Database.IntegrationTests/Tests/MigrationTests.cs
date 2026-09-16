@@ -46,11 +46,12 @@ public sealed class MigrationTests(PostgreSqlFixture fixture) : IClassFixture<Po
             "037_rbac_lectura_institucional_estricta.sql",
             "038_rbac_consulta_seguridad_acceso.sql",
             "039_rbac_canonicalizar_permisos_configuracion_academica.sql",
-            "040_identidad_invitaciones_acceso.sql"
+            "040_identidad_invitaciones_acceso.sql",
+            "041_hardening_invitaciones_acceso.sql"
     ];
 
     [Fact]
-    public void Migraciones_activas_estan_ordenadas_de_001_a_040()
+    public void Migraciones_activas_estan_ordenadas_de_001_a_041()
     {
         var names = MigrationRunner.GetActiveMigrationPaths().Select(Path.GetFileName).ToArray();
         Assert.Equal(MigracionesEsperadas, names);
