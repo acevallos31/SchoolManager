@@ -27,6 +27,53 @@ La primera capa ya está preparada en código:
 Esto cierra el vacío anterior donde un frontend servido desde localhost podía
 seguir llevando URLs productivas embebidas.
 
+## Foundation 044B — backend staging + Supabase local efímero
+
+El backend también tiene ahora un modo `Staging` separado. Al arrancar con
+`ASPNETCORE_ENVIRONMENT=Staging`, `StagingSafety` valida antes de registrar los
+servicios que:
+
+- `Jwt:Issuer` sea una URL permitida;
+- PostgreSQL apunte únicamente a localhost o a un host de staging incluido en
+  `E2E_ALLOWED_HOSTS`;
+- los orígenes CORS sean de staging;
+- los hosts productivos conocidos de SchoolManager no aparezcan en ninguna de
+  esas dependencias.
+
+`appsettings.Staging.json` no contiene ninguna contraseña ni connection string
+utilizable por sí sola. La cadena de PostgreSQL debe llegar en runtime mediante
+`ConnectionStrings__PostgreSQL`; si falta, el backend falla al arrancar en lugar
+de heredar accidentalmente la base productiva.
+
+El stack local se prepara con:
+
+```bash
+python scripts/e2e/bootstrap-local-staging.py start
+```
+
+El script requiere Docker y Supabase CLI, elimina primero los volúmenes locales
+del proyecto y levanta un entorno desechable con `supabase/config.toml`. Antes
+del arranque genera temporalmente `supabase/migrations/` a partir de las fuentes
+canónicas del repositorio:
+
+- `database/baseline/001_schoolmanager_fase1a.sql`;
+- migraciones `007` en adelante de `database/migrations/`.
+
+Esto reproduce el modelo usado por la instalación actual: baseline de Fase 1A
+más las migraciones posteriores, sin duplicar `001–006` sobre el baseline.
+`supabase/migrations/` está ignorado por Git y se elimina al detener el entorno.
+
+Al terminar, el script imprime los valores locales necesarios para configurar
+frontend y backend, incluidos `E2E_SUPABASE_URL`, la clave pública local,
+`E2E_API_URL`, `ASPNETCORE_ENVIRONMENT`, `ASPNETCORE_URLS` y, cuando Supabase CLI
+la expone, `ConnectionStrings__PostgreSQL`.
+
+Para destruir el entorno y sus datos:
+
+```bash
+python scripts/e2e/bootstrap-local-staging.py stop
+```
+
 ## Variables para preparar el frontend staging
 
 ```bash
@@ -65,8 +112,8 @@ público no autentica ni modifica datos.
 
 ## E2E autenticado
 
-Requiere un Supabase/Auth y backend de staging reales, además de un usuario de
-prueba. Nunca usar las credenciales de producción.
+Requiere además un usuario y datos deterministas de prueba. Nunca usar las
+credenciales de producción.
 
 ```bash
 cd e2e
@@ -92,14 +139,11 @@ Un proyecto Supabase o servicio remoto dedicado puede incorporarse más adelante
 para pruebas manuales persistentes, pero debe mantenerse completamente separado
 de producción y cualquier costo debe aprobarse antes de provisionarlo.
 
-## Lo que todavía falta después de 044A
+## Lo que todavía falta después de 044B
 
-1. Arranque seguro del backend con `ASPNETCORE_ENVIRONMENT=Staging`, incluyendo
-   fail-fast si Jwt/DB apuntan a producción.
-2. Supabase local/staging con migraciones 001→039 y datos exclusivamente de
-   prueba.
-3. Seed idempotente de instituciones, usuarios y datos mínimos de negocio.
-4. Activar los casos autenticados y de aislamiento institucional.
-5. Workflow manual/nightly con artifacts de Playwright.
+1. Seed idempotente de institución, usuarios y datos mínimos de negocio.
+2. Crear credenciales Auth exclusivamente locales para los perfiles de prueba.
+3. Activar los casos autenticados y de aislamiento institucional.
+4. Workflow manual/nightly con artifacts de Playwright.
 
 El plan completo sigue en `docs/testing/e2e-staging-plan.md`.
