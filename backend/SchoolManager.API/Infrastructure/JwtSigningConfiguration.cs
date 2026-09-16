@@ -48,10 +48,17 @@ public static class JwtSigningConfiguration
             );
         }
 
+        // S6781 presupone un secreto JWT persistente o distribuido. Aquí la clave
+        // es efímera, generada por Supabase CLI, vive solo en .env.e2e.local ignorado
+        // por Git y esta rama solo se alcanza en Staging + loopback :54321.
+#pragma warning disable S6781
+        var localSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(localSecret));
+#pragma warning restore S6781
+
         return new JwtSigningSettings(
             RequireHttpsMetadata: false,
             ValidAlgorithms: [SecurityAlgorithms.HmacSha256],
-            IssuerSigningKey: new SymmetricSecurityKey(Encoding.UTF8.GetBytes(localSecret))
+            IssuerSigningKey: localSigningKey
         );
     }
 
