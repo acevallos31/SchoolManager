@@ -25,16 +25,17 @@ No hay cambios de producción ni migraciones nuevas.
   - no asigna `platform_admin`.
 - `bootstrap-local-staging.py` deja de imprimir claves/runtime sensibles y escribe
   el runtime efímero en `.env.e2e.local`; `stop` lo elimina.
-- La API acepta el HS256 usado por Supabase CLI exclusivamente cuando:
-  - `ASPNETCORE_ENVIRONMENT=Staging`;
-  - el issuer es loopback en `:54321`;
-  - existe `JWT_SECRET` efímero de al menos 32 bytes.
-  Producción conserva ES256.
+- La API valida los JWT locales con ES256 y el JWKS de Supabase Auth, igual que
+  producción. La única excepción de staging es permitir metadata HTTP cuando el
+  issuer es estrictamente loopback en `:54321`; no se reutiliza `JWT_SECRET` ni
+  se habilita HS256.
 - Angular staging desactiva únicamente la sincronización con `/api/auth/session`
   porque `ng serve` local no hospeda la función Vercel. Producción y desarrollo
   conservan el flujo edge actual.
 - Playwright carga `.env.e2e.local` y, en modo local, orquesta API + Angular antes
   de ejecutar los specs.
+- El gate real usa Supabase CLI `2.117.0` mediante `supabase/setup-cli` fijado a
+  SHA, evitando instalaciones `npx ...@latest` durante CI.
 - CI valida sintaxis/guardrails del seed y Sonar continúa analizando el tooling
   de forma estática sin exigirle cobertura de Coverlet/LCOV.
 
@@ -42,10 +43,10 @@ No hay cambios de producción ni migraciones nuevas.
 
 ```bash
 python scripts/e2e/bootstrap-local-staging.py start
-python scripts/e2e/seed-local-staging.py
+python scripts/e2e/seed-local-staging.py seed
 cd e2e
 npm ci
-npx playwright install chromium
+./node_modules/.bin/playwright install chromium
 npm test -- auth.spec.ts
 cd ..
 python scripts/e2e/bootstrap-local-staging.py stop

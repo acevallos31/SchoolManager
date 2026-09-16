@@ -1,4 +1,3 @@
-using System.Text;
 using Microsoft.IdentityModel.Tokens;
 
 namespace SchoolManager.API.Infrastructure;
@@ -14,7 +13,6 @@ public static class JwtSigningConfiguration
     private const int LocalSupabasePort = 54321;
 
     public static JwtSigningSettings Resolve(
-        IConfiguration configuration,
         bool isStaging,
         string issuer
     )
@@ -25,40 +23,26 @@ public static class JwtSigningConfiguration
             throw new InvalidOperationException("Jwt:Issuer must be a valid http/https URL.");
         }
 
-        var localSupabase = isStaging
+        var localSupabaseHttp = isStaging
             && issuerUri.Scheme == Uri.UriSchemeHttp
             && issuerUri.Port == LocalSupabasePort
             && IsLoopbackHost(issuerUri.Host);
 
-        if (!localSupabase)
-        {
-            return new JwtSigningSettings(
-                RequireHttpsMetadata: !isStaging || issuerUri.Scheme == Uri.UriSchemeHttps,
-                ValidAlgorithms: [SecurityAlgorithms.EcdsaSha256],
-                IssuerSigningKey: null
-            );
-        }
-
-        var localSecret = configuration["JWT_SECRET"];
-        if (string.IsNullOrWhiteSpace(localSecret)
-            || Encoding.UTF8.GetByteCount(localSecret) < 32)
+        if (issuerUri.Scheme == Uri.UriSchemeHttp && !localSupabaseHttp)
         {
             throw new InvalidOperationException(
-                "[STAGING GUARDRAIL] Supabase local requiere JWT_SECRET efímero de al menos 32 bytes."
+                "Jwt:Issuer solo puede usar HTTP en Staging contra Supabase loopback :54321."
             );
         }
 
-        // S6781 presupone un secreto JWT persistente o distribuido. Aquí la clave
-        // es efímera, generada por Supabase CLI, vive solo en .env.e2e.local ignorado
-        // por Git y esta rama solo se alcanza en Staging + loopback :54321.
-#pragma warning disable S6781
-        var localSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(localSecret));
-#pragma warning restore S6781
-
+        // Supabase CLI >= 2.71.1 firma las sesiones de usuario con ES256 por
+        // defecto, igual que producción. El staging local confía en el JWKS de
+        // GoTrue y solo permite metadata HTTP porque el issuer está limitado a
+        // loopback :54321. No se reutiliza JWT_SECRET ni se habilita HS256.
         return new JwtSigningSettings(
-            RequireHttpsMetadata: false,
-            ValidAlgorithms: [SecurityAlgorithms.HmacSha256],
-            IssuerSigningKey: localSigningKey
+            RequireHttpsMetadata: !localSupabaseHttp,
+            ValidAlgorithms: [SecurityAlgorithms.EcdsaSha256],
+            IssuerSigningKey: null
         );
     }
 

@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using SchoolManager.API.Infrastructure;
 using Xunit;
@@ -11,7 +10,6 @@ public sealed class JwtSigningConfigurationTests
     public void Produccion_conserva_ES256_y_metadata_HTTPS()
     {
         var settings = JwtSigningConfiguration.Resolve(
-            BuildConfiguration(),
             isStaging: false,
             "https://proyecto.supabase.co/auth/v1"
         );
@@ -21,63 +19,22 @@ public sealed class JwtSigningConfigurationTests
         Assert.Null(settings.IssuerSigningKey);
     }
 
-    [Fact]
-    public void Staging_local_exige_secret_efimero()
+    [Theory]
+    [InlineData("http://127.0.0.1:54321/auth/v1")]
+    [InlineData("http://localhost:54321/auth/v1")]
+    public void Staging_local_usa_ES256_y_JWKS_sin_secret(string issuer)
     {
-        var error = Assert.Throws<InvalidOperationException>(() =>
-            JwtSigningConfiguration.Resolve(
-                BuildConfiguration(),
-                isStaging: true,
-                "http://127.0.0.1:54321/auth/v1"
-            )
-        );
-
-        Assert.Contains("JWT_SECRET", error.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Staging_local_rechaza_secret_corto()
-    {
-        var configuration = BuildConfiguration(new Dictionary<string, string?>
-        {
-            ["JWT_SECRET"] = "demasiado-corto"
-        });
-
-        Assert.Throws<InvalidOperationException>(() =>
-            JwtSigningConfiguration.Resolve(
-                configuration,
-                isStaging: true,
-                "http://localhost:54321/auth/v1"
-            )
-        );
-    }
-
-    [Fact]
-    public void Staging_local_usa_HS256_sin_relajar_produccion()
-    {
-        const string localSecret = "local-e2e-secret-with-at-least-32-bytes-long";
-        var configuration = BuildConfiguration(new Dictionary<string, string?>
-        {
-            ["JWT_SECRET"] = localSecret
-        });
-
-        var settings = JwtSigningConfiguration.Resolve(
-            configuration,
-            isStaging: true,
-            "http://127.0.0.1:54321/auth/v1"
-        );
+        var settings = JwtSigningConfiguration.Resolve(isStaging: true, issuer);
 
         Assert.False(settings.RequireHttpsMetadata);
-        Assert.Equal(new[] { SecurityAlgorithms.HmacSha256 }, settings.ValidAlgorithms);
-        var key = Assert.IsType<SymmetricSecurityKey>(settings.IssuerSigningKey);
-        Assert.True(key.KeySize >= 256);
+        Assert.Equal(new[] { SecurityAlgorithms.EcdsaSha256 }, settings.ValidAlgorithms);
+        Assert.Null(settings.IssuerSigningKey);
     }
 
     [Fact]
     public void Staging_remoto_HTTPS_conserva_ES256()
     {
         var settings = JwtSigningConfiguration.Resolve(
-            BuildConfiguration(),
             isStaging: true,
             "https://auth.staging.example.test/auth/v1"
         );
@@ -87,17 +44,24 @@ public sealed class JwtSigningConfigurationTests
         Assert.Null(settings.IssuerSigningKey);
     }
 
-    [Fact]
-    public void Issuer_invalido_falla_antes_de_configurar_JWT()
+    [Theory]
+    [InlineData(false, "http://127.0.0.1:54321/auth/v1")]
+    [InlineData(true, "http://auth.staging.example.test:54321/auth/v1")]
+    [InlineData(true, "http://127.0.0.1:54322/auth/v1")]
+    public void HTTP_fuera_del_loopback_staging_esperado_se_rechaza(bool isStaging, string issuer)
     {
         Assert.Throws<InvalidOperationException>(() =>
-            JwtSigningConfiguration.Resolve(BuildConfiguration(), isStaging: true, "no-es-url")
+            JwtSigningConfiguration.Resolve(isStaging, issuer)
         );
     }
 
-    private static IConfiguration BuildConfiguration(
-        Dictionary<string, string?>? values = null
-    ) => new ConfigurationBuilder()
-        .AddInMemoryCollection(values ?? new Dictionary<string, string?>())
-        .Build();
+    [Theory]
+    [InlineData("no-es-url")]
+    [InlineData("ftp://127.0.0.1:54321/auth/v1")]
+    public void Issuer_invalido_falla_antes_de_configurar_JWT(string issuer)
+    {
+        Assert.Throws<InvalidOperationException>(() =>
+            JwtSigningConfiguration.Resolve(isStaging: true, issuer)
+        );
+    }
 }

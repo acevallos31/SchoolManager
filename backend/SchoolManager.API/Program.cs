@@ -52,7 +52,6 @@ var jwtIssuer = builder.Configuration["Jwt:Issuer"]
 var jwtAudience = builder.Configuration["Jwt:Audience"]
     ?? throw new InvalidOperationException("Jwt:Audience is not configured.");
 var jwtSigning = JwtSigningConfiguration.Resolve(
-    builder.Configuration,
     builder.Environment.IsStaging(),
     jwtIssuer
 );

@@ -57,15 +57,16 @@ del arranque genera temporalmente `supabase/migrations/` a partir de las fuentes
 canónicas del repositorio:
 
 - `database/baseline/001_schoolmanager_fase1a.sql`;
-- migraciones `007` en adelante de `database/migrations/`.
+- historial sintético para las migraciones ya incorporadas por el baseline;
+- migraciones incrementales posteriores al baseline desde `database/migrations/`.
 
-Esto reproduce el modelo usado por la instalación actual: baseline de Fase 1A
-más las migraciones posteriores, sin duplicar `001–006` sobre el baseline.
-`supabase/migrations/` está ignorado por Git y se elimina al detener el entorno.
+Esto reproduce el modelo usado por la instalación actual sin volver a ejecutar
+migraciones históricas ya consolidadas sobre el baseline. `supabase/migrations/`
+está ignorado por Git y se elimina al detener el entorno.
 
 El runtime local se guarda en `.env.e2e.local`, también ignorado por Git. El
-script no imprime claves, contraseñas, JWT secrets ni cadenas de conexión. Ese
-archivo contiene únicamente valores efímeros del stack local y se elimina con
+script no imprime claves, contraseñas ni cadenas de conexión. Ese archivo contiene
+únicamente valores efímeros del stack local y se elimina con
 `bootstrap-local-staging.py stop`.
 
 ## 044C — seed local + Auth real
@@ -73,7 +74,7 @@ archivo contiene únicamente valores efímeros del stack local y se elimina con
 Después de levantar el stack, ejecuta:
 
 ```bash
-python scripts/e2e/seed-local-staging.py
+python scripts/e2e/seed-local-staging.py seed
 ```
 
 El seed tiene un firewall explícito: solo acepta Supabase en
@@ -92,10 +93,11 @@ Las contraseñas se generan aleatoriamente. Solo se guardan en
 `.env.e2e.local`; no se muestran en consola ni se versionan. El seed tampoco
 asigna `platform_admin`.
 
-Supabase CLI local firma sus JWT con el `JWT_SECRET` efímero del stack. El
-backend acepta HS256 únicamente cuando está en `Staging` y el issuer es el
-Supabase loopback esperado en el puerto `54321`. Producción conserva ES256 y no
-lee esa clave local.
+Supabase CLI moderno firma las sesiones de usuario locales con ES256. El backend
+valida esa firma mediante el JWKS de Supabase Auth, igual que en producción. En
+staging local solo se permite que la metadata JWT viaje por HTTP cuando el issuer
+es exactamente loopback en el puerto `54321`; cualquier otro issuer HTTP se
+rechaza. No se persiste ni se consume `JWT_SECRET` para autenticar usuarios E2E.
 
 ### Ejecución autenticada local
 
@@ -107,7 +109,7 @@ exportar contraseñas a la consola.
 ```bash
 cd e2e
 npm ci
-npx playwright install chromium
+./node_modules/.bin/playwright install chromium
 npm test -- auth.spec.ts
 ```
 
@@ -146,7 +148,7 @@ El smoke no autenticado puede ejecutarse sin credenciales:
 ```bash
 cd e2e
 npm ci
-npx playwright install chromium
+./node_modules/.bin/playwright install chromium
 E2E_BASE_URL=http://127.0.0.1:4200 npm test
 ```
 
