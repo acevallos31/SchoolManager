@@ -31,6 +31,10 @@ describe('AppShell', () => {
     id: 'inst-b', nombre: 'Colegio Beta', nombreCorto: 'Beta',
     roles: ['caja'], permisos: ['academico.pagos.ver']
   };
+  const institucionInactiva: InstitucionAcceso = {
+    id: 'inst-c', nombre: 'Colegio Cerrado', nombreCorto: 'Cerrado',
+    roles: [], permisos: [], activo: false
+  };
   const usuarioBase: UsuarioExtendido = {
     id: 'u1', personaId: 'p1', nombreCompleto: 'Ana Prueba',
     roles: ['admin'], permisos: [], instituciones: []
@@ -56,7 +60,8 @@ describe('AppShell', () => {
     });
     contexto$ = new BehaviorSubject<InstitucionAcceso | null>(null);
     seleccionarContexto = vi.fn((id: string) => {
-      const institucion = institucionesContexto(usuario$.value).find(item => item.id === id);
+      const institucion = institucionesContexto(usuario$.value)
+        .find(item => item.id === id && item.activo !== false);
       if (!institucion) return false;
       contexto$.next(institucion);
       return true;
@@ -81,7 +86,9 @@ describe('AppShell', () => {
           provide: ContextoInstitucionService,
           useValue: {
             institucionActual$: contexto$.asObservable(),
-            institucionesDisponibles: () => institucionesContexto(usuario$.value),
+            institucionesDisponibles: () => institucionesContexto(usuario$.value)
+              .filter(item => item.activo !== false),
+            institucionesVisibles: () => institucionesContexto(usuario$.value),
             seleccionar: seleccionarContexto,
             limpiar: limpiarContexto
           }
@@ -185,6 +192,30 @@ describe('AppShell', () => {
     expect(component.instituciones.map(item => item.id)).toEqual(['inst-a']);
     expect(component.institucionActual?.id).toBe('inst-a');
     expect(component.rolVisible).toBe('Superadministrador');
+  });
+
+  it('Superadministrador ve instituciones inactivas pero no puede seleccionarlas como contexto', () => {
+    usuario$.next({
+      ...usuarioBase,
+      roles: ['platform_admin'],
+      ambitoGlobal: { roles: ['platform_admin'], permisos: [] },
+      instituciones: [],
+      institucionesAdministrables: [institucionA, institucionInactiva]
+    });
+    contexto$.next(institucionA);
+    fixture.detectChanges();
+
+    const select = fixture.nativeElement.querySelector(
+      'select[aria-label="Seleccionar institución activa"]'
+    ) as HTMLSelectElement;
+    expect(select).not.toBeNull();
+    const cerrada = [...select.options].find(option => option.value === 'inst-c');
+    expect(cerrada?.disabled).toBe(true);
+    expect(cerrada?.textContent).toContain('Inactiva');
+
+    component.seleccionarInstitucion({ target: { value: 'inst-c' } } as unknown as Event);
+    expect(seleccionarContexto).toHaveBeenCalledWith('inst-c');
+    expect(component.institucionActual?.id).toBe('inst-a');
   });
 
   it('con varias instituciones muestra selector y exige contexto hasta elegir una', () => {
