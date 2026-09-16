@@ -1,0 +1,147 @@
+name: E2E Authenticated Regression
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 8 * * *'
+  workflow_call:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - '.github/workflows/e2e-regression.yml'
+      - 'e2e/**'
+      - 'scripts/e2e/**'
+      - 'supabase/**'
+      - 'backend/SchoolManager.API/**'
+      - 'frontend/schoolmanager-frontend/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-regression-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e-authenticated-regression:
+    name: E2E autenticado + aislamiento institucional
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Configurar .NET 10
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.22.3
+          cache: npm
+          cache-dependency-path: |
+            frontend/schoolmanager-frontend/package-lock.json
+            e2e/package-lock.json
+
+      - name: Configurar npm
+        run: npm install -g npm@11.13.0 --ignore-scripts
+
+      - name: Configurar Supabase CLI
+        uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
+        with:
+          version: 2.117.0
+
+      - name: Verificar Supabase CLI y Docker
+        shell: bash
+        run: |
+          supabase --version
+          docker version
+
+      - name: Instalar dependencias frontend
+        working-directory: frontend/schoolmanager-frontend
+        run: npm ci --ignore-scripts
+
+      - name: Instalar dependencias E2E y Chromium
+        working-directory: e2e
+        run: |
+          npm ci --ignore-scripts
+          ./node_modules/.bin/playwright install --with-deps chromium
+
+      - name: Validar guardrails de staging local
+        run: |
+          python3 -m py_compile scripts/e2e/bootstrap-local-staging.py scripts/e2e/seed-local-staging.py e2e/support/seed-academic-local.py
+          python3 scripts/e2e/seed-local-staging.py check
+          python3 e2e/support/seed-academic-local.py check
+
+      - name: Levantar staging local desechable
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import importlib.util
+          from pathlib import Path
+
+          path = Path('scripts/e2e/bootstrap-local-staging.py')
+          spec = importlib.util.spec_from_file_location('sm_bootstrap', path)
+          module = importlib.util.module_from_spec(spec)
+          assert spec and spec.loader
+          spec.loader.exec_module(module)
+          module.prepare_migrations()
+          PY
+
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          set +e
+          supabase start --exclude 'studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta,mailpit' > "$RUNNER_TEMP/supabase-start.log" 2>&1
+          rc=$?
+          set -e
+
+          if [ "$rc" -ne 0 ]; then
+            echo '=== Diagnóstico seguro de supabase start ==='
+            grep -Ei 'error|fatal|panic|failed|migration|syntax|duplicate|violat|does not exist|relation|function|column|constraint|permission|health|port|docker' "$RUNNER_TEMP/supabase-start.log" \
+              | grep -Eiv 'secret|token|password|service[_ -]?role|anon[_ -]?key|publishable[_ -]?key|db_url|api_url' \
+              | tail -n 160 || true
+            exit "$rc"
+          fi
+
+          python3 - <<'PY'
+          import importlib.util
+          from pathlib import Path
+
+          path = Path('scripts/e2e/bootstrap-local-staging.py')
+          spec = importlib.util.spec_from_file_location('sm_bootstrap', path)
+          module = importlib.util.module_from_spec(spec)
+          assert spec and spec.loader
+          spec.loader.exec_module(module)
+          module.write_runtime_environment()
+          PY
+
+      - name: Sembrar identidad y RBAC base
+        run: python3 scripts/e2e/seed-local-staging.py seed
+
+      - name: Sembrar dataset académico y segunda institución
+        run: python3 e2e/support/seed-academic-local.py seed
+
+      - name: Ejecutar regresión E2E completa
+        working-directory: e2e
+        env:
+          CI: 'true'
+        run: npm test
+
+      - name: Subir artifacts de Playwright si falla
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, Node 24
+        with:
+          name: playwright-failure-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Destruir staging local
+        if: ${{ always() }}
+        run: python3 scripts/e2e/bootstrap-local-staging.py stop
