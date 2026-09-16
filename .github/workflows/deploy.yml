@@ -67,6 +67,26 @@ jobs:
           cd frontend/schoolmanager-frontend
           npm ci --ignore-scripts
 
+      - name: Validar build staging E2E sin secretos
+        env:
+          E2E_SUPABASE_URL: http://127.0.0.1:54321
+          E2E_SUPABASE_PUBLISHABLE_KEY: e2e-local-public-key
+          E2E_API_URL: http://127.0.0.1:5000/api
+        run: |
+          cd frontend/schoolmanager-frontend
+          npm run prepare:staging
+          npm run build -- --configuration staging
+          MANIFEST="dist/schoolmanager-frontend/browser/e2e-runtime.staging.json"
+          test -s "$MANIFEST"
+          grep -F '"environment": "staging"' "$MANIFEST"
+          grep -F '"production": false' "$MANIFEST"
+
+      - name: Validar configuración Playwright E2E
+        run: |
+          cd e2e
+          npm ci --ignore-scripts
+          E2E_BASE_URL=http://127.0.0.1:4200 npx playwright test --list
+
       - name: Ejecutar tests de rutas y funciones Vercel
         run: |
           cd frontend/schoolmanager-frontend
@@ -102,6 +122,10 @@ jobs:
           PRERENDERED_LOGIN_HTML="frontend/schoolmanager-frontend/dist/schoolmanager-frontend/browser/login/index.html"
           test -s "${PRERENDERED_LOGIN_HTML}"
           grep -F 'type="password"' "${PRERENDERED_LOGIN_HTML}"
+
+      - name: Verificar que producción no publique el manifest E2E
+        run: |
+          test ! -e "frontend/schoolmanager-frontend/dist/schoolmanager-frontend/browser/e2e-runtime.staging.json"
 
   sonarcloud:
     name: Análisis SonarCloud (CI Analysis)
@@ -165,7 +189,7 @@ jobs:
           ARGS="${ARGS} /d:sonar.exclusions=**/node_modules/**,**/dist/**,**/bin/**,**/obj/**,**/coverage/**,**/*.min.js,coverage-backend/**,**/lcov.info,**/*.cobertura.xml,**/*.spec.ts,**/*.test.ts,e2e/**"
           # Tooling/CI, scripts PWA y adaptadores Vercel: se analizan estáticamente,
           # pero no forman parte del código instrumentado por Coverlet/LCOV.
-          ARGS="${ARGS} /d:sonar.coverage.exclusions=scripts/check-coverage-gate.py,frontend/schoolmanager-frontend/public/sw.js,frontend/schoolmanager-frontend/public/register-sw.js,frontend/schoolmanager-frontend/middleware.ts,frontend/schoolmanager-frontend/api/**,frontend/schoolmanager-frontend/src/main.server.ts,frontend/schoolmanager-frontend/src/app/app.config.server.ts,frontend/schoolmanager-frontend/src/app/app.routes.server.ts"
+          ARGS="${ARGS} /d:sonar.coverage.exclusions=scripts/check-coverage-gate.py,frontend/schoolmanager-frontend/scripts/generate-staging-environment.mjs,frontend/schoolmanager-frontend/public/sw.js,frontend/schoolmanager-frontend/public/register-sw.js,frontend/schoolmanager-frontend/middleware.ts,frontend/schoolmanager-frontend/api/**,frontend/schoolmanager-frontend/src/main.server.ts,frontend/schoolmanager-frontend/src/app/app.config.server.ts,frontend/schoolmanager-frontend/src/app/app.routes.server.ts"
           # Baseline y migraciones son artefactos SQL históricos/versionados. La presentación
           # de la raíz es la copia entregable del recurso publicado en public/presentacion.html.
           # Se conservan en análisis estático y se excluyen solo del detector de duplicación.
