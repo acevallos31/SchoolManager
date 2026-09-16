@@ -95,12 +95,13 @@ public sealed class RequestObservabilityMiddleware
         {
             stopwatch.Stop();
             route = GetSafeRoute(context);
+            var elapsedMilliseconds = stopwatch.Elapsed.TotalMilliseconds;
 
             _metrics.RecordRequest(
                 context.Request.Method,
                 route,
                 context.Response.StatusCode,
-                stopwatch.Elapsed.TotalMilliseconds
+                elapsedMilliseconds
             );
 
             _logger.LogInformation(
@@ -108,7 +109,7 @@ public sealed class RequestObservabilityMiddleware
                 context.Request.Method,
                 route,
                 context.Response.StatusCode,
-                stopwatch.Elapsed.TotalMilliseconds
+                elapsedMilliseconds
             );
         }
     }
