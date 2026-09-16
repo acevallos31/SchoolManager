@@ -32,7 +32,7 @@ public sealed class ApiControllerBaseErrorTests
         Assert.Equal(
             "Ya existe un registro que entra en conflicto con los datos ingresados.",
             Mensaje(result));
-        Assert.DoesNotContain("ux_regla_interna", Mensaje(result), StringComparison.Ordinal);
+        Assert.DoesNotContain("ux_regla_interna", Mensaje(result));
     }
 
     [Theory]
@@ -51,7 +51,7 @@ public sealed class ApiControllerBaseErrorTests
 
         Assert.Equal(status, result.StatusCode);
         Assert.Equal(esperado, Mensaje(result));
-        Assert.DoesNotContain("detalle técnico", Mensaje(result), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("detalle técnico", Mensaje(result));
     }
 
     [Fact]
@@ -72,7 +72,7 @@ public sealed class ApiControllerBaseErrorTests
 
         Assert.Equal(400, result.StatusCode);
         Assert.Equal("No se pudo completar la operación solicitada.", Mensaje(result));
-        Assert.DoesNotContain("tabla_interna", Mensaje(result), StringComparison.Ordinal);
+        Assert.DoesNotContain("tabla_interna", Mensaje(result));
     }
 
     private static PostgresException Error(string sqlState, string message, string? constraint = null) =>
