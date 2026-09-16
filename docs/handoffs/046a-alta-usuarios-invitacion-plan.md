@@ -1,6 +1,6 @@
 # 046A — Alta interna de usuarios e invitación pendiente
 
-Estado: **EN IMPLEMENTACIÓN**
+Estado: **IMPLEMENTADO EN PR #108 — PENDIENTE DE MERGE Y APLICACIÓN MANUAL**
 
 ## Objetivo
 
@@ -50,3 +50,37 @@ En 046A solo se crea/reutiliza de forma segura el estado `pendiente`; los demás
 - 046E: envío/reenvío de correo, expiración, auditoría y E2E.
 
 Relacionado: #107.
+
+## Cierre técnico
+
+- Rama: `feature/identidad-invitaciones-046a`.
+- HEAD validado: `a68cbacd09d0645a10a387a06a04d547b6837588`.
+- La migración 040 crea `invitaciones_acceso`, permite usuarios internos sin
+  `auth_user_id` y expone la RPC idempotente
+  `rpc_preparar_invitacion_usuario`.
+- La RPC exige los permisos institucionales estrictos de crear usuarios y
+  asignar roles, aplica cota de delegación y serializa por correo las altas
+  concurrentes.
+- La API expone
+  `POST /api/configuracion/seguridad/usuarios/invitaciones/preparar`.
+- No se crean filas en `auth.users`, no se envían correos y no se vinculan
+  identidades por coincidencia de correo.
+
+## Validación
+
+GitHub Actions run #705:
+
+- build backend: correcto, 0 warnings y 0 errores;
+- API/identidad: 234/234 tests;
+- base de datos: 210/210 tests, incluida concurrencia del mismo correo;
+- frontend, build staging y verificaciones Vercel: correctos;
+- Sonar Quality Gate: aprobado;
+- cobertura de código nuevo: 86.4%; endpoint nuevo: 100%;
+- duplicación nueva: 0.0%.
+
+## Pendientes operativos
+
+- revisión y merge del PR #108;
+- aplicar manualmente la migración 040 en Supabase solo después del merge y la
+  autorización correspondiente;
+- iniciar 046B desde `main` actualizado después de completar esos pasos.
