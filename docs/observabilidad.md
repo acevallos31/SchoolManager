@@ -1,121 +1,123 @@
-# Observabilidad — health checks y estado actual
+# Observabilidad — SchoolManager.API
 
-Estado de healthcheck, logging, errores y monitoreo del backend
-(`SchoolManager.API`). Este documento describe el **contrato** de los
-endpoints de estado (implementado en PR A, deuda #5) y la **auditoría** de
-lo que existe y lo que aún falta en observabilidad. Principios ISW2 #5 y
-#11.
+Este documento define el contrato de observabilidad del backend después del Bloque 045A. El objetivo es poder diagnosticar fallos y degradaciones sin exponer datos sensibles ni requerir infraestructura de pago adicional.
 
----
+## Health checks
 
-## Contrato de health checks (liveness y readiness)
+### `GET /health`
 
-Ambos endpoints son **anónimos** (no requieren autenticación) para que un
-orquestador, balanceador de carga o servicio de monitoreo pueda sondearlos
-sin credenciales. **No exponen secretos ni connection strings** en ninguna
-respuesta.
+Liveness del proceso. Devuelve `200 OK` mientras la API esté viva y no comprueba dependencias.
 
-### `GET /health` — liveness
+```json
+{ "status": "ok", "service": "SchoolManager.API", "timestamp": "..." }
+```
 
-Indica que el **proceso** de la API está vivo y respondiendo HTTP.
+### `GET /health/ready`
 
-- **200 OK** siempre que el proceso esté en pie. No comprueba dependencias.
-- Cuerpo:
-  ```json
-  { "status": "ok", "service": "SchoolManager.API", "timestamp": "..." }
-  ```
-- Uso: sondear periódicamente para detectar un proceso colgado o caído.
-  No debe usarse para decidir enrutado de tráfico porque no valida la base.
+Readiness real. Ejecuta `SELECT 1` contra PostgreSQL mediante el `NpgsqlDataSource` registrado.
 
-### `GET /health/ready` — readiness
+- `200 OK`: PostgreSQL responde.
+- `503 Service Unavailable`: la dependencia crítica no está disponible.
 
-Indica si la API está **lista para recibir tráfico**, es decir, si su
-dependencia crítica (PostgreSQL) está disponible.
+La respuesta nunca incluye host, puerto, usuario, contraseña, connection string ni detalle interno de la excepción.
 
-- Comprueba conectividad real con PostgreSQL ejecutando `SELECT 1` a través
-  del `NpgsqlDataSource` singleton registrado en DI (timeout 3 s).
-- **200 OK** cuando la base responde:
-  ```json
-  { "status": "ready", "service": "SchoolManager.API", "database": "ok",
-    "timestamp": "..." }
-  ```
-- **503 Service Unavailable** cuando la base no responde o falla la conexión
-  (se captura `NpgsqlException`):
-  ```json
-  { "status": "not_ready", "service": "SchoolManager.API",
-    "database": "unavailable", "timestamp": "..." }
-  ```
-- Uso: el orquestador debe **retirar la instancia del pool / no enviarle
-  tráfico** mientras devuelva 503, y reintentar cuando vuelva a 200.
+## Logging estructurado — 045A
 
-### Reglas de la respuesta
+`Program.cs` configura el provider nativo `JsonConsole` de ASP.NET Core. Los logs salen por stdout en JSON, por lo que Render puede conservarlos y filtrarlos sin introducir Serilog, un collector o un servicio SaaS adicional.
 
-1. Códigos: **200** = listo; **503** = dependencia crítica no disponible.
-2. Nunca incluir connection strings, host, puerto, usuario, contraseña ni
-   detalle de la excepción interna.
-3. Mantener `GET /health` como liveness (no mezclar responsabilidades); el
-   readiness vive en una ruta separada.
+Cada request pasa por `RequestObservabilityMiddleware` y recibe contexto estructurado:
 
-### Implementación de referencia
+- `RequestId`: `HttpContext.TraceIdentifier`;
+- `TraceId`: identificador W3C de `Activity` cuando existe;
+- `Route`: patrón de ruta ASP.NET (`/api/alumnos/{id}`), no la URL cruda;
+- `Authenticated`: indica si existe identidad autenticada;
+- `UserId`: únicamente el claim `sub` cuando está disponible;
+- método HTTP, status code y duración total.
 
-`backend/SchoolManager.API/Program.cs` — endpoints de minimal API:
-`app.MapGet("/health", ...)` (liveness) y `app.MapGet("/health/ready", ...)`
-(readiness; `SELECT 1` vía `NpgsqlDataSource`).
+La respuesta incluye `X-Request-ID`. Ese valor es el dato que soporte debe pedir al usuario cuando haya que buscar una solicitud concreta en los logs.
 
-### Cobertura de tests
+### Datos que no se registran
 
-`tests/SchoolManager.API.IntegrationTests/HealthReadinessTests.cs`:
+El middleware no captura ni registra:
 
-- liveness devuelve 200 con `status=ok`;
-- liveness sigue en 200 aunque la DB esté caída (no depende de la base);
-- readiness devuelve 200 cuando PostgreSQL responde;
-- readiness devuelve 503 cuando PostgreSQL está caído (datasource a puerto
-  cerrado);
-- ninguna respuesta expone connection string ni secretos.
+- query strings;
+- headers;
+- cuerpo de request/response;
+- JWT/access tokens;
+- cookies;
+- contraseñas;
+- correos o nombres de personas.
 
----
+Para rutas no reconocidas se usa `<unmatched>` en lugar del path enviado por el cliente, evitando cardinalidad ilimitada y contenido arbitrario en logs.
 
-## Qué existe (auditoría)
+## Excepciones no controladas
 
-### Healthcheck
-- `GET /health` (liveness del proceso, ver contrato arriba).
-- `GET /health/ready` (readiness con chequeo real de PostgreSQL, ver
-  contrato arriba) — añadido en PR A.
+Una excepción inesperada se registra con:
 
-### Logging backend
-- Solo el logging por consola por defecto de ASP.NET Core
-  (`appsettings.json`: `Default: Information`, `Microsoft.AspNetCore:
-  Warning`). Sin sink estructurado (serilog/OpenTelemetry), sin niveles
-  configurables por entorno productivo más allá del default.
-- `appsettings.json` no contiene secretos (los `Jwt:Issuer/Audience` y CORS
-  son valores no sensibles; la cadena de conexión va por variable de entorno
-  `ConnectionStrings__PostgreSQL`).
+- `RequestId` y `TraceId`;
+- tipo de excepción y tipo de excepción interna;
+- método y patrón de ruta;
+- stack trace.
 
-### Errores
-- Manejo de errores por middleware/`ProblemDetails` por defecto de ASP.NET
-  Core en controllers; excepciones no capturadas caen al log de consola. No
-  hay un middleware global que registre errores con contexto (usuario, ruta,
-  trace id) de forma estructurada.
+No se serializa el mensaje arbitrario de la excepción en el log estructurado del middleware, porque podría contener valores operativos sensibles.
 
-### Monitoreo
-- Sin métricas de aplicación, sin traces distribuidos, sin alertas. La
-  infraestructura externa (Render/Vercel) ofrece dashboards básicos, pero no
-  hay telemetría propia del API.
+Si la respuesta todavía no comenzó, el cliente recibe `500 application/problem+json` con un mensaje genérico y los identificadores de correlación:
 
-## Qué falta aún (deuda futura)
+```json
+{
+  "type": "about:blank",
+  "title": "Ocurrió un error interno al procesar la solicitud.",
+  "status": 500,
+  "requestId": "...",
+  "traceId": "..."
+}
+```
 
-| Carencia | Riesgo | Añadir cuando |
+No se devuelve stack trace, mensaje de excepción, connection string ni detalle de base de datos.
+
+## Métricas internas
+
+`ApiObservabilityMetrics` usa `System.Diagnostics.Metrics` con meter `SchoolManager.API`. No abre un endpoint público y no requiere exporter para ejecutar la aplicación.
+
+Instrumentos actuales:
+
+| Métrica | Tipo | Uso |
 | --- | --- | --- |
-| Logging estructurado (serilog/OpenTelemetry) + niveles por entorno | diagnóstico lento de errores en prod; logs difíciles de filtrar | con un primer panel/monitor real |
-| Registro de errores con contexto (request id, usuario, path) | no se puede correlacionar un fallo con una sesión | idem |
-| Métricas + alertas | degradaciones pasan desapercibidas hasta el usuario | post-020, cuando exista superficie con dinero |
+| `schoolmanager.api.requests` | Counter | total de requests procesados |
+| `schoolmanager.api.server_errors` | Counter | respuestas HTTP 5xx |
+| `schoolmanager.api.request.duration` | Histogram | duración de requests en ms |
 
-## Recomendación mínima restante (fuera de este PR)
+Tags permitidos: método HTTP, patrón de ruta y status code. No se incluyen IDs de usuario, correos, query strings ni otros valores de alta cardinalidad.
 
-1. Adoptar logging estructurado mínimo (p. ej. serilog a consola en JSON)
-   sin añadir infraestructura; es bajo riesgo y alto retorno.
-2. Métricas de aplicación y alertas cuando exista superficie con flujo de
-   dinero en producción.
+Un exporter OpenTelemetry/OTLP o Prometheus puede añadirse en el futuro sin cambiar la instrumentación de negocio. No es requisito para el cierre de 045A.
 
-Quedan registradas como deuda técnica #5 (parte no cubierta por el
-readiness) y no se implementan en PR A.
+## Estrategia de alertas
+
+La estrategia operativa queda definida para que pueda implementarse con el monitor disponible en el entorno, sin acoplar el código a un proveedor específico:
+
+1. **Disponibilidad crítica:** alertar si `/health/ready` devuelve `503` en tres comprobaciones consecutivas.
+2. **Errores 5xx:** alertar si los 5xx superan 5 % durante 5 minutos con un mínimo de 20 requests.
+3. **Latencia:** advertir si el p95 de `schoolmanager.api.request.duration` supera 2 s durante 10 minutos.
+4. **Liveness:** alertar inmediatamente cuando `/health` deje de responder.
+
+Mientras no exista un collector de métricas dedicado, Render conserva los logs JSON y los health checks siguen siendo la fuente mínima de disponibilidad. Incorporar un exporter o una plataforma externa será una decisión operativa futura, no una dependencia obligatoria del backend.
+
+## Flujo de diagnóstico
+
+Cuando un usuario reporte un error:
+
+1. pedir el valor `X-Request-ID` si está disponible;
+2. buscar ese `RequestId` en los logs del backend;
+3. usar el `TraceId` asociado para correlacionar eventos de la misma solicitud;
+4. revisar `Route`, `StatusCode`, duración y tipo de excepción;
+5. nunca solicitar ni registrar JWT, password o cookies para diagnosticar el caso.
+
+## Pruebas
+
+- `HealthReadinessTests.cs`: liveness/readiness y ausencia de secretos.
+- `RequestObservabilityMiddlewareTests.cs`: encabezado `X-Request-ID` y `ProblemDetails` 500 sin filtrar detalle interno.
+- CI compila el backend y ejecuta la suite de integración completa antes de permitir merge.
+
+## Alcance
+
+045A no modifica autenticación local, Google OAuth, Microsoft OAuth, JWT, RLS/RPC, migraciones ni datos de producción. Solo incorpora observabilidad transversal al pipeline HTTP del backend.

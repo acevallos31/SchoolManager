@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
 using SchoolManager.API.Authorization;
@@ -10,9 +11,26 @@ var builder = WebApplication.CreateBuilder(args);
 
 StagingSafety.Validate(builder.Configuration, builder.Environment.IsStaging());
 
+// Logs estructurados a stdout para Render/contenedores, sin agregar un servicio
+// externo ni una dependencia de terceros. Los scopes incluyen RequestId/TraceId.
+builder.Logging.ClearProviders();
+builder.Logging.AddJsonConsole(options =>
+{
+    options.IncludeScopes = true;
+    options.UseUtcTimestamp = true;
+    options.TimestampFormat = "yyyy-MM-ddTHH:mm:ss.fffZ";
+});
+builder.Logging.Configure(options =>
+{
+    options.ActivityTrackingOptions = ActivityTrackingOptions.TraceId
+        | ActivityTrackingOptions.SpanId
+        | ActivityTrackingOptions.ParentId;
+});
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddSingleton<ApiObservabilityMetrics>();
 
 var allowedOrigins = builder.Configuration
     .GetSection("Cors:AllowedOrigins")
@@ -121,6 +139,9 @@ app.UseHttpsRedirection();
 app.UseCors("FrontendPolicy");
 
 app.UseAuthentication();
+// Después de Authentication para disponer del claim sub, pero antes de
+// Authorization para observar también 401/403 y toda la ejecución del endpoint.
+app.UseMiddleware<RequestObservabilityMiddleware>();
 app.UseAuthorization();
 
 app.MapGet("/health", () => Results.Ok(new
