@@ -72,7 +72,7 @@ jobs:
               Path('backend/SchoolManager.API/appsettings.Staging.json').read_text(encoding='utf-8')
           )
           assert staging['Jwt']['Issuer'] == 'http://127.0.0.1:54321/auth/v1'
-          assert 'Host=127.0.0.1' in staging['ConnectionStrings']['PostgreSQL']
+          assert staging['ConnectionStrings']['PostgreSQL'] == ''
           assert all(
               origin.startswith(('http://127.0.0.1', 'http://localhost'))
               for origin in staging['Cors']['AllowedOrigins']
