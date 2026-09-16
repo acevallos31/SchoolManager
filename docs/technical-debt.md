@@ -1,6 +1,6 @@
 # Deuda técnica registrada — SchoolManager
 
-Estado consolidado después de los Bloques 042, 043A, 043B y 044, actualizado el 2026-09-16.
+Estado consolidado después de los Bloques 042, 043A, 043B, 044 y 045A, actualizado el 2026-09-16.
 Este archivo enumera únicamente deuda técnica **real y verificable**. El historial
 de deudas cerradas se conserva al final para no volver a abrir problemas ya
 resueltos.
@@ -10,8 +10,8 @@ resueltos.
 
 ## Estado base verificado
 
-- Base funcional previa a 044E: merge `b6c7c0c600e53521be76325d71fdd7d2ee173518`
-  (PR #104 / Bloque 044D).
+- Base funcional previa a 045A: merge `13e6771c0248cf82c7b97a2df05fad483b45a47b`
+  (PR #105 / Bloque 044E).
 - Migraciones activas del repositorio: `001` → `039`.
 - Última verificación read-only de producción: `schema_migrations` contiene
   `baseline-001-fase1a` y las migraciones numéricas `007` → `039`.
@@ -19,28 +19,12 @@ resueltos.
   una institución activa y un `platform_admin` activo.
 - Arquitectura vigente: Angular → API .NET → PostgreSQL/Supabase/RPC; Supabase
   directo en frontend queda reservado a Auth.
-- CI post-merge de 044D terminó verde, incluyendo Sonar Quality Gate y despliegue
+- CI post-merge de 044E terminó verde, incluyendo Sonar Quality Gate y despliegue
   de producción.
 
 ---
 
 ## Deuda abierta
-
-### #5. Observabilidad de producción — parcial
-
-- **Estado:** PARCIAL.
-- **Ya resuelto:** `GET /health` como liveness y `GET /health/ready` como
-  readiness real contra PostgreSQL (`SELECT 1`, 200/503, sin secretos).
-- **Pendiente verificable:** el backend sigue usando logging de consola de
-  ASP.NET Core sin logging estructurado, correlación consistente por request,
-  métricas propias ni alertas de aplicación.
-- **Riesgo:** diagnóstico lento y detección tardía de degradaciones que no
-  derriban completamente el proceso o la base.
-- **Prioridad:** Media.
-- **Criterio de cierre:** logging estructurado mínimo con `trace/request id`,
-  contexto seguro de ruta/usuario cuando aplique, y una estrategia de métricas
-  y alertas que no exponga datos sensibles.
-- **Referencia:** `docs/observabilidad.md`.
 
 ### #14. Prueba de carga controlada del backend
 
@@ -80,6 +64,26 @@ migraciones en base desechable.
 
 `MigrationRunner` valida SHA-256 y falla ante divergencias de una migración ya
 registrada.
+
+### #5. Observabilidad de producción — RESUELTA
+
+Bloque 045A completa la parte pendiente sobre los health checks existentes:
+
+- `JsonConsole` nativo de ASP.NET Core produce logs estructurados JSON a stdout;
+- `RequestObservabilityMiddleware` agrega `RequestId`, `TraceId`, patrón de ruta,
+  estado autenticado y claim `sub` cuando aplica;
+- cada respuesta expone `X-Request-ID` para correlación operativa;
+- excepciones no controladas devuelven `ProblemDetails` 500 sin detalle interno;
+- el middleware no registra query strings, headers, body, tokens, cookies,
+  contraseñas, correos ni nombres;
+- `ApiObservabilityMetrics` instrumenta requests, 5xx y duración mediante
+  `System.Diagnostics.Metrics`, sin endpoint público ni dependencia SaaS;
+- `docs/observabilidad.md` define umbrales y estrategia de alertas para
+  readiness, liveness, tasa 5xx y p95 de latencia.
+
+Agregar un exporter OpenTelemetry/Prometheus o una plataforma externa en el futuro
+es una decisión operativa opcional; la instrumentación y el contrato de
+correlación ya quedan en el backend.
 
 ### #6. Backend de pagos/cobranza — RESUELTA
 

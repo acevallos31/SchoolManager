@@ -54,11 +54,16 @@ public sealed class RequestObservabilityMiddleware
         {
             route = GetSafeRoute(context);
 
+            // No serializar el mensaje de una excepción arbitraria: podría contener
+            // valores operativos sensibles. Tipo + stack permiten diagnóstico y el
+            // RequestId/TraceId correlaciona con el resto de la solicitud.
             _logger.LogError(
-                exception,
-                "Unhandled exception processing {Method} {Route}",
+                "Unhandled exception {ExceptionType} ({InnerExceptionType}) processing {Method} {Route}. StackTrace: {StackTrace}",
+                exception.GetType().FullName,
+                exception.InnerException?.GetType().FullName,
                 context.Request.Method,
-                route
+                route,
+                exception.StackTrace
             );
 
             if (context.Response.HasStarted)
@@ -68,7 +73,6 @@ public sealed class RequestObservabilityMiddleware
 
             context.Response.Clear();
             context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-            context.Response.ContentType = "application/problem+json";
             context.Response.Headers[RequestIdHeader] = requestId;
 
             var problem = new ProblemDetails
@@ -80,7 +84,12 @@ public sealed class RequestObservabilityMiddleware
             problem.Extensions["requestId"] = requestId;
             problem.Extensions["traceId"] = traceId;
 
-            await context.Response.WriteAsJsonAsync(problem, context.RequestAborted);
+            await context.Response.WriteAsJsonAsync(
+                problem,
+                options: null,
+                contentType: "application/problem+json",
+                cancellationToken: context.RequestAborted
+            );
         }
         finally
         {
@@ -117,6 +126,7 @@ public sealed class RequestObservabilityMiddleware
             return routePattern.StartsWith('/') ? routePattern : $"/{routePattern}";
         }
 
-        return context.Request.Path.HasValue ? context.Request.Path.Value! : "/";
+        // Evita cardinalidad ilimitada y contenido controlado por el cliente en logs.
+        return "<unmatched>";
     }
 }
