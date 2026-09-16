@@ -291,7 +291,8 @@ export class AuthService {
     // El build staging local no ejecuta las funciones Vercel ni su middleware.
     // Producción y desarrollo conservan la cookie edge; staging valida la sesión
     // directamente contra Supabase Auth + API .NET durante el E2E.
-    if (!environment.edgeSessionEnabled) {
+    const edgeSessionEnabled = (environment as { edgeSessionEnabled?: boolean }).edgeSessionEnabled !== false;
+    if (!edgeSessionEnabled) {
       return;
     }
 
