@@ -17,7 +17,7 @@ public sealed class JwtSigningConfigurationTests
         );
 
         Assert.True(settings.RequireHttpsMetadata);
-        Assert.Equal([SecurityAlgorithms.EcdsaSha256], settings.ValidAlgorithms);
+        Assert.Equal(new[] { SecurityAlgorithms.EcdsaSha256 }, settings.ValidAlgorithms);
         Assert.Null(settings.IssuerSigningKey);
     }
 
@@ -68,7 +68,7 @@ public sealed class JwtSigningConfigurationTests
         );
 
         Assert.False(settings.RequireHttpsMetadata);
-        Assert.Equal([SecurityAlgorithms.HmacSha256], settings.ValidAlgorithms);
+        Assert.Equal(new[] { SecurityAlgorithms.HmacSha256 }, settings.ValidAlgorithms);
         var key = Assert.IsType<SymmetricSecurityKey>(settings.IssuerSigningKey);
         Assert.True(key.KeySize >= 256);
     }
@@ -83,7 +83,7 @@ public sealed class JwtSigningConfigurationTests
         );
 
         Assert.True(settings.RequireHttpsMetadata);
-        Assert.Equal([SecurityAlgorithms.EcdsaSha256], settings.ValidAlgorithms);
+        Assert.Equal(new[] { SecurityAlgorithms.EcdsaSha256 }, settings.ValidAlgorithms);
         Assert.Null(settings.IssuerSigningKey);
     }
 
