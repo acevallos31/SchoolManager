@@ -1,6 +1,6 @@
 # Deuda técnica registrada — SchoolManager
 
-Estado consolidado después de los Bloques 042, 043A y 043B, actualizado el 2026-09-16.
+Estado consolidado después de los Bloques 042, 043A, 043B y 044, actualizado el 2026-09-16.
 Este archivo enumera únicamente deuda técnica **real y verificable**. El historial
 de deudas cerradas se conserva al final para no volver a abrir problemas ya
 resueltos.
@@ -10,9 +10,8 @@ resueltos.
 
 ## Estado base verificado
 
-- Base funcional verificada antes de este cierre documental: merge
-  `e46c01343f3ac9ace3fbce29ca8ba4237ffc156f` (PR #100), precedido por
-  `d622a1f50f3e78b00a9e83f2ae3d80c574e80a5a` (PR #99).
+- Base funcional previa a 044E: merge `b6c7c0c600e53521be76325d71fdd7d2ee173518`
+  (PR #104 / Bloque 044D).
 - Migraciones activas del repositorio: `001` → `039`.
 - Última verificación read-only de producción: `schema_migrations` contiene
   `baseline-001-fase1a` y las migraciones numéricas `007` → `039`.
@@ -20,8 +19,8 @@ resueltos.
   una institución activa y un `platform_admin` activo.
 - Arquitectura vigente: Angular → API .NET → PostgreSQL/Supabase/RPC; Supabase
   directo en frontend queda reservado a Auth.
-- CI de 043A y 043B terminó verde, incluyendo Sonar Quality Gate. Las actions
-  oficiales migradas en 043B ya usan releases con runtime Node 24 fijadas por SHA.
+- CI post-merge de 044D terminó verde, incluyendo Sonar Quality Gate y despliegue
+  de producción.
 
 ---
 
@@ -42,20 +41,6 @@ resueltos.
   contexto seguro de ruta/usuario cuando aplique, y una estrategia de métricas
   y alertas que no exponga datos sensibles.
 - **Referencia:** `docs/observabilidad.md`.
-
-### #13. E2E autenticado completo en staging seguro
-
-- **Estado:** ABIERTA.
-- **Evidencia:** Playwright y smoke no autenticado existen; `auth.spec.ts` está
-  preparado pero condicionado a variables de staging. No existe aún un entorno
-  completo aislado con Supabase + API + frontend de staging y credenciales de
-  prueba.
-- **Riesgo:** los flujos de login, permisos, aislamiento institucional y CRUD
-  real no se validan de extremo a extremo de forma automatizada.
-- **Prioridad:** Media.
-- **Criterio de cierre:** ejecutar el plan `E2E-01` → `E2E-06` de
-  `docs/testing/e2e-staging-plan.md`, sin reutilizar producción ni secretos de
-  usuarios reales.
 
 ### #14. Prueba de carga controlada del backend
 
@@ -144,6 +129,27 @@ warning específico `Node.js 20 is deprecated` para esas actions.
 > `DEP0005 Buffer() is deprecated`. No es el warning de runtime Node 20 que
 > motivó 043B y no rompe el workflow; si persiste en futuras releases se evalúa
 > como dependencia upstream, no como reapertura automática de #12.
+
+### #13. E2E autenticado completo en staging seguro — RESUELTA
+
+Bloques 044A–044E cerraron la brecha sin usar producción ni infraestructura cloud
+adicional:
+
+- configuración Angular `staging` y manifest runtime con allowlist anti-producción;
+- backend `Staging` con fail-fast para JWT/PostgreSQL/CORS;
+- Supabase local efímero y migraciones reconstruidas desde las fuentes canónicas;
+- seed local de identidades/RBAC con credenciales efímeras y sin `platform_admin`;
+- Auth real contra Supabase local + API .NET + frontend Angular;
+- casos negativos de login, 401/403 y aislamiento entre dos instituciones;
+- dataset académico mínimo con ciclo, período, grado, jornada, sección, alumno y
+  matrícula;
+- workflow `E2E Authenticated Regression` reutilizable por `workflow_call`, manual
+  con `workflow_dispatch` y nocturno con `schedule`;
+- artifacts de Playwright (reporte HTML, traces/screenshots) ante fallos y cleanup
+  obligatorio del entorno efímero.
+
+Los workflows puntuales de 044C/044D fueron sustituidos por la regresión mantenible
+044E. El E2E completo no requiere secretos de producción ni datos reales.
 
 ### Hallazgos `High` históricos de Sonar — RESUELTOS
 

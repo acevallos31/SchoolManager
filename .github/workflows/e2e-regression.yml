@@ -1,15 +1,30 @@
-name: E2E 044D Academic Isolation Gate
+name: E2E Authenticated Regression
 
 on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 8 * * *'
+  workflow_call:
   pull_request:
     branches: ["main"]
+    paths:
+      - '.github/workflows/e2e-regression.yml'
+      - 'e2e/**'
+      - 'scripts/e2e/**'
+      - 'supabase/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-regression-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  e2e-044d-academic-isolation:
-    name: E2E 044D académico + aislamiento
-    if: ${{ github.head_ref == 'feature/e2e-academico-aislamiento-044d' }}
+  e2e-authenticated-regression:
+    name: E2E autenticado + aislamiento institucional
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
 
     steps:
       - name: Checkout del código
@@ -55,9 +70,9 @@ jobs:
           npm ci --ignore-scripts
           ./node_modules/.bin/playwright install --with-deps chromium
 
-      - name: Validar guardrails 044D
+      - name: Validar guardrails de staging local
         run: |
-          python3 -m py_compile scripts/e2e/seed-local-staging.py e2e/support/seed-academic-local.py
+          python3 -m py_compile scripts/e2e/bootstrap-local-staging.py scripts/e2e/seed-local-staging.py e2e/support/seed-academic-local.py
           python3 scripts/e2e/seed-local-staging.py check
           python3 e2e/support/seed-academic-local.py check
 
@@ -102,17 +117,28 @@ jobs:
           module.write_runtime_environment()
           PY
 
-      - name: Sembrar identidad y RBAC base 044C
+      - name: Sembrar identidad y RBAC base
         run: python3 scripts/e2e/seed-local-staging.py seed
 
-      - name: Sembrar dataset académico y segunda institución 044D
+      - name: Sembrar dataset académico y segunda institución
         run: python3 e2e/support/seed-academic-local.py seed
 
-      - name: Ejecutar autenticación, permisos y aislamiento E2E
+      - name: Ejecutar regresión E2E completa
         working-directory: e2e
         env:
           CI: 'true'
-        run: npm test -- auth.spec.ts academic-isolation.spec.ts
+        run: npm test
+
+      - name: Subir artifacts de Playwright si falla
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, Node 24
+        with:
+          name: playwright-failure-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Destruir staging local
         if: ${{ always() }}

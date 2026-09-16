@@ -5,45 +5,31 @@ staging explícito. Producción queda fuera de alcance: no se usan usuarios real
 no se escriben datos reales y no existe un bypass para ejecutar la suite sobre
 los hosts productivos conocidos.
 
-## Foundation 044A
-
-La primera capa ya está preparada en código:
+## 044A — frontend staging y guardrails
 
 - Angular dispone de configuración `staging` separada de `production`.
-- `npm run prepare:staging` genera `environment.staging.ts` desde variables de
-  entorno y un manifest público `e2e-runtime.staging.json`.
-- Los dos archivos generados están ignorados por Git y no contienen secretos
-  versionados.
-- El generador bloquea hosts conocidos de producción y solo acepta localhost o
-  hosts añadidos explícitamente a `E2E_ALLOWED_HOSTS`.
-- Playwright usa la misma política de allowlist para `E2E_BASE_URL`.
-- Cuando `E2E_STAGING=1`, `global-setup.ts` consulta el manifest que realmente
-  sirve el frontend y valida también `supabaseUrl` y `apiUrl` antes de ejecutar
-  cualquier login.
-- CI construye la configuración staging con valores locales inertes, valida el
-  manifest y después construye producción verificando que el manifest E2E no se
-  publique en el artefacto productivo.
+- `npm run prepare:staging` genera `environment.staging.ts` y
+  `e2e-runtime.staging.json` desde variables de entorno.
+- Los artefactos generados quedan ignorados por Git.
+- El generador y Playwright solo aceptan localhost/loopback por defecto o hosts
+  explícitos de `E2E_ALLOWED_HOSTS`.
+- Los hosts productivos conocidos permanecen bloqueados incluso si se intentan
+  agregar a la allowlist.
+- `global-setup.ts` valida el manifest realmente servido antes de autenticar.
+- El build de producción verifica que el manifest E2E no se publique.
 
-Esto cierra el vacío anterior donde un frontend servido desde localhost podía
-seguir llevando URLs productivas embebidas.
+## 044B — backend staging + Supabase local efímero
 
-## Foundation 044B — backend staging + Supabase local efímero
+`ASPNETCORE_ENVIRONMENT=Staging` activa `StagingSafety`, que valida antes de
+arrancar:
 
-El backend también tiene un modo `Staging` separado. Al arrancar con
-`ASPNETCORE_ENVIRONMENT=Staging`, `StagingSafety` valida antes de registrar los
-servicios que:
+- `Jwt:Issuer`;
+- PostgreSQL;
+- CORS;
+- ausencia de hosts productivos conocidos.
 
-- `Jwt:Issuer` sea una URL permitida;
-- PostgreSQL apunte únicamente a localhost o a un host de staging incluido en
-  `E2E_ALLOWED_HOSTS`;
-- los orígenes CORS sean de staging;
-- los hosts productivos conocidos de SchoolManager no aparezcan en ninguna de
-  esas dependencias.
-
-`appsettings.Staging.json` no contiene ninguna contraseña ni connection string
-utilizable por sí sola. La cadena de PostgreSQL debe llegar en runtime mediante
-`ConnectionStrings__PostgreSQL`; si falta, el backend falla al arrancar en lugar
-de heredar accidentalmente la base productiva.
+`appsettings.Staging.json` no contiene una connection string utilizable por sí
+sola. La cadena llega solo en runtime mediante `ConnectionStrings__PostgreSQL`.
 
 El stack local se prepara con:
 
@@ -51,126 +37,147 @@ El stack local se prepara con:
 python scripts/e2e/bootstrap-local-staging.py start
 ```
 
-El script requiere Docker y Supabase CLI, elimina primero los volúmenes locales
-del proyecto y levanta un entorno desechable con `supabase/config.toml`. Antes
-del arranque genera temporalmente `supabase/migrations/` a partir de las fuentes
-canónicas del repositorio:
-
-- `database/baseline/001_schoolmanager_fase1a.sql`;
-- historial sintético para las migraciones ya incorporadas por el baseline;
-- migraciones incrementales posteriores al baseline desde `database/migrations/`.
-
-Esto reproduce el modelo usado por la instalación actual sin volver a ejecutar
-migraciones históricas ya consolidadas sobre el baseline. `supabase/migrations/`
-está ignorado por Git y se elimina al detener el entorno.
-
-El runtime local se guarda en `.env.e2e.local`, también ignorado por Git. El
-script no imprime claves, contraseñas ni cadenas de conexión. Ese archivo contiene
-únicamente valores efímeros del stack local y se elimina con
-`bootstrap-local-staging.py stop`.
+El bootstrap exige Docker + Supabase CLI, reconstruye temporalmente
+`supabase/migrations/` desde el baseline y las migraciones canónicas del
+repositorio, levanta Supabase local y escribe `.env.e2e.local`. Tanto las
+migraciones generadas como el archivo runtime están ignorados por Git y se
+eliminan al detener el entorno.
 
 ## 044C — seed local + Auth real
 
-Después de levantar el stack, ejecuta:
+Después de levantar el stack:
 
 ```bash
 python scripts/e2e/seed-local-staging.py seed
 ```
 
-El seed tiene un firewall explícito: solo acepta Supabase en
-`127.0.0.1/localhost:54321`. Usa la credencial privilegiada de Supabase local
-en memoria y nunca la persiste. De forma idempotente crea:
+El seed solo acepta Supabase en `localhost/127.0.0.1:54321`. Crea de forma
+idempotente:
 
-- una institución local `SchoolManager E2E`;
-- un usuario administrador E2E basado en la plantilla `school_admin`;
-- un usuario de consulta E2E basado en `demo_viewer`;
-- personas, usuarios internos y asignaciones institucionales coherentes con
-  `usuarios.auth_user_id`;
-- roles institucionales deterministas cuyos permisos se copian únicamente si
-  son institucionales, delegables y vigentes.
+- institución local;
+- administrador E2E;
+- usuario de consulta;
+- Persona/Usuario y vínculo `auth_user_id`;
+- roles institucionales derivados de plantillas base.
 
-Las contraseñas se generan aleatoriamente. Solo se guardan en
-`.env.e2e.local`; no se muestran en consola ni se versionan. El seed tampoco
-asigna `platform_admin`.
+Las contraseñas son aleatorias y permanecen exclusivamente en
+`.env.e2e.local`. No se versionan, no se imprimen y no se asigna
+`platform_admin`.
 
-Supabase CLI moderno firma las sesiones de usuario locales con ES256. El backend
-valida esa firma mediante el JWKS de Supabase Auth, igual que en producción. En
-staging local solo se permite que la metadata JWT viaje por HTTP cuando el issuer
-es exactamente loopback en el puerto `54321`; cualquier otro issuer HTTP se
-rechaza. No se persiste ni se consume `JWT_SECRET` para autenticar usuarios E2E.
+Playwright carga `.env.e2e.local`; cuando `E2E_LOCAL_STACK=1`, levanta la API .NET
+y Angular staging como procesos hijos. El flujo 044C valida login real,
+dashboard, ruta protegida y logout.
 
-### Ejecución autenticada local
+## 044D — permisos y aislamiento institucional
 
-Playwright carga automáticamente `.env.e2e.local`. Cuando detecta
-`E2E_LOCAL_STACK=1`, levanta como procesos hijos la API .NET en el puerto 5000 y
-Angular con configuración `staging` en el puerto 4200. Por eso no hace falta
-exportar contraseñas a la consola.
+`e2e/support/seed-academic-local.py` extiende el fixture efímero con una segunda
+institución y datos académicos deterministas para ambas instituciones:
+
+- ciclo;
+- período de matrícula;
+- grado;
+- jornada;
+- sección;
+- alumno;
+- matrícula.
+
+`academic-isolation.spec.ts` valida:
+
+- credenciales incorrectas;
+- `401` sin token;
+- usuario de solo lectura sin acciones de escritura;
+- `403` ante escritura sin permiso;
+- aislamiento A ↔ B con `404` para recursos ajenos;
+- render de matrícula académica del alumno autorizado.
+
+El primer gate 044D detectó y permitió corregir tres problemas reales: composición
+`/api/api`, falta de propagación de `institucionId` en el listado de alumnos y
+refresco de error de login bajo Angular zoneless. La repetición final quedó verde.
+
+## 044E — regresión mantenible manual/nocturna
+
+El workflow canónico es:
+
+`.github/workflows/e2e-regression.yml`
+
+Admite tres formas de ejecución:
+
+- `workflow_dispatch`: ejecución manual antes de release o después de cambios
+  sensibles;
+- `schedule`: ejecución nocturna diaria (`17 8 * * *`, aproximadamente 02:17 en
+  Honduras / UTC-6);
+- `workflow_call`: reutilización desde otros workflows.
+
+Para validar cambios del propio harness también se dispara en PR cuando cambian
+`e2e/**`, `scripts/e2e/**`, `supabase/**` o el workflow mismo. No convierte el E2E
+completo en requisito de todos los PR de aplicación.
+
+El job ejecuta el ciclo completo:
+
+1. instala .NET, Node, npm, Supabase CLI y Chromium;
+2. valida guardrails;
+3. levanta Supabase local desechable;
+4. siembra identidad/RBAC;
+5. siembra el dataset académico multiinstitución;
+6. ejecuta toda la suite Playwright;
+7. destruye siempre el staging local.
+
+Los workflows puntuales de 044C y 044D se retiraron al quedar reemplazados por
+esta regresión única.
+
+## Artifacts de fallo
+
+En CI, Playwright genera además un reporte HTML. Si la suite falla, GitHub Actions
+sube durante 14 días:
+
+- `e2e/playwright-report`;
+- `e2e/test-results`.
+
+`test-results` contiene screenshots y traces según la configuración de
+Playwright. No se sube el log crudo de Supabase para evitar persistir material
+sensible accidentalmente.
+
+## Ejecución local manual
 
 ```bash
+python scripts/e2e/bootstrap-local-staging.py start
+python scripts/e2e/seed-local-staging.py seed
+python e2e/support/seed-academic-local.py seed
 cd e2e
 npm ci
 ./node_modules/.bin/playwright install chromium
-npm test -- auth.spec.ts
-```
-
-El flujo autenticado cubre login real, llegada al dashboard, navegación a una
-ruta protegida y logout. El build local de Angular no ejecuta funciones Vercel,
-por lo que `environment.staging.ts` desactiva exclusivamente la sincronización
-de la cookie edge. Desarrollo y producción mantienen esa protección habilitada.
-
-Al terminar:
-
-```bash
+npm test
 cd ..
 python scripts/e2e/bootstrap-local-staging.py stop
 ```
 
-Esto elimina contenedores/volúmenes de Supabase, migraciones generadas y
+El `stop` elimina contenedores/volúmenes del stack local, migraciones generadas y
 `.env.e2e.local`.
 
 ## Staging remoto controlado
 
-El generador de frontend y Playwright siguen permitiendo un staging remoto
-explícitamente autorizado mediante `E2E_ALLOWED_HOSTS`:
-
-```bash
-E2E_ALLOWED_HOSTS='staging.example.com,api-staging.example.com,proyecto-staging.supabase.co'
-```
-
-Los hosts productivos conocidos de SchoolManager siguen bloqueados aunque se
-intenten incluir en esa variable. El seed `seed-local-staging.py` no soporta
-modo remoto por diseño.
+El frontend y Playwright todavía permiten hosts remotos de staging mediante
+`E2E_ALLOWED_HOSTS`, pero los seeds de 044C/044D son local-only por diseño. Un
+proyecto cloud de staging no es requisito del E2E actual y no debe provisionarse
+sin aprobación de costo y aislamiento.
 
 ## Smoke público
 
-El smoke no autenticado puede ejecutarse sin credenciales:
+El smoke no autenticado sigue disponible por separado y no necesita credenciales:
 
 ```bash
 cd e2e
 npm ci
 ./node_modules/.bin/playwright install chromium
-E2E_BASE_URL=http://127.0.0.1:4200 npm test
+E2E_BASE_URL=http://127.0.0.1:4200 npm test -- smoke.spec.ts
 ```
 
-Sin `E2E_STAGING=1`, `global-setup.ts` no exige el manifest porque el smoke
-público no autentica ni modifica datos.
+## Estado de la deuda
 
-## Estrategia sin costo adicional
+Con 044A–044E, la deuda técnica interna **#13 — E2E autenticado completo en
+staging seguro** queda cerrada al fusionarse 044E. El entorno es efímero,
+reproducible, multiinstitución y separado de producción; la regresión puede
+lanzarse manualmente, de noche o desde otro workflow y conserva artifacts de
+Playwright cuando falla.
 
-El camino de 044 usa staging efímero en la máquina local: Supabase local mediante
-Docker/CLI, API .NET local y frontend Angular staging local. No se crea un
-segundo proyecto cloud ni se toca producción.
-
-Un proyecto Supabase o servicio remoto dedicado puede incorporarse más adelante
-para pruebas manuales persistentes, pero debe mantenerse completamente separado
-de producción y cualquier costo debe aprobarse antes de provisionarlo.
-
-## Siguiente expansión
-
-Después de validar 044C con un run autenticado real, el siguiente bloque puede
-sembrar datos académicos mínimos y añadir casos negativos/aislamiento
-institucional. El workflow manual o nightly con artifacts de Playwright sigue
-siendo una fase posterior para no convertir el E2E completo en requisito de cada
-PR.
-
-El plan completo está en `docs/testing/e2e-staging-plan.md`.
+El plan histórico y su matriz están en `docs/testing/e2e-staging-plan.md`.
