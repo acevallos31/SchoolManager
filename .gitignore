@@ -15,6 +15,8 @@ frontend/schoolmanager-frontend/node_modules/
 frontend/schoolmanager-frontend/dist/
 frontend/schoolmanager-frontend/.angular/
 frontend/schoolmanager-frontend/.angular/cache/
+frontend/schoolmanager-frontend/src/app/environments/environment.staging.ts
+frontend/schoolmanager-frontend/src/app/environments/e2e-runtime.staging.json
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
