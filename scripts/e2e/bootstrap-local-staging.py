@@ -2,10 +2,10 @@
 """Levanta un staging E2E local y desechable para SchoolManager.
 
 No acepta hosts remotos: usa exclusivamente Supabase local. El comando
-``start`` genera una copia efímera de las migraciones canónicas, elimina los
-volúmenes locales previos y levanta Auth/PostgREST/Postgres desde cero.
-Los valores de runtime se guardan en ``.env.e2e.local`` (ignorado por Git) y
-nunca se imprimen en consola.
+``start`` genera una copia efímera del baseline consolidado y únicamente las
+migraciones posteriores a ese baseline, elimina los volúmenes locales previos
+y levanta Auth/PostgREST/Postgres desde cero. Los valores de runtime se guardan
+en ``.env.e2e.local`` (ignorado por Git) y nunca se imprimen en consola.
 """
 
 from __future__ import annotations
@@ -26,6 +26,10 @@ ENV_FILE = ROOT / ".env.e2e.local"
 LOCAL_SUPABASE_URL = "http://127.0.0.1:54321"
 LOCAL_API_URL = "http://127.0.0.1:5000/api"
 LOCAL_FRONTEND_URL = "http://127.0.0.1:4200"
+# El baseline consolidado se cerró con el esquema de la migración 017. Las
+# migraciones 007-017 son su fuente histórica y no deben volver a ejecutarse
+# encima del baseline (por ejemplo, 007 todavía esperaba usuarios.rol).
+BASELINE_COVERS_THROUGH = 17
 SUPABASE_EXCLUDES = (
     "studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,"
     "supavisor,postgres-meta,mailpit"
@@ -54,12 +58,31 @@ def run(
     )
 
 
+def migration_version(path: Path) -> int | None:
+    match = re.match(r"^(\d{3})_", path.name)
+    return int(match.group(1)) if match else None
+
+
 def active_migrations() -> list[Path]:
     paths: list[Path] = []
     for path in sorted(MIGRATIONS.glob("*.sql")):
-        match = re.match(r"^(\d{3})_", path.name)
-        if match and int(match.group(1)) >= 7:
+        version = migration_version(path)
+        if version is not None and version > BASELINE_COVERS_THROUGH:
             paths.append(path)
+
+    if not paths:
+        raise RuntimeError(
+            f"No se encontraron migraciones posteriores al baseline {BASELINE_COVERS_THROUGH:03d}."
+        )
+
+    versions = [migration_version(path) for path in paths]
+    expected = list(range(BASELINE_COVERS_THROUGH + 1, int(versions[-1]) + 1))
+    if versions != expected:
+        raise RuntimeError(
+            "La secuencia de migraciones posteriores al baseline no es continua: "
+            f"esperada {expected}, encontrada {versions}."
+        )
+
     return paths
 
 
@@ -73,15 +96,15 @@ def prepare_migrations() -> list[Path]:
         raise RuntimeError(f"No existe el baseline esperado: {BASELINE}")
 
     migrations = active_migrations()
-    if not migrations:
-        raise RuntimeError("No se encontraron migraciones activas desde 007.")
 
     shutil.rmtree(GENERATED_MIGRATIONS, ignore_errors=True)
     GENERATED_MIGRATIONS.mkdir(parents=True, exist_ok=True)
 
     shutil.copyfile(BASELINE, GENERATED_MIGRATIONS / generated_name(1, BASELINE))
     for source in migrations:
-        version = int(source.name.split("_", 1)[0])
+        version = migration_version(source)
+        if version is None:
+            raise RuntimeError(f"Migración sin versión canónica: {source.name}")
         shutil.copyfile(source, GENERATED_MIGRATIONS / generated_name(version, source))
 
     return migrations
@@ -175,7 +198,8 @@ def start() -> None:
     write_runtime_environment()
 
     latest = migrations[-1].name.split("_", 1)[0]
-    print(f"Baseline + migraciones 007-{latest} aplicados en Supabase local.")
+    first = migrations[0].name.split("_", 1)[0]
+    print(f"Baseline consolidado + migraciones {first}-{latest} aplicados en Supabase local.")
     print("Runtime E2E guardado en .env.e2e.local; sus valores no se muestran.")
 
 
