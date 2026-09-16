@@ -64,11 +64,13 @@ Quedó integrado en `main`:
 
 ## Deuda técnica realmente abierta
 
-1. **Errores de negocio amigables:** `ApiControllerBase` ya mapea muchas
-   constraints, pero una constraint no reconocida todavía puede devolver
-   `PostgresException.MessageText` a la UI.
-2. **Auditoría Sonar Overall Code:** clasificar los `High` históricos sin
-   debilitar reglas ni thresholds.
+1. **Errores de negocio amigables:** `main` aún permite que una constraint no
+   reconocida termine mostrando `PostgresException.MessageText`. PR #99 prepara
+   el cierre con fallback seguro y tests; sigue sin merge.
+2. **GitHub Actions / Node.js 20:** CI muestra warnings explícitos porque
+   `checkout@v4`, `setup-dotnet@v4`, `setup-node@v4`, `upload-artifact@v4` y
+   `download-artifact@v4` apuntan a Node 20 y GitHub los fuerza temporalmente a
+   Node 24. Deben migrarse a releases oficiales con runtime Node 24.
 3. **E2E autenticado en staging:** Playwright existe, pero falta el entorno
    aislado Supabase + API + frontend y sus identidades de prueba.
 4. **Observabilidad adicional:** faltan logging estructurado, correlación,
@@ -78,31 +80,62 @@ Quedó integrado en `main`:
 
 El registro canónico actualizado está en `docs/technical-debt.md`.
 
+## Hallazgo corregido durante esta auditoría
+
+La documentación anterior decía que los issues `High` históricos de Sonar
+seguían pendientes. Eso era obsoleto:
+
+- PR #71 (`3835a59c86217534b6560a1d47bdcb5d9166f00d`) corrigió los hallazgos
+  visibles de seguridad y duplicación sin bajar el Quality Gate;
+- PR #72 (`d4b654f333eeb9938b38db62d794a4266b1ab277`) cerró explícitamente el
+  último issue de seguridad `High` del coverage gate;
+- el análisis posterior quedó verde con ratings A.
+
+Por tanto, Sonar `High` histórico ya **no** se clasifica como deuda abierta.
+
 ## Deudas que ya NO deben aparecer como pendientes
 
 - acceso directo de negocio a Supabase (#10): resuelto y mergeado por PR #53;
 - selector global multiinstitución: implementado por 042;
 - divergencia `academico.*` / `configuracion.*`: resuelta por migración 039;
 - análisis C# real en Sonar y cobertura importada: resuelto;
+- hallazgos `High` históricos de Sonar: resueltos por PR #71/#72;
 - pagos/cobranza: resuelto;
 - grados/jornadas multiinstitución: resuelto;
 - validaciones y checksum de migraciones: resueltos.
 
-## Siguiente bloque recomendado
+## Trabajo preparado y todavía sin merge
 
-### 043A — normalización final de errores de negocio
+### PR #99 — 043A, normalización final de errores de negocio
+
+La rama `fix/043a-errores-negocio-seguros` ya contiene:
+
+- mensajes específicos para constraints conocidas;
+- fallback seguro por SQLSTATE sin exponer texto técnico de PostgreSQL;
+- conservación de mensajes `P0001` controlados por RPC;
+- preservación de status HTTP 400/403/404/409;
+- `ConfiguracionController` mantiene `{ error, code }` usando el normalizador;
+- pruebas específicas de errores conocidos/desconocidos.
+
+CI #658 quedó verde: API 206/206, DB 207/207, frontend 374/374 y Sonar Quality
+Gate PASS. El PR permanece abierto y **no debe mergearse sin autorización**.
+
+## Siguiente bloque técnico recomendado
+
+### 043B — GitHub Actions sobre runtime Node 24
 
 Objetivo mínimo y seguro:
 
-1. auditar qué constraints/RPC pueden llegar hoy a `ApiControllerBase`;
-2. mantener los mensajes de negocio existentes;
-3. evitar que una constraint desconocida exponga texto técnico de PostgreSQL;
-4. conservar los status HTTP vigentes (400/403/404/409);
-5. agregar pruebas de integración para constraints conocidas y fallback seguro;
-6. no mover invariantes desde PostgreSQL/RPC al frontend ni duplicar reglas.
+1. reemplazar los majors antiguos de las actions oficiales que disparan el
+   warning de Node 20;
+2. usar releases oficiales compatibles con Node 24;
+3. mantener intactos scripts, secretos, condiciones y Quality Gate;
+4. ejecutar el pipeline completo;
+5. confirmar en logs que desaparece `Node.js 20 is deprecated`;
+6. no mezclar este hardening con cambios funcionales.
 
-Después de 043A, continuar con la auditoría `High` de Sonar y luego preparar
-staging E2E como bloque independiente de infraestructura.
+Después de 043B, staging E2E queda como el siguiente bloque de infraestructura
+con mayor valor de verificación.
 
 ## Funcionalidad futura — no deuda
 
