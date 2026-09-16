@@ -1,20 +1,25 @@
-# HANDOFF — cierre post-042 y deuda técnica consolidada
+# HANDOFF — cierre post-043B y deuda técnica consolidada
 
 ## Fecha
 2026-09-16 (UTC-6).
 
-## Base verificada
+## Base funcional verificada
 
-- `main`: `20bea4f9dd346836205620dce2add6f60d17b372`.
-- PR #97 `feat(rbac): 042 - roles dinámicos institucionales y Superadministrador`: **MERGEADO**.
-- CI/CD run #656 sobre `main`: **SUCCESS**.
-- Render desplegó el mismo commit y quedó `live`.
-- Vercel reportó deployment `success` para el mismo commit.
-- Rama de esta actualización documental: `docs/deuda-tecnica-post-042`.
+- Bloque 042 / PR #97: **MERGEADO**.
+- 043A / PR #99 `fix(api): 043A - normalizar errores de negocio`: **MERGEADO**
+  en `d622a1f50f3e78b00a9e83f2ae3d80c574e80a5a`.
+- 043B / PR #100 `chore(ci): 043B - migrar GitHub Actions a Node 24`:
+  **MERGEADO** en `e46c01343f3ac9ace3fbce29ca8ba4237ffc156f`.
+- CI de PR #99: **SUCCESS**, incluyendo Sonar Quality Gate.
+- CI de PR #100: **SUCCESS**, incluyendo subida/descarga de artifacts y Sonar
+  Quality Gate.
+- Los logs de 043B ya no contienen el warning específico
+  `Node.js 20 is deprecated` para las actions migradas.
+- Rama de este cierre documental: `docs/deuda-tecnica-post-042`.
 
 ## Estado real de producción
 
-La verificación read-only del 2026-09-16 confirma:
+La última verificación read-only documentada del 2026-09-16 confirmó:
 
 - `schema_migrations` contiene `baseline-001-fase1a`;
 - migraciones numéricas registradas `007` → `039`;
@@ -22,8 +27,8 @@ La verificación read-only del 2026-09-16 confirma:
 - exactamente 1 institución activa;
 - exactamente 1 asignación activa de `platform_admin`.
 
-Durante esta actualización documental no se ejecutaron migraciones ni escrituras
-en Supabase/producción.
+Durante 043A, 043B y este cierre documental no se ejecutaron migraciones ni
+escrituras en Supabase/producción.
 
 ## Bloque 042 — estado cerrado
 
@@ -62,80 +67,79 @@ Quedó integrado en `main`:
 - `Persona` y `Usuario` son identidades globales; las asignaciones de rol pueden
   tener ámbito institucional.
 
+## Cierre 043A — errores de negocio seguros
+
+PR #99 quedó integrado y cerró la exposición accidental de texto técnico de
+PostgreSQL:
+
+- constraints conocidas conservan mensajes de negocio específicos;
+- constraints/SQLSTATE no reconocidos usan fallback seguro;
+- no se devuelve `PostgresException.MessageText` crudo como fallback genérico;
+- mensajes `P0001` controlados por RPC se mantienen como mensajes de negocio;
+- se preserva la semántica HTTP 400/403/404/409;
+- las pruebas de integración cubren errores conocidos y desconocidos.
+
+## Cierre 043B — GitHub Actions sobre Node 24
+
+PR #100 quedó integrado con las actions oficiales fijadas por SHA:
+
+- `actions/checkout` v7.0.1;
+- `actions/setup-dotnet` v6.0.0;
+- `actions/setup-node` v7.0.0;
+- `actions/upload-artifact` v7.0.1;
+- `actions/download-artifact` v8.0.1.
+
+El pipeline completo pasó, incluidos artifacts de cobertura y Sonar Quality
+Gate. El warning de compatibilidad `Node.js 20 is deprecated` que motivó el
+bloque desapareció.
+
+`download-artifact` v8.0.1 todavía puede imprimir un warning upstream distinto
+`DEP0005 Buffer() is deprecated`; no es el warning de runtime Node 20 y no afecta
+el resultado del workflow. Se observará en futuras releases upstream sin tratarlo
+como reapertura automática de 043B.
+
 ## Deuda técnica realmente abierta
 
-1. **Errores de negocio amigables:** `main` aún permite que una constraint no
-   reconocida termine mostrando `PostgresException.MessageText`. PR #99 prepara
-   el cierre con fallback seguro y tests; sigue sin merge.
-2. **GitHub Actions / Node.js 20:** CI muestra warnings explícitos porque
-   `checkout@v4`, `setup-dotnet@v4`, `setup-node@v4`, `upload-artifact@v4` y
-   `download-artifact@v4` apuntan a Node 20 y GitHub los fuerza temporalmente a
-   Node 24. Deben migrarse a releases oficiales con runtime Node 24.
-3. **E2E autenticado en staging:** Playwright existe, pero falta el entorno
+1. **E2E autenticado en staging:** Playwright existe, pero falta un entorno
    aislado Supabase + API + frontend y sus identidades de prueba.
-4. **Observabilidad adicional:** faltan logging estructurado, correlación,
+2. **Observabilidad adicional:** faltan logging estructurado, correlación,
    métricas y alertas más allá de `/health` y `/health/ready`.
-5. **Prueba de carga backend:** issue #85; falta baseline seguro de la API y una
+3. **Prueba de carga backend:** issue #85; falta baseline seguro de la API y una
    lectura autenticada end-to-end.
 
-El registro canónico actualizado está en `docs/technical-debt.md`.
-
-## Hallazgo corregido durante esta auditoría
-
-La documentación anterior decía que los issues `High` históricos de Sonar
-seguían pendientes. Eso era obsoleto:
-
-- PR #71 (`3835a59c86217534b6560a1d47bdcb5d9166f00d`) corrigió los hallazgos
-  visibles de seguridad y duplicación sin bajar el Quality Gate;
-- PR #72 (`d4b654f333eeb9938b38db62d794a4266b1ab277`) cerró explícitamente el
-  último issue de seguridad `High` del coverage gate;
-- el análisis posterior quedó verde con ratings A.
-
-Por tanto, Sonar `High` histórico ya **no** se clasifica como deuda abierta.
+El registro canónico está en `docs/technical-debt.md`.
 
 ## Deudas que ya NO deben aparecer como pendientes
 
-- acceso directo de negocio a Supabase (#10): resuelto y mergeado por PR #53;
+- errores PostgreSQL no controlados hacia UI: cerrado por 043A / PR #99;
+- GitHub Actions apoyadas en runtime Node 20: cerrado por 043B / PR #100;
+- hallazgos `High` históricos de Sonar: resueltos por PR #71/#72;
+- acceso directo de negocio a Supabase (#10): resuelto por PR #53;
 - selector global multiinstitución: implementado por 042;
 - divergencia `academico.*` / `configuracion.*`: resuelta por migración 039;
 - análisis C# real en Sonar y cobertura importada: resuelto;
-- hallazgos `High` históricos de Sonar: resueltos por PR #71/#72;
 - pagos/cobranza: resuelto;
 - grados/jornadas multiinstitución: resuelto;
 - validaciones y checksum de migraciones: resueltos.
 
-## Trabajo preparado y todavía sin merge
-
-### PR #99 — 043A, normalización final de errores de negocio
-
-La rama `fix/043a-errores-negocio-seguros` ya contiene:
-
-- mensajes específicos para constraints conocidas;
-- fallback seguro por SQLSTATE sin exponer texto técnico de PostgreSQL;
-- conservación de mensajes `P0001` controlados por RPC;
-- preservación de status HTTP 400/403/404/409;
-- `ConfiguracionController` mantiene `{ error, code }` usando el normalizador;
-- pruebas específicas de errores conocidos/desconocidos.
-
-CI #658 quedó verde: API 206/206, DB 207/207, frontend 374/374 y Sonar Quality
-Gate PASS. El PR permanece abierto y **no debe mergearse sin autorización**.
-
 ## Siguiente bloque técnico recomendado
 
-### 043B — GitHub Actions sobre runtime Node 24
+### 044 — E2E autenticado en staging aislado
 
-Objetivo mínimo y seguro:
+Objetivo:
 
-1. reemplazar los majors antiguos de las actions oficiales que disparan el
-   warning de Node 20;
-2. usar releases oficiales compatibles con Node 24;
-3. mantener intactos scripts, secretos, condiciones y Quality Gate;
-4. ejecutar el pipeline completo;
-5. confirmar en logs que desaparece `Node.js 20 is deprecated`;
-6. no mezclar este hardening con cambios funcionales.
+1. preparar un entorno de staging separado de producción;
+2. usar Supabase, API y frontend de staging con secretos/identidades de prueba;
+3. ejecutar el plan `E2E-01` → `E2E-06` de
+   `docs/testing/e2e-staging-plan.md`;
+4. validar login, contexto institucional, permisos y CRUD real sin datos de
+   producción;
+5. incorporar el resultado al CI solo cuando el entorno sea reproducible y
+   seguro;
+6. no usar usuarios reales ni pruebas destructivas en producción.
 
-Después de 043B, staging E2E queda como el siguiente bloque de infraestructura
-con mayor valor de verificación.
+La observabilidad estructurada y la prueba de carga backend quedan como bloques
+posteriores e independientes.
 
 ## Funcionalidad futura — no deuda
 
@@ -150,13 +154,12 @@ usuario**, pero debe permanecer separado del hardening anterior. Debe:
   seguro, nunca desde Angular;
 - no vincular identidades automáticamente solo por coincidencia de correo.
 
-## Inconsistencia documental detectada fuera de este cambio
+## Inconsistencia documental pendiente
 
 `README.md` continúa describiendo el proyecto como si llegara solo a migración
 018 y como si pagos/portal no tuvieran backend. Esa información ya no coincide
-con `main`. No se modifica en este checkpoint para mantener el alcance de la
-limpieza en `technical-debt.md`, `HANDOFF.md` y `AI_CONTEXT.md`; debe actualizarse
-en un cambio documental separado o ampliando explícitamente el alcance.
+con el estado canónico. Debe sincronizarse en un cambio documental separado o
+ampliando explícitamente el alcance de una futura tarea documental.
 
 ## Reglas operativas
 
