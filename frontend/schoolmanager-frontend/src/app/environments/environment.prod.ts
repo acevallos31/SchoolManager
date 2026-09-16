@@ -4,5 +4,6 @@ export const environment = {
   production: true,
   supabaseUrl: 'https://pzhcpdznjoyukbhhodjz.supabase.co',
   supabaseAnonKey: 'sb_publishable_aYvMS86koqWPDsy26HKeYQ_6pVo3xwF',
-  apiUrl: 'https://schoolmanager-xdxx.onrender.com/api'
+  apiUrl: 'https://schoolmanager-xdxx.onrender.com/api',
+  edgeSessionEnabled: true
 };
