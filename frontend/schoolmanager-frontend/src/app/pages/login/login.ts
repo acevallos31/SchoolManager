@@ -1,5 +1,5 @@
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { Component, inject, OnInit, PLATFORM_ID } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthAppError, AuthService } from '../../core/services/auth';
@@ -14,6 +14,8 @@ import { resolverRutaInicial } from '../../core/services/landing-route';
   styleUrl: './login.css'
 })
 export class Login implements OnInit {
+  private readonly platformId = inject(PLATFORM_ID);
+
   correo = '';
   password = '';
   error = '';
@@ -27,7 +29,9 @@ export class Login implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.error = this.auth.consumirMensajeSesionInvalida() ?? '';
+    if (isPlatformBrowser(this.platformId)) {
+      this.error = this.auth.consumirMensajeSesionInvalida() ?? '';
+    }
   }
 
   async login() {
@@ -53,7 +57,10 @@ export class Login implements OnInit {
       try {
         await this.auth.logout();
       } catch (logoutError) {
-        console.error('No se pudo cerrar la sesion despues del error:', logoutError);
+        console.error(
+          'No se pudo cerrar la sesion despues del error:',
+          logoutError
+        );
       }
     } finally {
       this.cargando = false;
@@ -68,7 +75,9 @@ export class Login implements OnInit {
     await this.iniciarOAuth('microsoft');
   }
 
-  private async iniciarOAuth(proveedor: 'google' | 'microsoft'): Promise<void> {
+  private async iniciarOAuth(
+    proveedor: 'google' | 'microsoft'
+  ): Promise<void> {
     this.error = '';
     this.proveedorCargando = proveedor;
 
