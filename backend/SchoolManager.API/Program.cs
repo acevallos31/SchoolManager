@@ -6,6 +6,7 @@ using Npgsql;
 using SchoolManager.API.Authorization;
 using SchoolManager.API.Identity;
 using SchoolManager.API.Infrastructure;
+using SchoolManager.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -118,6 +119,7 @@ builder.Services.AddSingleton(sp =>
     return NpgsqlDataSource.Create(connectionString);
 });
 builder.Services.AddScoped<IUsuarioActualService, UsuarioActualService>();
+builder.Services.AddScoped<IDocumentoReciboService, DocumentoReciboService>();
 builder.Services.AddScoped<IAuthorizationHandler, PermisoAuthorizationHandler>();
 
 builder.Services.AddAuthorization(options =>

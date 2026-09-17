@@ -1,4 +1,4 @@
-import { jsPDF } from 'jspdf';
+import type { LienzoPdf } from './lienzo-pdf';
 
 export interface EncabezadoInstitucionDocumento {
   nombre: string;
@@ -22,8 +22,9 @@ export abstract class DocumentoImprimible {
     public readonly institucion: EncabezadoInstitucionDocumento,
   ) {}
 
-  /** Dibuja el documento sobre una instancia de jsPDF administrada por el servicio. */
-  abstract renderizarPdf(pdf: jsPDF): Promise<void> | void;
+  /** Dibuja el documento sobre un lienzo PDF. El contrato (LienzoPdf) está
+   *  desacoplado de jsPDF; el adaptador concreto lo inyecta ImpresionService. */
+  abstract renderizarPdf(lienzo: LienzoPdf): Promise<void> | void;
 
   /** Genera HTML autocontenido para vista previa e impresión física. */
   abstract renderizarHtml(): string;

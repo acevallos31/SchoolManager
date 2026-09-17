@@ -153,6 +153,10 @@
                 </td>
                 <td class="col-acciones">
                   <button class="sm-btn sm-btn--ghost sm-btn--sm" type="button" (click)="verDetalle(p)">Detalle</button>
+                  <button class="sm-btn sm-btn--ghost sm-btn--sm" type="button" (click)="imprimirRecibo(p)">Imprimir</button>
+                  <button class="sm-btn sm-btn--ghost sm-btn--sm" type="button" (click)="descargarReciboPdf(p)" [disabled]="imprimiendoPagoId === p.id">
+                    {{ imprimiendoPagoId === p.id ? 'Generando…' : 'Descargar PDF' }}
+                  </button>
                   @if (p.estado === 'registrado' && puedeAnular) {
                     <button class="sm-btn sm-btn--danger sm-btn--sm" type="button" (click)="anular(p)" [disabled]="anulandoPagoId === p.id">
                       {{ anulandoPagoId === p.id ? 'Anulando…' : 'Anular' }}

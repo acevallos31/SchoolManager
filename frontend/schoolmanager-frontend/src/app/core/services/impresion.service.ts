@@ -1,17 +1,25 @@
 import { Injectable } from '@angular/core';
-import { jsPDF } from 'jspdf';
 import { DocumentoImprimible } from '../documents/documento-imprimible';
+import { JsPdfLienzoAdapter } from '../documents/jspdf-lienzo-adapter';
+import type { LienzoPdf } from '../documents/lienzo-pdf';
 
+/**
+ * Orquesta impresión/descarga/Blob de cualquier DocumentoImprimible.
+ *
+ * Depende del puerto LienzoPdf (DIP): solicita el adaptador concreto, que
+ * encapsula jsPDF, y lo entrega al documento. Ni este servicio ni los
+ * documentos conocen la librería de PDF.
+ */
 @Injectable({ providedIn: 'root' })
 export class ImpresionService {
   async descargarPdf(documento: DocumentoImprimible): Promise<void> {
-    const pdf = await this.crearPdf(documento);
-    pdf.save(documento.nombreArchivo);
+    const lienzo = await this.crearLienzo(documento);
+    lienzo.save(documento.nombreArchivo);
   }
 
   async generarPdfBlob(documento: DocumentoImprimible): Promise<Blob> {
-    const pdf = await this.crearPdf(documento);
-    return pdf.output('blob');
+    const lienzo = await this.crearLienzo(documento);
+    return lienzo.output('blob');
   }
 
   imprimir(documento: DocumentoImprimible): void {
@@ -32,13 +40,9 @@ export class ImpresionService {
     }, { once: true });
   }
 
-  private async crearPdf(documento: DocumentoImprimible): Promise<jsPDF> {
-    const pdf = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'letter',
-    });
-    await documento.renderizarPdf(pdf);
-    return pdf;
+  private async crearLienzo(documento: DocumentoImprimible): Promise<LienzoPdf> {
+    const lienzo = new JsPdfLienzoAdapter();
+    await documento.renderizarPdf(lienzo);
+    return lienzo;
   }
 }

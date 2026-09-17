@@ -50,6 +50,47 @@ export interface RegistrarPagoRequest {
   fechaPago?: string | null;
 }
 
+export interface ReciboInstitucion {
+  id: string;
+  nombre: string;
+  nombreCorto: string | null;
+  direccion: string | null;
+  telefono: string | null;
+  correo: string | null;
+  logoUrl: string | null;
+}
+
+export interface ReciboAlumno {
+  id: string;
+  nombreCompleto: string;
+  rne: string | null;
+  codigoInterno: string | null;
+}
+
+export interface ReciboDetalle {
+  cargoId: string;
+  concepto: string;
+  montoAplicado: number;
+  estado: string;
+}
+
+// DTO autoritativo de recibo de pago compuesto por el backend (047A). El
+// frontend solo lo presenta/imprime/descarga; no recalcula importes.
+export interface ReciboPago {
+  pagoId: string;
+  numeroRecibo: number;
+  fechaPago: string;
+  montoTotal: number;
+  metodoPago: string | null;
+  referenciaExterna: string | null;
+  estado: string;
+  fechaAnulacion: string | null;
+  motivoAnulacion: string | null;
+  institucion: ReciboInstitucion;
+  alumno: ReciboAlumno;
+  detalles: ReciboDetalle[];
+}
+
 export class PagoError extends Error {
   constructor(message: string) { super(message); this.name = 'PagoError'; }
 }
@@ -77,6 +118,15 @@ export class PagosService {
   obtenerAplicaciones(pagoId: string): Promise<AplicacionPago[]> {
     return this.peticion(() =>
       this.http.get<AplicacionPago[]>(`${this.baseUrl}/${pagoId}/aplicaciones`).toPromise()
+    );
+  }
+
+  // Recibo autoritativo compuesto por el backend (047A). Devuelve el DTO
+  // completo (cabecera, alumno, institución y detalle); el frontend no
+  // recalcula importes ni aplica lógica financiera.
+  obtenerRecibo(pagoId: string): Promise<ReciboPago> {
+    return this.peticion(() =>
+      this.http.get<ReciboPago>(`${this.baseUrl}/${pagoId}/recibo`).toPromise()
     );
   }
 

@@ -6,6 +6,8 @@ import { AuthService } from '../../core/services/auth';
 import { AlumnoListado, AlumnoService } from '../../core/services/alumno.service';
 import { Cargo, CargoError, CargosService } from '../../core/services/cargos.service';
 import { AplicacionRequest, PagosService, Pago, PagoError } from '../../core/services/pagos.service';
+import { ImpresionService } from '../../core/services/impresion.service';
+import { ReciboPagoDocumento } from '../../core/documents/recibo-pago.documento';
 import {
   inicializarVistaFinanciera,
   sincronizarAlumnoFinancieroEnUrl,
@@ -42,6 +44,7 @@ export class Pagos implements OnInit {
   aplicaciones: { concepto: string | null; monto: number }[] = [];
   anulandoPagoId: string | null = null;
   motivoAnulacion = '';
+  imprimiendoPagoId: string | null = null;
 
   constructor(
     private readonly route: ActivatedRoute,
@@ -50,6 +53,7 @@ export class Pagos implements OnInit {
     private readonly alumnoService: AlumnoService,
     private readonly pagosService: PagosService,
     private readonly cargosService: CargosService,
+    private readonly impresion: ImpresionService,
     private readonly cdr: ChangeDetectorRef,
   ) {}
 
@@ -180,6 +184,34 @@ export class Pagos implements OnInit {
   cerrarDetalle(): void {
     this.detalle = null;
     this.aplicaciones = [];
+  }
+
+  // Imprime el recibo en una ventana nueva. El documento se construye a partir
+  // del DTO autoritativo del backend (ReciboPago): el frontend solo presenta.
+  async imprimirRecibo(p: Pago): Promise<void> {
+    if (!this.puedeVer) return;
+    try {
+      const documento = await this.obtenerDocumentoRecibo(p);
+      this.impresion.imprimir(documento);
+    } catch (e: unknown) { this.error(e); }
+  }
+
+  // Descarga el recibo como PDF generado a partir del mismo DTO.
+  async descargarReciboPdf(p: Pago): Promise<void> {
+    if (!this.puedeVer || this.imprimiendoPagoId === p.id) return;
+    this.imprimiendoPagoId = p.id;
+    this.mensaje = '';
+    this.esError = false;
+    try {
+      const documento = await this.obtenerDocumentoRecibo(p);
+      await this.impresion.descargarPdf(documento);
+    } catch (e: unknown) { this.error(e); }
+    finally { this.imprimiendoPagoId = null; this.cdr.detectChanges(); }
+  }
+
+  private async obtenerDocumentoRecibo(p: Pago): Promise<ReciboPagoDocumento> {
+    const recibo = await this.pagosService.obtenerRecibo(p.id);
+    return new ReciboPagoDocumento(recibo);
   }
 
   async anular(p: Pago): Promise<void> {
