@@ -61,7 +61,7 @@ public sealed class ResponsablesAccesoControllerTests : IClassFixture<Matriculas
     [Fact]
     public async Task Preparar_invitacion_responsable_sin_autenticacion_devuelve_401()
     {
-        var cliente = _factory.CrearCliente();
+        var cliente = _factory.CrearClienteAnonimo();
         var response = await cliente.PostAsync(
             $"/api/responsables/{Guid.NewGuid()}/invitacion-acceso/preparar", Body(new { }));
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
