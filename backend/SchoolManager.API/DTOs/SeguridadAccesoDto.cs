@@ -77,6 +77,21 @@ public sealed class PrepararInvitacionUsuarioDto
     public string Origen { get; init; } = "administracion";
 }
 
+public sealed class EditarUsuarioPersonaDto
+{
+    [Required]
+    public required Guid InstitucionId { get; init; }
+
+    [Required, MaxLength(160)]
+    public string Nombres { get; init; } = string.Empty;
+
+    [Required, MaxLength(160)]
+    public string Apellidos { get; init; } = string.Empty;
+
+    [EmailAddress, MaxLength(320)]
+    public string? Correo { get; init; }
+}
+
 public sealed class DesactivarRbacDto
 {
     [Required, MaxLength(500)]
