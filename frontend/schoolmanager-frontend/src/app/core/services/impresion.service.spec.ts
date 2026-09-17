@@ -1,25 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DocumentoImprimible } from '../documents/documento-imprimible';
+import { JsPdfLienzoAdapter } from '../documents/jspdf-lienzo-adapter';
 import type { LienzoPdf } from '../documents/lienzo-pdf';
 import { ImpresionService } from './impresion.service';
-
-const adapter = vi.hoisted(() => ({
-  save: vi.fn(),
-  output: vi.fn(),
-  constructor: vi.fn(),
-}));
-
-vi.mock('../documents/jspdf-lienzo-adapter', () => ({
-  JsPdfLienzoAdapter: class {
-    constructor() {
-      adapter.constructor();
-      return {
-        save: adapter.save,
-        output: adapter.output,
-      };
-    }
-  },
-}));
 
 class DocumentoPrueba extends DocumentoImprimible {
   readonly renderizarPdfSpy = vi.fn();
@@ -31,6 +14,8 @@ class DocumentoPrueba extends DocumentoImprimible {
 
   renderizarPdf(lienzo: LienzoPdf): void {
     this.renderizarPdfSpy(lienzo);
+    lienzo.setFontSize(10);
+    lienzo.text('Recibo', 10, 10);
   }
 
   renderizarHtml(): string {
@@ -43,27 +28,28 @@ describe('ImpresionService', () => {
   let documento: DocumentoPrueba;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.restoreAllMocks();
     service = new ImpresionService();
     documento = new DocumentoPrueba();
   });
 
-  it('renderiza el documento y guarda el PDF con el nombre autoritativo del documento', async () => {
+  it('renderiza el documento y guarda el PDF con el nombre del documento', async () => {
+    const saveSpy = vi.spyOn(JsPdfLienzoAdapter.prototype, 'save').mockImplementation(() => undefined);
+
     await service.descargarPdf(documento);
 
-    expect(adapter.constructor).toHaveBeenCalledOnce();
     expect(documento.renderizarPdfSpy).toHaveBeenCalledOnce();
-    expect(adapter.save).toHaveBeenCalledWith('recibo-1.pdf');
+    expect(saveSpy).toHaveBeenCalledWith('recibo-1.pdf');
   });
 
-  it('genera un Blob reutilizando el mismo puerto de PDF', async () => {
+  it('genera un Blob PDF después de renderizar el documento', async () => {
     const blob = new Blob(['pdf'], { type: 'application/pdf' });
-    adapter.output.mockReturnValue(blob);
+    const outputSpy = vi.spyOn(JsPdfLienzoAdapter.prototype, 'output').mockReturnValue(blob);
 
     const resultado = await service.generarPdfBlob(documento);
 
     expect(documento.renderizarPdfSpy).toHaveBeenCalledOnce();
-    expect(adapter.output).toHaveBeenCalledWith('blob');
+    expect(outputSpy).toHaveBeenCalledWith('blob');
     expect(resultado).toBe(blob);
   });
 
