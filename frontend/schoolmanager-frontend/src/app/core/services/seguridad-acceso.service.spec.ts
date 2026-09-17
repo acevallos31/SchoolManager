@@ -36,8 +36,8 @@ describe('SeguridadAccesoService', () => {
 
   it('obtiene el directorio de usuarios administrable', async () => {
     const usuarios = [{
-      id: 'u1', nombre: 'Ana Pérez', correo: 'ana@example.com', activo: true,
-      identidadVinculada: true,
+      id: 'u1', nombre: 'Ana Pérez', nombres: 'Ana', apellidos: 'Pérez',
+      correo: 'ana@example.com', activo: true, identidadVinculada: true, puedeEditar: true,
       roles: [{ asignacionId: 'a1', rolId: 'r1', codigo: 'secretaria', nombre: 'Secretaría' }]
     }];
     const result = service.obtenerUsuarios('inst 1');
@@ -45,6 +45,19 @@ describe('SeguridadAccesoService', () => {
     expect(request.request.method).toBe('GET');
     request.flush(usuarios);
     await expect(result).resolves.toEqual(usuarios);
+  });
+
+  it('edita la ficha interna del usuario sin enviar metadata OAuth', async () => {
+    const result = service.editarUsuario('u/1', {
+      institucionId: 'i1', nombres: 'Ana', apellidos: 'Pérez', correo: 'ana@example.com'
+    });
+    const request = http.expectOne(`${baseUrl}/usuarios/u%2F1`);
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual({
+      institucionId: 'i1', nombres: 'Ana', apellidos: 'Pérez', correo: 'ana@example.com'
+    });
+    request.flush(null);
+    await expect(result).resolves.toBeUndefined();
   });
 
   it('prepara una invitación administrativa sin crear identidad externa', async () => {
