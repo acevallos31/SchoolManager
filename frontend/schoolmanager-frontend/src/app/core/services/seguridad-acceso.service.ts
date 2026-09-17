@@ -110,6 +110,13 @@ export interface InvitacionUsuarioPreparada {
   invitacionCreada: boolean;
 }
 
+export interface InvitacionEnvioResultado {
+  invitationId: string;
+  estado: string;
+  expiresAt: string;
+  emissionVersion: number;
+}
+
 interface IdentificadorRespuesta { id: string; }
 
 export class SeguridadAccesoError extends Error {
@@ -144,6 +151,17 @@ export class SeguridadAccesoService {
       '/usuarios/invitaciones/preparar',
       { ...input, origen: input.origen ?? 'administracion' }
     );
+  }
+
+  async enviarInvitacion(invitacionId: string): Promise<InvitacionEnvioResultado> {
+    try {
+      return await firstValueFrom(this.http.post<InvitacionEnvioResultado>(
+        `${environment.apiUrl}/invitaciones/${encodeURIComponent(invitacionId)}/enviar`,
+        {}
+      ));
+    } catch (error) {
+      throw this.mapearError(error);
+    }
   }
 
   async crearRol(input: CrearRolInput): Promise<string> {
