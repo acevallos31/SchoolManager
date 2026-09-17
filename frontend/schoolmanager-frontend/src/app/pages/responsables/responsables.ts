@@ -40,19 +40,16 @@ export class Responsables implements OnInit {
   editando: Responsable | null = null;
   form: ResponsableForm = this.formVacio();
 
-  // Vista de vínculos de un alumno (integración Alumno -> Responsable).
   alumnoIdSeleccionado: string | null = null;
   vinculos: ResponsableVinculo[] = [];
   cargandoVinculos = false;
 
-  // Flujo vincular responsable existente al alumno.
   mostrarVincular = false;
   buscarVinculable = '';
   buscandoVinculable = false;
   vinculablesCandidatos: Responsable[] = [];
   vincularForm = { responsableId: '', parentesco: '', esPrincipal: false, accesoFinanciero: false };
 
-  // Edición de un vínculo existente.
   editandoVinculo: ResponsableVinculo | null = null;
   editarVinculoForm = { parentesco: '', esPrincipal: false, accesoFinanciero: false };
 
@@ -70,6 +67,10 @@ export class Responsables implements OnInit {
   get puedeVer(): boolean { return this.auth.tienePermiso('academico.responsables.ver'); }
   get puedeCrear(): boolean { return this.auth.tienePermiso('academico.responsables.crear'); }
   get puedeEditar(): boolean { return this.auth.tienePermiso('academico.responsables.editar'); }
+  get puedePrepararAcceso(): boolean {
+    return this.auth.tienePermiso('identidad.usuarios.crear')
+      && this.auth.tienePermiso('identidad.usuarios.asignar_roles');
+  }
 
   async ngOnInit() {
     if (!this.puedeVer) {
@@ -111,7 +112,6 @@ export class Responsables implements OnInit {
   buscar() { this.page = 1; void this.cargar(); }
   limpiarFiltros() { this.termino = ''; this.estado = ''; this.page = 1; void this.cargar(); }
 
-  // --- Integración Alumno -> Responsable ---
   get hayVinculosVisibles(): boolean { return !!this.alumnoIdSeleccionado && this.puedeVer; }
 
   async cargarVinculos() {
@@ -124,6 +124,30 @@ export class Responsables implements OnInit {
       this.error(error);
     } finally {
       this.cargandoVinculos = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  async prepararAcceso(r: Responsable) {
+    if (!this.puedePrepararAcceso || this.guardando || r.estado !== 'activo') return;
+    if (!r.correo?.trim()) {
+      return this.error(new ResponsablesError(
+        'Agregue un correo al responsable antes de preparar su acceso al portal.', 400
+      ));
+    }
+
+    this.guardando = true;
+    this.mensaje = '';
+    try {
+      const respuesta = await this.service.prepararInvitacionAcceso(r.id).toPromise();
+      this.esError = false;
+      this.mensaje = respuesta?.invitacionCreada
+        ? `Acceso preparado para ${r.nombres} ${r.apellidos}. La invitación quedó pendiente de envío.`
+        : `El responsable ya tenía una invitación pendiente; se reutilizó sin duplicarla.`;
+    } catch (error) {
+      this.error(error);
+    } finally {
+      this.guardando = false;
       this.cdr.detectChanges();
     }
   }

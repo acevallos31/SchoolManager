@@ -10,19 +10,9 @@ import { ResponsablesService, Responsable } from '../../core/services/responsabl
 describe('Responsables (018D)', () => {
   const institucionId = '11111111-1111-1111-1111-111111111111';
   const ejemplo: Responsable = {
-    id: 'r1',
-    personaId: 'p1',
-    institucionId,
-    estado: 'activo',
-    nombres: 'Ana',
-    apellidos: 'Mendoza',
-    tipoIdentificacion: 'CI',
-    numeroIdentificacion: '9990001',
-    telefono: '0999111222',
-    correo: 'ana@test.com',
-    createdAt: new Date().toISOString(),
-    fechaDesactivacion: null,
-    motivoDesactivacion: null
+    id: 'r1', personaId: 'p1', institucionId, estado: 'activo', nombres: 'Ana', apellidos: 'Mendoza',
+    tipoIdentificacion: 'CI', numeroIdentificacion: '9990001', telefono: '0999111222', correo: 'ana@test.com',
+    createdAt: new Date().toISOString(), fechaDesactivacion: null, motivoDesactivacion: null
   };
 
   let f: ComponentFixture<Responsables>;
@@ -33,14 +23,20 @@ describe('Responsables (018D)', () => {
   let contexto: { institucion: { id: string } };
 
   beforeEach(async () => {
-    permisos = new Set(['academico.responsables.ver', 'academico.responsables.crear', 'academico.responsables.editar']);
+    permisos = new Set([
+      'academico.responsables.ver', 'academico.responsables.crear', 'academico.responsables.editar',
+      'identidad.usuarios.crear', 'identidad.usuarios.asignar_roles'
+    ]);
     contexto = { institucion: { id: institucionId } };
     router = { navigate: vi.fn().mockResolvedValue(true) };
     s = {
-      listar: vi.fn().mockReturnValue(of({
-        items: [ejemplo], page: 1, pageSize: 20, totalItems: 1, totalPages: 1
-      })),
+      listar: vi.fn().mockReturnValue(of({ items: [ejemplo], page: 1, pageSize: 20, totalItems: 1, totalPages: 1 })),
       crear: vi.fn().mockReturnValue(of({ id: 'r1' })),
+      prepararInvitacionAcceso: vi.fn().mockReturnValue(of({
+        responsableId: 'r1', personaId: 'p1', usuarioId: 'u1', rolId: 'rol-parent', asignacionId: 'a1',
+        invitacionId: 'i1', correo: 'ana@test.com', estado: 'pendiente', rolCreado: false,
+        usuarioCreado: true, asignacionCreada: true, invitacionCreada: true
+      })),
       editar: vi.fn().mockReturnValue(of(void 0)),
       cambiarEstado: vi.fn().mockReturnValue(of(void 0)),
       reactivar: vi.fn().mockReturnValue(of(void 0)),
@@ -69,14 +65,10 @@ describe('Responsables (018D)', () => {
     await vi.waitFor(() => expect(c.cargando).toBe(false));
   });
 
-  it('crea el componente', () => {
-    expect(c).toBeTruthy();
-  });
+  it('crea el componente', () => expect(c).toBeTruthy());
 
   it('redirige al dashboard si no tiene permiso de ver', async () => {
-    s['listar'].mockClear();
-    router.navigate.mockClear();
-    permisos.clear();
+    s['listar'].mockClear(); router.navigate.mockClear(); permisos.clear();
     await c.ngOnInit();
     expect(router.navigate).toHaveBeenCalledWith(['/dashboard']);
     expect(s['listar']).not.toHaveBeenCalled();
@@ -89,10 +81,35 @@ describe('Responsables (018D)', () => {
     expect(c.totalItems).toBe(1);
   });
 
+  it('prepara acceso al portal usando únicamente el responsable seleccionado', async () => {
+    expect(c.puedePrepararAcceso).toBe(true);
+    await c.prepararAcceso(ejemplo);
+    expect(s['prepararInvitacionAcceso']).toHaveBeenCalledWith('r1');
+    expect(c.mensaje).toContain('invitación quedó pendiente de envío');
+    expect(c.esError).toBe(false);
+  });
+
+  it('no prepara acceso sin correo ni sin permisos de identidad', async () => {
+    const sinCorreo = { ...ejemplo, correo: null };
+    await c.prepararAcceso(sinCorreo);
+    expect(s['prepararInvitacionAcceso']).not.toHaveBeenCalled();
+    expect(c.mensaje).toContain('Agregue un correo');
+    permisos.delete('identidad.usuarios.crear');
+    expect(c.puedePrepararAcceso).toBe(false);
+  });
+
+  it('informa cuando reutiliza una invitación pendiente', async () => {
+    s['prepararInvitacionAcceso'].mockReturnValueOnce(of({
+      responsableId: 'r1', personaId: 'p1', usuarioId: 'u1', rolId: 'rol-parent', asignacionId: 'a1',
+      invitacionId: 'i1', correo: 'ana@test.com', estado: 'pendiente', rolCreado: false,
+      usuarioCreado: false, asignacionCreada: false, invitacionCreada: false
+    }));
+    await c.prepararAcceso(ejemplo);
+    expect(c.mensaje).toContain('se reutilizó sin duplicarla');
+  });
+
   it('aplica el término y estado al filtrar', async () => {
-    c.termino = 'Mendoza';
-    c.estado = 'activo';
-    await c.cargar();
+    c.termino = 'Mendoza'; c.estado = 'activo'; await c.cargar();
     const llamada = s['listar'].mock.calls.at(-1);
     expect(llamada && llamada[0].termino).toBe('Mendoza');
     expect(llamada && llamada[0].estado).toBe('activo');
@@ -101,97 +118,60 @@ describe('Responsables (018D)', () => {
   it('crea un responsable y recarga la lista', async () => {
     c.institucionId = institucionId;
     c.form = { id: null, nombres: 'Luis', apellidos: 'Ramos', tipoIdentificacion: 'CI', numeroIdentificacion: '1717', telefono: '', correo: '' };
-    c.mostrarFormulario = true;
-    await c.guardar();
+    c.mostrarFormulario = true; await c.guardar();
     expect(s['crear']).toHaveBeenCalledWith(expect.objectContaining({ nombres: 'Luis', institucionId }));
-    expect(c.mensaje).toContain('creado');
-    expect(c.mostrarFormulario).toBe(false);
+    expect(c.mensaje).toContain('creado'); expect(c.mostrarFormulario).toBe(false);
   });
 
   it('rechaza el formulario sin apellidos', async () => {
     c.form = { id: null, nombres: 'Luis', apellidos: '', tipoIdentificacion: 'CI', numeroIdentificacion: '1717', telefono: '', correo: '' };
-    await c.guardar();
-    expect(s['crear']).not.toHaveBeenCalled();
-    expect(c.esError).toBe(true);
+    await c.guardar(); expect(s['crear']).not.toHaveBeenCalled(); expect(c.esError).toBe(true);
   });
 
   it('desactiva un responsable solicitando motivo', async () => {
     const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Cese por solicitud');
-    try {
-      await c.desactivar(ejemplo);
-      expect(s['cambiarEstado']).toHaveBeenCalledWith('r1', { motivo: 'Cese por solicitud' });
-      expect(c.mensaje).toContain('desactivado');
-    } finally {
-      promptSpy.mockRestore();
-    }
+    try { await c.desactivar(ejemplo); expect(s['cambiarEstado']).toHaveBeenCalledWith('r1', { motivo: 'Cese por solicitud' }); expect(c.mensaje).toContain('desactivado'); }
+    finally { promptSpy.mockRestore(); }
   });
 
   it('rechaza desactivar sin motivo', async () => {
     const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue(null);
-    try {
-      await c.desactivar(ejemplo);
-      expect(s['cambiarEstado']).not.toHaveBeenCalled();
-      expect(c.esError).toBe(true);
-    } finally {
-      promptSpy.mockRestore();
-    }
+    try { await c.desactivar(ejemplo); expect(s['cambiarEstado']).not.toHaveBeenCalled(); expect(c.esError).toBe(true); }
+    finally { promptSpy.mockRestore(); }
   });
 
   it('reactiva un responsable inactivo', async () => {
     const inactivo = { ...ejemplo, estado: 'inactivo' as const };
-    await c.reactivar(inactivo);
-    expect(s['reactivar']).toHaveBeenCalledWith('r1');
+    await c.reactivar(inactivo); expect(s['reactivar']).toHaveBeenCalledWith('r1');
   });
 
   it('no navega fuera de rango en la paginación', () => {
-    c.page = 3;
-    c.totalPages = 3;
-    c.irPagina(5);
-    expect(c.page).toBe(3);
-    c.irPagina(3);
-    expect(c.page).toBe(3);
+    c.page = 3; c.totalPages = 3; c.irPagina(5); expect(c.page).toBe(3); c.irPagina(3); expect(c.page).toBe(3);
   });
 
   it('carga los vínculos del alumno indicado por query param', async () => {
-    s['listarDeAlumno'] = vi.fn().mockReturnValue(of([{
-      id: 'v1', responsableId: 'r1', parentesco: 'Padre', esPrincipal: true,
-      accesoFinanciero: true, estado: 'activo' as const, nombres: 'Ana', apellidos: 'Mendoza',
-      telefono: null, correo: null
-    }]));
-    c.alumnoIdSeleccionado = 'a1';
-    await c.cargarVinculos();
-    expect(s['listarDeAlumno']).toHaveBeenCalledWith('a1');
-    expect(c.vinculos).toHaveLength(1);
+    s['listarDeAlumno'] = vi.fn().mockReturnValue(of([{ id: 'v1', responsableId: 'r1', parentesco: 'Padre', esPrincipal: true, accesoFinanciero: true, estado: 'activo' as const, nombres: 'Ana', apellidos: 'Mendoza', telefono: null, correo: null }]));
+    c.alumnoIdSeleccionado = 'a1'; await c.cargarVinculos();
+    expect(s['listarDeAlumno']).toHaveBeenCalledWith('a1'); expect(c.vinculos).toHaveLength(1);
   });
 
   it('desactiva un vínculo solicitando motivo', async () => {
     const vinculo = { id: 'v1', responsableId: 'r1', parentesco: 'Padre', esPrincipal: true, accesoFinanciero: true, estado: 'activo' as const, nombres: 'Ana', apellidos: 'Mendoza', telefono: null, correo: null };
-    c.vinculos = [vinculo];
-    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Traslado de encargado');
-    try {
-      await c.desactivarVinculo(vinculo);
-      expect(s['desactivarVinculo']).toHaveBeenCalledWith('v1', { motivo: 'Traslado de encargado' });
-      expect(c.mensaje).toContain('desactivado');
-    } finally {
-      promptSpy.mockRestore();
-    }
+    c.vinculos = [vinculo]; const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Traslado de encargado');
+    try { await c.desactivarVinculo(vinculo); expect(s['desactivarVinculo']).toHaveBeenCalledWith('v1', { motivo: 'Traslado de encargado' }); expect(c.mensaje).toContain('desactivado'); }
+    finally { promptSpy.mockRestore(); }
   });
 
   it('cierra la vista de vínculos y vuelve a la lista', () => {
     c.alumnoIdSeleccionado = 'a1';
     c.vinculos = [{ id: 'v1', responsableId: 'r1', parentesco: null, esPrincipal: false, accesoFinanciero: false, estado: 'activo' as const, nombres: 'A', apellidos: 'B', telefono: null, correo: null }];
-    c.cerrarVinculos();
-    expect(c.alumnoIdSeleccionado).toBeNull();
-    expect(router.navigate).toHaveBeenCalledWith(['/responsables']);
+    c.cerrarVinculos(); expect(c.alumnoIdSeleccionado).toBeNull(); expect(router.navigate).toHaveBeenCalledWith(['/responsables']);
   });
 
   it('define hayVinculosVisibles solo cuando hay alumno seleccionado y permiso', () => {
-    c.alumnoIdSeleccionado = null;
-    expect(c.hayVinculosVisibles).toBe(false);
-    c.alumnoIdSeleccionado = 'a1';
-    expect(c.hayVinculosVisibles).toBe(true);
-    permisos.clear();
-    expect(c.hayVinculosVisibles).toBe(false);
+    c.alumnoIdSeleccionado = null; expect(c.hayVinculosVisibles).toBe(false);
+    c.alumnoIdSeleccionado = 'a1'; expect(c.hayVinculosVisibles).toBe(true);
+    permisos.clear(); expect(c.hayVinculosVisibles).toBe(false);
   });
 
   const vinculo = (id = 'v1', responsableId = 'r1', estado = 'activo') => ({
@@ -200,60 +180,43 @@ describe('Responsables (018D)', () => {
   });
 
   it('busca candidatos ocultando los ya vinculados (paginación server-side)', async () => {
-    c.institucionId = institucionId;
-    c.vinculos = [vinculo()];
+    c.institucionId = institucionId; c.vinculos = [vinculo()];
     const otro = { ...ejemplo, id: 'r2', nombres: 'Luis', apellidos: 'Ramos' };
     s['listar'] = vi.fn().mockReturnValue(of({ items: [ejemplo, otro], page: 1, pageSize: 20, totalItems: 2, totalPages: 1 }));
-    c.buscarVinculable = 'Ra';
-    await c.buscarCandidatos();
+    c.buscarVinculable = 'Ra'; await c.buscarCandidatos();
     expect(s['listar']).toHaveBeenCalledWith(expect.objectContaining({ institucionId, estado: 'activo', page: 1, pageSize: 20 }));
     expect(c.vinculablesCandidatos.map((x) => x.id)).toEqual(['r2']);
   });
 
   it('vincula un responsable existente con parentesco, principal y acceso financiero', async () => {
-    c.institucionId = institucionId;
-    c.alumnoIdSeleccionado = 'a1';
-    c.cargarVinculos = vi.fn().mockResolvedValue(void 0);
+    c.institucionId = institucionId; c.alumnoIdSeleccionado = 'a1'; c.cargarVinculos = vi.fn().mockResolvedValue(void 0);
     c.vincularForm = { responsableId: 'r2', parentesco: 'Padre', esPrincipal: true, accesoFinanciero: true };
     await c.guardarVinculo();
-    expect(s['vincularAlumno']).toHaveBeenCalledWith('a1', {
-      responsableId: 'r2', parentesco: 'Padre', esPrincipal: true, accesoFinanciero: true
-    });
-    expect(c.mostrarVincular).toBe(false);
-    expect(c.mensaje).toContain('vinculado');
+    expect(s['vincularAlumno']).toHaveBeenCalledWith('a1', { responsableId: 'r2', parentesco: 'Padre', esPrincipal: true, accesoFinanciero: true });
+    expect(c.mostrarVincular).toBe(false); expect(c.mensaje).toContain('vinculado');
   });
 
   it('rechaza vincular sin seleccionar responsable', async () => {
-    c.alumnoIdSeleccionado = 'a1';
-    c.vincularForm = { responsableId: '', parentesco: 'Padre', esPrincipal: false, accesoFinanciero: false };
-    await c.guardarVinculo();
-    expect(s['vincularAlumno']).not.toHaveBeenCalled();
-    expect(c.esError).toBe(true);
+    c.alumnoIdSeleccionado = 'a1'; c.vincularForm = { responsableId: '', parentesco: 'Padre', esPrincipal: false, accesoFinanciero: false };
+    await c.guardarVinculo(); expect(s['vincularAlumno']).not.toHaveBeenCalled(); expect(c.esError).toBe(true);
   });
 
   it('edita un vínculo existente', async () => {
-    c.editandoVinculo = vinculo();
-    c.editarVinculoForm = { parentesco: 'Madre', esPrincipal: false, accesoFinanciero: true };
+    c.editandoVinculo = vinculo(); c.editarVinculoForm = { parentesco: 'Madre', esPrincipal: false, accesoFinanciero: true };
     await c.guardarEditarVinculo();
     expect(s['editarVinculo']).toHaveBeenCalledWith('v1', { parentesco: 'Madre', esPrincipal: false, accesoFinanciero: true });
-    expect(c.editandoVinculo).toBeNull();
-    expect(c.mensaje).toContain('actualizado');
+    expect(c.editandoVinculo).toBeNull(); expect(c.mensaje).toContain('actualizado');
   });
 
   it('reactiva un vínculo inactivo', async () => {
-    const v = vinculo('v1', 'r1', 'inactivo');
-    await c.reactivarVinculo(v);
-    expect(s['reactivarVinculo']).toHaveBeenCalledWith('v1');
-    expect(c.mensaje).toContain('reactivado');
+    const v = vinculo('v1', 'r1', 'inactivo'); await c.reactivarVinculo(v);
+    expect(s['reactivarVinculo']).toHaveBeenCalledWith('v1'); expect(c.mensaje).toContain('reactivado');
   });
 
   it('maneja el error al vincular y lo muestra', async () => {
     s['vincularAlumno'] = vi.fn().mockReturnValue(of(void 0).pipe());
     s['vincularAlumno'].mockImplementationOnce(() => { throw new Error('boom'); });
-    c.alumnoIdSeleccionado = 'a1';
-    c.vincularForm = { responsableId: 'r2', parentesco: 'Padre', esPrincipal: false, accesoFinanciero: false };
-    await c.guardarVinculo();
-    expect(c.esError).toBe(true);
-    expect(c.mensaje).toBeTruthy();
+    c.alumnoIdSeleccionado = 'a1'; c.vincularForm = { responsableId: 'r2', parentesco: 'Padre', esPrincipal: false, accesoFinanciero: false };
+    await c.guardarVinculo(); expect(c.esError).toBe(true); expect(c.mensaje).toBeTruthy();
   });
 });

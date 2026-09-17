@@ -100,6 +100,8 @@ public sealed class MatriculasApiFactory : IAsyncLifetime
         return client;
     }
 
+    public HttpClient CrearClienteAnonimo() => _web.CreateClient();
+
     // ----- Seeders del modelo academico -----
 
     public Task<Guid> CrearAlumnoAsync(Guid institucion) => ScalarGuidAsync(

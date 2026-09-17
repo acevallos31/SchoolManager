@@ -245,6 +245,9 @@
                 </span>
               </td>
               <td class="acciones">
+                @if (puedePrepararAcceso && r.estado === 'activo' && r.correo) {
+                  <button class="sm-btn sm-btn--primary sm-btn--sm" [disabled]="guardando" (click)="prepararAcceso(r)">Invitar al portal</button>
+                }
                 @if (puedeEditar) {
                   <button class="sm-btn sm-btn--secondary sm-btn--sm" (click)="abrirEditar(r)">Editar</button>
                 }

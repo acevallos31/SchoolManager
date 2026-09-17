@@ -37,6 +37,21 @@ export interface ResponsableVinculo {
   correo: string | null;
 }
 
+export interface InvitacionResponsablePreparada {
+  responsableId: string;
+  personaId: string;
+  usuarioId: string;
+  rolId: string;
+  asignacionId: string;
+  invitacionId: string;
+  correo: string;
+  estado: string;
+  rolCreado: boolean;
+  usuarioCreado: boolean;
+  asignacionCreada: boolean;
+  invitacionCreada: boolean;
+}
+
 export interface CrearResponsableDto {
   institucionId: string;
   nombres: string;
@@ -142,6 +157,15 @@ export class ResponsablesService {
   crearParaPersona(dto: CrearResponsableParaPersonaDto): Observable<{ id: string }> {
     return this.http
       .post<{ id: string }>(`${this.baseUrl}/para-persona`, dto)
+      .pipe(catchError(err => throwError(() => this.mapError(err))));
+  }
+
+  prepararInvitacionAcceso(id: string): Observable<InvitacionResponsablePreparada> {
+    return this.http
+      .post<InvitacionResponsablePreparada>(
+        `${this.baseUrl}/${id}/invitacion-acceso/preparar`,
+        {}
+      )
       .pipe(catchError(err => throwError(() => this.mapError(err))));
   }
 
