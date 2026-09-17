@@ -56,6 +56,9 @@ public sealed class SeguridadAccesoControllerTests(SeguridadAccesoApiFactory fac
         {
             Assert.Equal(JsonValueKind.Array, usuario.GetProperty("roles").ValueKind);
             Assert.True(usuario.GetProperty("identidadVinculada").GetBoolean());
+            Assert.True(usuario.GetProperty("puedeEditar").GetBoolean());
+            Assert.False(string.IsNullOrWhiteSpace(usuario.GetProperty("nombres").GetString()));
+            Assert.False(string.IsNullOrWhiteSpace(usuario.GetProperty("apellidos").GetString()));
         });
     }
 
@@ -70,6 +73,66 @@ public sealed class SeguridadAccesoControllerTests(SeguridadAccesoApiFactory fac
         var usuarios = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Contains(usuarios.EnumerateArray(),
             usuario => usuario.GetProperty("id").GetGuid() == factory.UsuarioDestinoId);
+    }
+
+    [Fact]
+    public async Task Administrador_edita_su_persona_interna_sin_modificar_identidad_externa()
+    {
+        using var client = factory.Cliente(factory.AdministradorA);
+        var usuarios = await client.GetFromJsonAsync<JsonElement>(
+            $"/api/configuracion/seguridad/usuarios?institucionId={factory.InstitucionA}");
+        var usuario = usuarios.EnumerateArray().First();
+        var usuarioId = usuario.GetProperty("id").GetGuid();
+
+        var response = await client.PutAsJsonAsync(
+            $"/api/configuracion/seguridad/usuarios/{usuarioId}",
+            new
+            {
+                institucionId = factory.InstitucionA,
+                nombres = " Ana María ",
+                apellidos = " Pérez López ",
+                correo = " ANA.NUEVA@EXAMPLE.COM "
+            });
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+        var actualizado = await client.GetFromJsonAsync<JsonElement>(
+            $"/api/configuracion/seguridad/usuarios?institucionId={factory.InstitucionA}");
+        var item = actualizado.EnumerateArray().Single(x => x.GetProperty("id").GetGuid() == usuarioId);
+        Assert.Equal("Ana María", item.GetProperty("nombres").GetString());
+        Assert.Equal("Pérez López", item.GetProperty("apellidos").GetString());
+        Assert.Equal("ana.nueva@example.com", item.GetProperty("correo").GetString());
+        Assert.True(item.GetProperty("identidadVinculada").GetBoolean());
+    }
+
+    [Fact]
+    public async Task EditarUsuario_valida_campos_permiso_y_contexto()
+    {
+        using var admin = factory.Cliente(factory.AdministradorA);
+        var usuarios = await admin.GetFromJsonAsync<JsonElement>(
+            $"/api/configuracion/seguridad/usuarios?institucionId={factory.InstitucionA}");
+        var usuarioId = usuarios.EnumerateArray().First().GetProperty("id").GetGuid();
+
+        var invalido = await admin.PutAsJsonAsync(
+            $"/api/configuracion/seguridad/usuarios/{usuarioId}",
+            new { institucionId = factory.InstitucionA, nombres = " ", apellidos = "Pérez", correo = "ana@example.com" });
+        Assert.Equal(HttpStatusCode.BadRequest, invalido.StatusCode);
+
+        var ajeno = await admin.PutAsJsonAsync(
+            $"/api/configuracion/seguridad/usuarios/{usuarioId}",
+            new { institucionId = factory.InstitucionB, nombres = "Ana", apellidos = "Pérez", correo = "ana@example.com" });
+        Assert.Equal(HttpStatusCode.Forbidden, ajeno.StatusCode);
+
+        var inexistente = await admin.PutAsJsonAsync(
+            $"/api/configuracion/seguridad/usuarios/{Guid.NewGuid()}",
+            new { institucionId = factory.InstitucionA, nombres = "Ana", apellidos = "Pérez", correo = "" });
+        Assert.Equal(HttpStatusCode.NotFound, inexistente.StatusCode);
+
+        using var sinPermiso = factory.Cliente(factory.SinPermisos);
+        var prohibido = await sinPermiso.PutAsJsonAsync(
+            $"/api/configuracion/seguridad/usuarios/{usuarioId}",
+            new { institucionId = factory.InstitucionA, nombres = "Ana", apellidos = "Pérez", correo = "ana@example.com" });
+        Assert.Equal(HttpStatusCode.Forbidden, prohibido.StatusCode);
     }
 
     [Fact]
