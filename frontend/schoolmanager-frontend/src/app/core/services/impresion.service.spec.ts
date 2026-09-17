@@ -1,0 +1,103 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { DocumentoImprimible } from '../documents/documento-imprimible';
+import type { LienzoPdf } from '../documents/lienzo-pdf';
+import { ImpresionService } from './impresion.service';
+
+const adapter = vi.hoisted(() => ({
+  save: vi.fn(),
+  output: vi.fn(),
+  constructor: vi.fn(),
+}));
+
+vi.mock('../documents/jspdf-lienzo-adapter', () => ({
+  JsPdfLienzoAdapter: class {
+    constructor() {
+      adapter.constructor();
+      return {
+        save: adapter.save,
+        output: adapter.output,
+      };
+    }
+  },
+}));
+
+class DocumentoPrueba extends DocumentoImprimible {
+  readonly renderizarPdfSpy = vi.fn();
+  readonly renderizarHtmlSpy = vi.fn(() => '<html><body>Recibo</body></html>');
+
+  constructor() {
+    super('recibo-1.pdf', 'Recibo #1', { nombre: 'Colegio' });
+  }
+
+  renderizarPdf(lienzo: LienzoPdf): void {
+    this.renderizarPdfSpy(lienzo);
+  }
+
+  renderizarHtml(): string {
+    return this.renderizarHtmlSpy();
+  }
+}
+
+describe('ImpresionService', () => {
+  let service: ImpresionService;
+  let documento: DocumentoPrueba;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    service = new ImpresionService();
+    documento = new DocumentoPrueba();
+  });
+
+  it('renderiza el documento y guarda el PDF con el nombre autoritativo del documento', async () => {
+    await service.descargarPdf(documento);
+
+    expect(adapter.constructor).toHaveBeenCalledOnce();
+    expect(documento.renderizarPdfSpy).toHaveBeenCalledOnce();
+    expect(adapter.save).toHaveBeenCalledWith('recibo-1.pdf');
+  });
+
+  it('genera un Blob reutilizando el mismo puerto de PDF', async () => {
+    const blob = new Blob(['pdf'], { type: 'application/pdf' });
+    adapter.output.mockReturnValue(blob);
+
+    const resultado = await service.generarPdfBlob(documento);
+
+    expect(documento.renderizarPdfSpy).toHaveBeenCalledOnce();
+    expect(adapter.output).toHaveBeenCalledWith('blob');
+    expect(resultado).toBe(blob);
+  });
+
+  it('abre una ventana, escribe HTML y dispara impresión cuando termina de cargar', () => {
+    const abrir = vi.fn();
+    const escribir = vi.fn();
+    const cerrar = vi.fn();
+    const focus = vi.fn();
+    const print = vi.fn();
+    const addEventListener = vi.fn((_evento: string, callback: () => void) => callback());
+    const ventana = {
+      document: { open: abrir, write: escribir, close: cerrar },
+      focus,
+      print,
+      addEventListener,
+    };
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(ventana as unknown as Window);
+
+    service.imprimir(documento);
+
+    expect(openSpy).toHaveBeenCalledWith('', '_blank', 'noopener,noreferrer');
+    expect(abrir).toHaveBeenCalledOnce();
+    expect(documento.renderizarHtmlSpy).toHaveBeenCalledOnce();
+    expect(escribir).toHaveBeenCalledWith('<html><body>Recibo</body></html>');
+    expect(cerrar).toHaveBeenCalledOnce();
+    expect(addEventListener).toHaveBeenCalledWith('load', expect.any(Function), { once: true });
+    expect(focus).toHaveBeenCalledOnce();
+    expect(print).toHaveBeenCalledOnce();
+  });
+
+  it('falla de forma explícita cuando el navegador bloquea la ventana de impresión', () => {
+    vi.spyOn(window, 'open').mockReturnValue(null);
+
+    expect(() => service.imprimir(documento))
+      .toThrow('El navegador bloqueó la ventana de impresión.');
+  });
+});
