@@ -148,7 +148,7 @@ begin
       estado = 'enviada',
       intentos_envio = intentos_envio + 1,
       ultimo_error_envio = null,
-      actualizado_at = v_ahora
+      updated_at = v_ahora
   where id = p_invitacion_id;
 
   insert into public.seguridad_auditoria(
