@@ -63,6 +63,11 @@ describe('ConfiguracionSeguridadAcceso', () => {
     service = {
       obtener: vi.fn().mockResolvedValue(snapshot),
       obtenerUsuarios: vi.fn().mockResolvedValue([usuario]),
+      prepararInvitacionUsuario: vi.fn().mockResolvedValue({
+        personaId: 'persona-2', usuarioId: 'usuario-2', rolId: 'rol-1',
+        invitacionId: 'inv-1', estado: 'pendiente', personaCreada: true,
+        usuarioCreado: true, asignacionCreada: true, invitacionCreada: true
+      }),
       crearRol: vi.fn().mockResolvedValue('rol-nuevo'),
       clonarPlantilla: vi.fn().mockResolvedValue('rol-clonado'),
       editarRol: vi.fn().mockResolvedValue(undefined),
@@ -109,6 +114,7 @@ describe('ConfiguracionSeguridadAcceso', () => {
     expect(component.puedeEditar).toBe(true);
     expect(component.puedeAsignarPermisos).toBe(true);
     expect(component.puedeGestionarAsignaciones).toBe(true);
+    expect(component.puedePrepararInvitacion).toBe(true);
   });
 
   it('sin institución muestra un estado accionable y no consulta la API', async () => {
@@ -134,6 +140,30 @@ describe('ConfiguracionSeguridadAcceso', () => {
     expect(component.institucionNombre).toBe('Colegio Beta');
     expect(component.snapshot?.institucionId).toBe('inst-2');
     expect(component.usuarios).toEqual([]);
+  });
+
+  it('prepara un nuevo usuario con invitación pendiente y recarga el directorio', async () => {
+    await crearComponente();
+    component.nuevoUsuario = {
+      nombres: ' Ana ', apellidos: ' Pérez ', correo: ' ANA@EXAMPLE.COM ', rolId: 'rol-1'
+    };
+    await component.prepararNuevoUsuario();
+    expect(service['prepararInvitacionUsuario']).toHaveBeenCalledWith({
+      institucionId: 'inst-1', nombres: 'Ana', apellidos: 'Pérez',
+      correo: 'ana@example.com', rolId: 'rol-1', origen: 'administracion'
+    });
+    expect(component.nuevoUsuario).toEqual({ nombres: '', apellidos: '', correo: '', rolId: '' });
+    expect(service['obtenerUsuarios']).toHaveBeenCalledTimes(2);
+    expect(component.mensaje).toContain('invitación pendiente creada');
+    expect(component.esError).toBe(false);
+  });
+
+  it('valida los campos del nuevo usuario antes de llamar la API', async () => {
+    await crearComponente();
+    component.nuevoUsuario = { nombres: 'Ana', apellidos: '', correo: '', rolId: '' };
+    await component.prepararNuevoUsuario();
+    expect(service['prepararInvitacionUsuario']).not.toHaveBeenCalled();
+    expect(component.mensaje).toContain('Nombre, apellido, correo y rol inicial');
   });
 
   it('crea un rol normalizando código, nombre y descripción y conserva la confirmación', async () => {
@@ -268,11 +298,13 @@ describe('ConfiguracionSeguridadAcceso', () => {
     await component.desactivarRol(rol);
     await component.asignarRolUsuario(usuario);
     await component.retirarAsignacion(asignacion);
+    await component.prepararNuevoUsuario();
     expect(service['editarRol']).not.toHaveBeenCalled();
     expect(service['reemplazarPermisos']).not.toHaveBeenCalled();
     expect(service['desactivarRol']).not.toHaveBeenCalled();
     expect(service['asignarRol']).not.toHaveBeenCalled();
     expect(service['desactivarAsignacion']).not.toHaveBeenCalled();
+    expect(service['prepararInvitacionUsuario']).not.toHaveBeenCalled();
   });
 
   it('mantiene roles visibles si falla únicamente el directorio de usuarios', async () => {
