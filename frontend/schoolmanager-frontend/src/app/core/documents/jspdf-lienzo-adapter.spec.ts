@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { jsPDF } from 'jspdf';
 import { JsPdfLienzoAdapter } from './jspdf-lienzo-adapter';
 
-type AdaptadorInterno = JsPdfLienzoAdapter & { pdf: jsPDF };
+type AdaptadorInterno = { pdf: jsPDF };
 
 describe('JsPdfLienzoAdapter', () => {
   beforeEach(() => {
@@ -25,7 +25,7 @@ describe('JsPdfLienzoAdapter', () => {
 
   it('delega operaciones de texto y medición en jsPDF', () => {
     const lienzo = new JsPdfLienzoAdapter();
-    const pdf = (lienzo as AdaptadorInterno).pdf;
+    const pdf = (lienzo as unknown as AdaptadorInterno).pdf;
 
     const setFontSize = vi.spyOn(pdf, 'setFontSize');
     const setFont = vi.spyOn(pdf, 'setFont');
@@ -53,7 +53,7 @@ describe('JsPdfLienzoAdapter', () => {
 
   it('delega trazos, rectángulos y exportación en jsPDF', () => {
     const lienzo = new JsPdfLienzoAdapter();
-    const pdf = (lienzo as AdaptadorInterno).pdf;
+    const pdf = (lienzo as unknown as AdaptadorInterno).pdf;
     const blob = new Blob(['pdf'], { type: 'application/pdf' });
 
     const setDrawColor = vi.spyOn(pdf, 'setDrawColor');
