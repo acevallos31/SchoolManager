@@ -100,6 +100,8 @@ public sealed class MatriculasApiFactory : IAsyncLifetime
         return client;
     }
 
+    public HttpClient CrearClienteAnonimo() => _web.CreateClient();
+
     // ----- Seeders del modelo academico -----
 
     public Task<Guid> CrearAlumnoAsync(Guid institucion) => ScalarGuidAsync(
@@ -185,67 +187,43 @@ public sealed class MatriculasApiFactory : IAsyncLifetime
 
     private static void AddParameters(NpgsqlCommand command, IEnumerable<object> values)
     {
-        foreach (var value in values)
-        {
-            command.Parameters.AddWithValue(value);
-        }
+        foreach (var value in values) command.Parameters.AddWithValue(value);
     }
 
-    public sealed record Contexto(
-        Guid InstitucionId,
-        Guid CicloId,
-        Guid GradoId,
-        Guid SeccionId,
-        Guid PeriodoId);
+    public sealed record Contexto(Guid Institucion, Guid Ciclo, Guid Grado, Guid Seccion, Guid Periodo);
+}
 
-    private sealed class UsuarioActualControlado : IUsuarioActualService
+internal sealed class TestAuthHandler(
+    IOptionsMonitor<AuthenticationSchemeOptions> options,
+    ILoggerFactory logger,
+    UrlEncoder encoder) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
+{
+    public const string SchemeName = "Test";
+
+    protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        public Task<UsuarioActual> ObtenerAsync(
-            ClaimsPrincipal principal,
-            CancellationToken cancellationToken = default)
+        var header = Request.Headers.Authorization.ToString();
+        if (!header.StartsWith("Test ", StringComparison.Ordinal))
         {
-            var identidad = principal.FindFirstValue("sub");
-
-            if (identidad == MatriculasApiFactory.AdminA.ToString()
-                || identidad == MatriculasApiFactory.AdminB.ToString())
-            {
-                return Task.FromResult(new UsuarioActual(
-                    Guid.NewGuid(),
-                    Guid.NewGuid(),
-                    ["admin"],
-                    [.. Permisos.Todos]));
-            }
-
-            return Task.FromResult(new UsuarioActual(
-                Guid.NewGuid(),
-                Guid.NewGuid(),
-                [],
-                []));
+            return Task.FromResult(AuthenticateResult.NoResult());
         }
+
+        var identidad = header["Test ".Length..].Trim();
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, identidad),
+            new Claim(ClaimTypes.Name, identidad)
+        };
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, SchemeName));
+        return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(principal, SchemeName)));
     }
+}
 
-    private sealed class TestAuthHandler(
-        IOptionsMonitor<AuthenticationSchemeOptions> options,
-        ILoggerFactory logger,
-        UrlEncoder encoder) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
+internal sealed class UsuarioActualControlado(IHttpContextAccessor accessor) : IUsuarioActualService
+{
+    public Guid? ObtenerAuthUserId()
     {
-        public const string SchemeName = "Test";
-
-        protected override Task<AuthenticateResult> HandleAuthenticateAsync()
-        {
-            var header = Request.Headers.Authorization.ToString();
-            if (!AuthenticationHeaderValue.TryParse(header, out var authorization)
-                || authorization.Scheme != SchemeName
-                || string.IsNullOrWhiteSpace(authorization.Parameter))
-            {
-                return Task.FromResult(AuthenticateResult.NoResult());
-            }
-
-            var identity = new ClaimsIdentity(
-                [new Claim("sub", authorization.Parameter)],
-                SchemeName);
-            var ticket = new AuthenticationTicket(new ClaimsPrincipal(identity), SchemeName);
-            return Task.FromResult(AuthenticateResult.Success(ticket));
-        }
+        var value = accessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return Guid.TryParse(value, out var guid) ? guid : null;
     }
 }
