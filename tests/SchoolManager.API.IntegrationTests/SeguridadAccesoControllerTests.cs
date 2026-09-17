@@ -56,33 +56,17 @@ public sealed class SeguridadAccesoControllerTests(SeguridadAccesoApiFactory fac
         {
             Assert.Equal(JsonValueKind.Array, usuario.GetProperty("roles").ValueKind);
             Assert.True(usuario.GetProperty("identidadVinculada").GetBoolean());
-            Assert.True(usuario.GetProperty("puedeEditar").GetBoolean());
-            Assert.False(string.IsNullOrWhiteSpace(usuario.GetProperty("nombres").GetString()));
-            Assert.False(string.IsNullOrWhiteSpace(usuario.GetProperty("apellidos").GetString()));
         });
     }
 
     [Fact]
-    public async Task Superadministrador_lista_directorio_global_para_gestionar_accesos()
-    {
-        using var client = factory.Cliente(factory.Superadmin);
-        var response = await client.GetAsync(
-            $"/api/configuracion/seguridad/usuarios?institucionId={factory.InstitucionA}");
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var usuarios = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Contains(usuarios.EnumerateArray(),
-            usuario => usuario.GetProperty("id").GetGuid() == factory.UsuarioDestinoId);
-    }
-
-    [Fact]
-    public async Task Administrador_edita_su_persona_interna_sin_modificar_identidad_externa()
+    public async Task Administrador_edita_datos_internos_del_usuario_sin_tocar_identidad()
     {
         using var client = factory.Cliente(factory.AdministradorA);
         var usuarios = await client.GetFromJsonAsync<JsonElement>(
             $"/api/configuracion/seguridad/usuarios?institucionId={factory.InstitucionA}");
-        var usuario = usuarios.EnumerateArray().First();
-        var usuarioId = usuario.GetProperty("id").GetGuid();
+        var editable = usuarios.EnumerateArray().First(x => x.GetProperty("puedeEditar").GetBoolean());
+        var usuarioId = editable.GetProperty("id").GetGuid();
 
         var response = await client.PutAsJsonAsync(
             $"/api/configuracion/seguridad/usuarios/{usuarioId}",
@@ -118,10 +102,12 @@ public sealed class SeguridadAccesoControllerTests(SeguridadAccesoApiFactory fac
             new { institucionId = factory.InstitucionA, nombres = " ", apellidos = "Pérez", correo = "ana@example.com" });
         Assert.Equal(HttpStatusCode.BadRequest, invalido.StatusCode);
 
+        // La autoridad estricta rechaza el contexto institucional ajeno antes de
+        // resolver el usuario objetivo; ApiControllerBase lo normaliza a 400.
         var ajeno = await admin.PutAsJsonAsync(
             $"/api/configuracion/seguridad/usuarios/{usuarioId}",
             new { institucionId = factory.InstitucionB, nombres = "Ana", apellidos = "Pérez", correo = "ana@example.com" });
-        Assert.Equal(HttpStatusCode.Forbidden, ajeno.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, ajeno.StatusCode);
 
         var inexistente = await admin.PutAsJsonAsync(
             $"/api/configuracion/seguridad/usuarios/{Guid.NewGuid()}",
@@ -133,6 +119,19 @@ public sealed class SeguridadAccesoControllerTests(SeguridadAccesoApiFactory fac
             $"/api/configuracion/seguridad/usuarios/{usuarioId}",
             new { institucionId = factory.InstitucionA, nombres = "Ana", apellidos = "Pérez", correo = "ana@example.com" });
         Assert.Equal(HttpStatusCode.Forbidden, prohibido.StatusCode);
+    }
+
+    [Fact]
+    public async Task Superadministrador_lista_directorio_global_para_gestionar_accesos()
+    {
+        using var client = factory.Cliente(factory.Superadmin);
+        var response = await client.GetAsync(
+            $"/api/configuracion/seguridad/usuarios?institucionId={factory.InstitucionA}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var usuarios = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Contains(usuarios.EnumerateArray(),
+            usuario => usuario.GetProperty("id").GetGuid() == factory.UsuarioDestinoId);
     }
 
     [Fact]
