@@ -187,43 +187,67 @@ public sealed class MatriculasApiFactory : IAsyncLifetime
 
     private static void AddParameters(NpgsqlCommand command, IEnumerable<object> values)
     {
-        foreach (var value in values) command.Parameters.AddWithValue(value);
-    }
-
-    public sealed record Contexto(Guid Institucion, Guid Ciclo, Guid Grado, Guid Seccion, Guid Periodo);
-}
-
-internal sealed class TestAuthHandler(
-    IOptionsMonitor<AuthenticationSchemeOptions> options,
-    ILoggerFactory logger,
-    UrlEncoder encoder) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
-{
-    public const string SchemeName = "Test";
-
-    protected override Task<AuthenticateResult> HandleAuthenticateAsync()
-    {
-        var header = Request.Headers.Authorization.ToString();
-        if (!header.StartsWith("Test ", StringComparison.Ordinal))
+        foreach (var value in values)
         {
-            return Task.FromResult(AuthenticateResult.NoResult());
+            command.Parameters.AddWithValue(value);
         }
-
-        var identidad = header["Test ".Length..].Trim();
-        var claims = new[]
-        {
-            new Claim(ClaimTypes.NameIdentifier, identidad),
-            new Claim(ClaimTypes.Name, identidad)
-        };
-        var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, SchemeName));
-        return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(principal, SchemeName)));
     }
-}
 
-internal sealed class UsuarioActualControlado(IHttpContextAccessor accessor) : IUsuarioActualService
-{
-    public Guid? ObtenerAuthUserId()
+    public sealed record Contexto(
+        Guid InstitucionId,
+        Guid CicloId,
+        Guid GradoId,
+        Guid SeccionId,
+        Guid PeriodoId);
+
+    private sealed class UsuarioActualControlado : IUsuarioActualService
     {
-        var value = accessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier);
-        return Guid.TryParse(value, out var guid) ? guid : null;
+        public Task<UsuarioActual> ObtenerAsync(
+            ClaimsPrincipal principal,
+            CancellationToken cancellationToken = default)
+        {
+            var identidad = principal.FindFirstValue("sub");
+
+            if (identidad == MatriculasApiFactory.AdminA.ToString()
+                || identidad == MatriculasApiFactory.AdminB.ToString())
+            {
+                return Task.FromResult(new UsuarioActual(
+                    Guid.NewGuid(),
+                    Guid.NewGuid(),
+                    ["admin"],
+                    [.. Permisos.Todos]));
+            }
+
+            return Task.FromResult(new UsuarioActual(
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                [],
+                []));
+        }
+    }
+
+    private sealed class TestAuthHandler(
+        IOptionsMonitor<AuthenticationSchemeOptions> options,
+        ILoggerFactory logger,
+        UrlEncoder encoder) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
+    {
+        public const string SchemeName = "Test";
+
+        protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+        {
+            var header = Request.Headers.Authorization.ToString();
+            if (!AuthenticationHeaderValue.TryParse(header, out var authorization)
+                || authorization.Scheme != SchemeName
+                || string.IsNullOrWhiteSpace(authorization.Parameter))
+            {
+                return Task.FromResult(AuthenticateResult.NoResult());
+            }
+
+            var identity = new ClaimsIdentity(
+                [new Claim("sub", authorization.Parameter)],
+                SchemeName);
+            var ticket = new AuthenticationTicket(new ClaimsPrincipal(identity), SchemeName);
+            return Task.FromResult(AuthenticateResult.Success(ticket));
+        }
     }
 }
