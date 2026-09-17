@@ -109,7 +109,7 @@ public sealed class SeguridadAccesoControllerTests(SeguridadAccesoApiFactory fac
 
         var inexistente = await admin.PutAsJsonAsync(
             $"/api/configuracion/seguridad/usuarios/{Guid.NewGuid()}",
-            new { institucionId = factory.InstitucionA, nombres = "Ana", apellidos = "Pérez", correo = "" });
+            new { institucionId = factory.InstitucionA, nombres = "Ana", apellidos = "Pérez", correo = (string?)null });
         Assert.Equal(HttpStatusCode.NotFound, inexistente.StatusCode);
 
         using var sinPermiso = factory.Cliente(factory.SinPermisos);
