@@ -6,6 +6,7 @@ import { environment } from '../../environments/environment';
 
 export type EstadoResponsable = 'activo' | 'inactivo';
 
+// Solicita la serialización camelCase del API .NET (ResponsableDto).
 export interface Responsable {
   id: string;
   personaId: string;
@@ -22,6 +23,7 @@ export interface Responsable {
   motivoDesactivacion: string | null;
 }
 
+// Vínculo Responsable<->Alumno (ResponsableVinculoDto).
 export interface ResponsableVinculo {
   id: string;
   responsableId: string;
@@ -85,7 +87,9 @@ export interface EditarVinculoDto {
   accesoFinanciero?: boolean | null;
 }
 
-export interface DesactivarDto { motivo: string; }
+export interface DesactivarDto {
+  motivo: string;
+}
 
 export interface FiltroResponsables {
   institucionId?: string;
@@ -104,7 +108,10 @@ export interface PaginatedResponsables {
 }
 
 export class ResponsablesError extends Error {
-  constructor(message: string, public readonly status: number) {
+  constructor(
+    message: string,
+    public readonly status: number
+  ) {
     super(message);
     this.name = 'ResponsablesError';
   }
@@ -116,6 +123,7 @@ export class ResponsablesService {
 
   constructor(private readonly http: HttpClient) {}
 
+  /** Listado paginado y filtrado server-side (filtros en el backend). */
   listar(filtro: FiltroResponsables = {}): Observable<PaginatedResponsables> {
     const params = new Map<string, string>();
     if (filtro.institucionId) params.set('institucionId', filtro.institucionId);
@@ -123,68 +131,83 @@ export class ResponsablesService {
     if (filtro.estado) params.set('estado', filtro.estado);
     if (filtro.page) params.set('page', String(filtro.page));
     if (filtro.pageSize) params.set('pageSize', String(filtro.pageSize));
-    return this.http.get<PaginatedResponsables>(this.baseUrl, { params: Object.fromEntries(params) })
+    return this.http
+      .get<PaginatedResponsables>(this.baseUrl, { params: Object.fromEntries(params) })
       .pipe(catchError(err => throwError(() => this.mapError(err))));
   }
 
   obtenerPorId(id: string): Observable<Responsable> {
-    return this.http.get<Responsable>(`${this.baseUrl}/${id}`)
+    return this.http
+      .get<Responsable>(`${this.baseUrl}/${id}`)
       .pipe(catchError(err => throwError(() => this.mapError(err))));
   }
 
   listarDeAlumno(alumnoId: string): Observable<ResponsableVinculo[]> {
-    return this.http.get<ResponsableVinculo[]>(`${this.baseUrl}/alumno/${alumnoId}`)
+    return this.http
+      .get<ResponsableVinculo[]>(`${this.baseUrl}/alumno/${alumnoId}`)
       .pipe(catchError(err => throwError(() => this.mapError(err))));
   }
 
   crear(dto: CrearResponsableDto): Observable<{ id: string }> {
-    return this.http.post<{ id: string }>(this.baseUrl, dto)
+    return this.http
+      .post<{ id: string }>(this.baseUrl, dto)
       .pipe(catchError(err => throwError(() => this.mapError(err))));
   }
 
   crearParaPersona(dto: CrearResponsableParaPersonaDto): Observable<{ id: string }> {
-    return this.http.post<{ id: string }>(`${this.baseUrl}/para-persona`, dto)
+    return this.http
+      .post<{ id: string }>(`${this.baseUrl}/para-persona`, dto)
       .pipe(catchError(err => throwError(() => this.mapError(err))));
   }
 
   prepararInvitacionAcceso(id: string): Observable<InvitacionResponsablePreparada> {
-    return this.http.post<InvitacionResponsablePreparada>(
-      `${this.baseUrl}/${id}/invitacion-acceso/preparar`, {}
-    ).pipe(catchError(err => throwError(() => this.mapError(err))));
+    return this.http
+      .post<InvitacionResponsablePreparada>(
+        `${this.baseUrl}/${id}/invitacion-acceso/preparar`,
+        {}
+      )
+      .pipe(catchError(err => throwError(() => this.mapError(err))));
   }
 
   editar(id: string, dto: EditarResponsableDto): Observable<void> {
-    return this.http.put<void>(`${this.baseUrl}/${id}`, dto)
+    return this.http
+      .put<void>(`${this.baseUrl}/${id}`, dto)
       .pipe(catchError(err => throwError(() => this.mapError(err))));
   }
 
   cambiarEstado(id: string, dto: DesactivarDto): Observable<void> {
-    return this.http.put<void>(`${this.baseUrl}/${id}/estado`, dto)
+    return this.http
+      .put<void>(`${this.baseUrl}/${id}/estado`, dto)
       .pipe(catchError(err => throwError(() => this.mapError(err))));
   }
 
   reactivar(id: string): Observable<void> {
-    return this.http.post<void>(`${this.baseUrl}/${id}/reactivar`, {})
+    return this.http
+      .post<void>(`${this.baseUrl}/${id}/reactivar`, {})
       .pipe(catchError(err => throwError(() => this.mapError(err))));
   }
 
   vincularAlumno(alumnoId: string, dto: VincularResponsableDto): Observable<{ id: string }> {
-    return this.http.post<{ id: string }>(`${this.baseUrl}/alumno/${alumnoId}`, dto)
+    return this.http
+      .post<{ id: string }>(`${this.baseUrl}/alumno/${alumnoId}`, dto)
       .pipe(catchError(err => throwError(() => this.mapError(err))));
   }
 
   editarVinculo(vinculoId: string, dto: EditarVinculoDto): Observable<void> {
-    return this.http.put<void>(`${this.baseUrl}/vinculo/${vinculoId}`, dto)
+    return this.http
+      .put<void>(`${this.baseUrl}/vinculo/${vinculoId}`, dto)
       .pipe(catchError(err => throwError(() => this.mapError(err))));
   }
 
   desactivarVinculo(vinculoId: string, dto: DesactivarDto): Observable<void> {
-    return this.http.put<void>(`${this.baseUrl}/vinculo/${vinculoId}/desactivar`, dto)
+    return this.http
+      .put<void>(`${this.baseUrl}/vinculo/${vinculoId}/desactivar`, dto)
       .pipe(catchError(err => throwError(() => this.mapError(err))));
   }
 
   reactivarVinculo(vinculoId: string): Observable<void> {
-    return this.http.post<void>(`${this.baseUrl}/vinculo/${vinculoId}/reactivar`, {})
+    return this.http
+      .post<void>(`${this.baseUrl}/vinculo/${vinculoId}/reactivar`, {})
       .pipe(catchError(err => throwError(() => this.mapError(err))));
   }
 
