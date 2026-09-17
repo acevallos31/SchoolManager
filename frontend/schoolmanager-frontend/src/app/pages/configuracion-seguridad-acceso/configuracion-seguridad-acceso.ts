@@ -33,6 +33,8 @@ export class ConfiguracionSeguridadAcceso implements OnInit, OnDestroy {
   rolPorUsuario: Record<string, string> = {};
 
   nuevoUsuario = { nombres: '', apellidos: '', correo: '', rolId: '' };
+  usuarioEditandoId = '';
+  edicionUsuario = { nombres: '', apellidos: '', correo: '' };
   nuevoRol = { codigo: '', nombre: '', descripcion: '' };
   clonado = { plantillaCodigo: '', codigo: '', nombre: '', descripcion: '' };
   edicionRol = { nombre: '', descripcion: '' };
@@ -100,6 +102,7 @@ export class ConfiguracionSeguridadAcceso implements OnInit, OnDestroy {
       .pipe(skip(1))
       .subscribe(() => {
         this.limpiarSeleccionRol();
+        this.cancelarEdicionUsuario();
         this.nuevoUsuario = { nombres: '', apellidos: '', correo: '', rolId: '' };
         this.usuarios = [];
         this.filtroUsuario = '';
@@ -136,6 +139,9 @@ export class ConfiguracionSeguridadAcceso implements OnInit, OnDestroy {
       if (this.snapshot.capacidades.usuariosVer) {
         try {
           this.usuarios = await this.seguridad.obtenerUsuarios(institucionId);
+          if (this.usuarioEditandoId && !this.usuarios.some(usuario => usuario.id === this.usuarioEditandoId)) {
+            this.cancelarEdicionUsuario();
+          }
         } catch (error) {
           this.usuarios = [];
           this.mostrarError(this.mensajeError(error));
@@ -182,6 +188,46 @@ export class ConfiguracionSeguridadAcceso implements OnInit, OnDestroy {
           ? 'Usuario preparado e invitación pendiente creada correctamente.'
           : 'El usuario ya tenía una invitación pendiente; se reutilizó sin duplicarla.'
       );
+    });
+  }
+
+  editarUsuario(usuario: UsuarioSeguridad): void {
+    if (!usuario.puedeEditar || this.guardando) return;
+    this.usuarioEditandoId = usuario.id;
+    this.edicionUsuario = {
+      nombres: usuario.nombres ?? '',
+      apellidos: usuario.apellidos ?? '',
+      correo: usuario.correo ?? ''
+    };
+  }
+
+  cancelarEdicionUsuario(): void {
+    this.usuarioEditandoId = '';
+    this.edicionUsuario = { nombres: '', apellidos: '', correo: '' };
+  }
+
+  async guardarUsuario(): Promise<void> {
+    const institucionId = this.institucionId;
+    const usuario = this.usuarios.find(item => item.id === this.usuarioEditandoId);
+    if (!institucionId || !usuario?.puedeEditar || this.guardando) return;
+
+    const nombres = this.edicionUsuario.nombres.trim();
+    const apellidos = this.edicionUsuario.apellidos.trim();
+    const correo = this.edicionUsuario.correo.trim().toLowerCase();
+    if (!nombres || !apellidos) {
+      this.mostrarError('Nombres y apellidos son obligatorios.');
+      return;
+    }
+
+    await this.ejecutar(async () => {
+      await this.seguridad.editarUsuario(usuario.id, {
+        institucionId,
+        nombres,
+        apellidos,
+        correo: correo || null
+      });
+      this.cancelarEdicionUsuario();
+      this.mostrarExito('Datos del usuario actualizados en SchoolManager. La identidad Google/Microsoft no fue modificada.');
     });
   }
 
