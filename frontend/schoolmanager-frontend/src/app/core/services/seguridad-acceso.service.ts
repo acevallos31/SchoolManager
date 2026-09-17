@@ -63,9 +63,12 @@ export interface UsuarioRolSeguridad {
 export interface UsuarioSeguridad {
   id: string;
   nombre: string;
+  nombres?: string | null;
+  apellidos?: string | null;
   correo: string | null;
   activo: boolean;
   identidadVinculada: boolean;
+  puedeEditar?: boolean;
   roles: UsuarioRolSeguridad[];
 }
 
@@ -96,6 +99,13 @@ export interface PrepararInvitacionUsuarioInput {
   correo: string;
   rolId: string;
   origen?: 'administracion' | 'responsable';
+}
+
+export interface EditarUsuarioInput {
+  institucionId: string;
+  nombres: string;
+  apellidos: string;
+  correo: string | null;
 }
 
 export interface InvitacionUsuarioPreparada {
@@ -141,6 +151,10 @@ export class SeguridadAccesoService {
     return this.obtenerJson<UsuarioSeguridad[]>(
       `${this.baseUrl}/usuarios?institucionId=${encodeURIComponent(institucionId)}`
     );
+  }
+
+  async editarUsuario(usuarioId: string, input: EditarUsuarioInput): Promise<void> {
+    await this.ejecutar('PUT', `/usuarios/${encodeURIComponent(usuarioId)}`, input);
   }
 
   async prepararInvitacionUsuario(

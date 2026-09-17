@@ -84,6 +84,7 @@ public sealed class SeguridadAccesoApiFactory : IAsyncLifetime
               'identidad.roles.asignar_permisos',
               'identidad.usuarios.ver',
               'identidad.usuarios.crear',
+              'identidad.usuarios.editar',
               'identidad.usuarios.asignar_roles',
               'academico.alumnos.ver'
             )
