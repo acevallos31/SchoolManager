@@ -9,7 +9,7 @@ public sealed class InvitacionesPersistenciaTests(PostgreSqlFixture fixture)
     : IClassFixture<PostgreSqlFixture>
 {
     [Fact]
-    public async Task Emitir_invitacion_persiste_solo_hash_y_reemision_invalida_hash_anterior()
+    public async Task Emitir_requiere_confirmacion_real_y_reemision_invalida_version_anterior()
     {
         var institucion = await ScalarGuidAsync(
             "insert into public.instituciones(nombre) values($1) returning id",
@@ -26,36 +26,92 @@ public sealed class InvitacionesPersistenciaTests(PostgreSqlFixture fixture)
         var invitacionId = preparadaJson.RootElement.GetProperty("invitacionId").GetGuid();
 
         var hash1 = new string('a', 64);
-        var expira1 = DateTimeOffset.UtcNow.AddHours(24);
         var emitida1 = await BackendScalarTextAsync(actor.AuthUserId, """
             select public.rpc_emitir_invitacion_acceso($1,$2,$3)::text
-            """, invitacionId, hash1, expira1);
+            """, invitacionId, hash1, DateTimeOffset.UtcNow.AddHours(24));
         using var emitida1Json = JsonDocument.Parse(emitida1);
+        var version1 = emitida1Json.RootElement.GetProperty("emisionVersion").GetInt64();
 
-        Assert.Equal("enviada", emitida1Json.RootElement.GetProperty("estado").GetString());
-        Assert.Equal(1, emitida1Json.RootElement.GetProperty("intentosEnvio").GetInt32());
+        Assert.Equal("pendiente", emitida1Json.RootElement.GetProperty("estado").GetString());
+        Assert.Equal(1, version1);
         Assert.Equal(1, await ScalarLongAsync("""
             select count(*) from public.invitaciones_acceso
             where id=$1 and token_hash=$2 and token_emitido_at is not null
-              and expira_at is not null and enviado_at is not null
-              and intentos_envio=1 and estado='enviada'
+              and expira_at is not null and enviado_at is null
+              and intentos_envio=1 and emision_version=1 and estado='pendiente'
             """, invitacionId, hash1));
 
+        var confirmada1 = await BackendScalarTextAsync(actor.AuthUserId, """
+            select public.rpc_confirmar_envio_invitacion($1,$2,$3,$4)::text
+            """, invitacionId, version1, "resend", "msg-1");
+        using var confirmada1Json = JsonDocument.Parse(confirmada1);
+        Assert.Equal("enviada", confirmada1Json.RootElement.GetProperty("estado").GetString());
+        Assert.Equal(1, await ScalarLongAsync("""
+            select count(*) from public.invitaciones_acceso
+            where id=$1 and estado='enviada' and enviado_at is not null
+              and proveedor_envio='resend' and proveedor_mensaje_id='msg-1'
+            """, invitacionId));
+
         var hash2 = new string('b', 64);
-        var expira2 = DateTimeOffset.UtcNow.AddHours(36);
         var emitida2 = await BackendScalarTextAsync(actor.AuthUserId, """
             select public.rpc_emitir_invitacion_acceso($1,$2,$3)::text
-            """, invitacionId, hash2, expira2);
+            """, invitacionId, hash2, DateTimeOffset.UtcNow.AddHours(36));
         using var emitida2Json = JsonDocument.Parse(emitida2);
+        var version2 = emitida2Json.RootElement.GetProperty("emisionVersion").GetInt64();
 
-        Assert.Equal(2, emitida2Json.RootElement.GetProperty("intentosEnvio").GetInt32());
+        Assert.Equal(2, version2);
         Assert.Equal(0, await ScalarLongAsync(
             "select count(*) from public.invitaciones_acceso where id=$1 and token_hash=$2",
             invitacionId, hash1));
+
+        var stale = await Assert.ThrowsAsync<PostgresException>(() => BackendScalarTextAsync(
+            actor.AuthUserId,
+            "select public.rpc_confirmar_envio_invitacion($1,$2,$3,$4)::text",
+            invitacionId, version1, "resend", "msg-stale"));
+        Assert.Equal("P0001", stale.SqlState);
+
+        await BackendScalarTextAsync(actor.AuthUserId, """
+            select public.rpc_confirmar_envio_invitacion($1,$2,$3,$4)::text
+            """, invitacionId, version2, "resend", "msg-2");
         Assert.Equal(1, await ScalarLongAsync("""
             select count(*) from public.invitaciones_acceso
-            where id=$1 and token_hash=$2 and intentos_envio=2 and estado='enviada'
+            where id=$1 and token_hash=$2 and emision_version=2
+              and intentos_envio=2 and estado='enviada' and proveedor_mensaje_id='msg-2'
             """, invitacionId, hash2));
+    }
+
+    [Fact]
+    public async Task Error_de_proveedor_deja_invitacion_pendiente_y_elimina_token_no_entregado()
+    {
+        var institucion = await ScalarGuidAsync(
+            "insert into public.instituciones(nombre) values($1) returning id",
+            $"Institucion {Guid.NewGuid():N}");
+        var actor = await CrearActorAsync(institucion,
+            ["identidad.usuarios.crear", "identidad.usuarios.asignar_roles", "academico.alumnos.ver"]);
+        var rolDestino = await CrearRolAsync(institucion, ["academico.alumnos.ver"]);
+        var preparada = await BackendScalarTextAsync(actor.AuthUserId, """
+            select public.rpc_preparar_invitacion_usuario($1,$2,$3,$4,$5,$6)::text
+            """, institucion, "Proveedor", "Falla",
+            $"error.{Guid.NewGuid():N}@schoolmanager.test", rolDestino, "administracion");
+        using var preparadaJson = JsonDocument.Parse(preparada);
+        var invitacionId = preparadaJson.RootElement.GetProperty("invitacionId").GetGuid();
+
+        var emitida = await BackendScalarTextAsync(actor.AuthUserId, """
+            select public.rpc_emitir_invitacion_acceso($1,$2,$3)::text
+            """, invitacionId, new string('d', 64), DateTimeOffset.UtcNow.AddHours(24));
+        using var emitidaJson = JsonDocument.Parse(emitida);
+        var version = emitidaJson.RootElement.GetProperty("emisionVersion").GetInt64();
+
+        await BackendExecuteAsync(actor.AuthUserId, """
+            select public.rpc_registrar_error_envio_invitacion($1,$2,$3)
+            """, invitacionId, version, "provider_unavailable");
+
+        Assert.Equal(1, await ScalarLongAsync("""
+            select count(*) from public.invitaciones_acceso
+            where id=$1 and estado='pendiente' and token_hash is null
+              and token_emitido_at is null and expira_at is null and enviado_at is null
+              and ultimo_error_envio='provider_unavailable' and emision_version=$2
+            """, invitacionId, version));
     }
 
     [Fact]
@@ -193,6 +249,30 @@ public sealed class InvitacionesPersistenciaTests(PostgreSqlFixture fixture)
             var result = (string)(await command.ExecuteScalarAsync())!;
             await transaction.CommitAsync();
             return result;
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
+    private async Task BackendExecuteAsync(Guid authUserId, string sql, params object[] values)
+    {
+        await using var connection = await fixture.DataSource.OpenConnectionAsync();
+        await using var transaction = await connection.BeginTransactionAsync();
+        try
+        {
+            await using (var auth = new NpgsqlCommand(
+                "select set_config('request.jwt.claim.sub',$1,true)", connection, transaction))
+            {
+                auth.Parameters.AddWithValue(authUserId.ToString());
+                await auth.ExecuteNonQueryAsync();
+            }
+            await using var command = new NpgsqlCommand(sql, connection, transaction);
+            AddParameters(command, values);
+            await command.ExecuteNonQueryAsync();
+            await transaction.CommitAsync();
         }
         catch
         {

@@ -65,6 +65,20 @@ describe('SeguridadAccesoService', () => {
     await expect(result).resolves.toMatchObject({ invitacionId: 'inv1', estado: 'pendiente' });
   });
 
+  it('envía una invitación preparada sin exponer el token al frontend', async () => {
+    const result = service.enviarInvitacion('inv/1');
+    const request = http.expectOne(`${environment.apiUrl}/invitaciones/inv%2F1/enviar`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({});
+    request.flush({
+      invitationId: 'inv/1', estado: 'enviada',
+      expiresAt: '2026-09-18T02:00:00Z', emissionVersion: 1
+    });
+    await expect(result).resolves.toMatchObject({
+      invitationId: 'inv/1', estado: 'enviada', emissionVersion: 1
+    });
+  });
+
   it('crea y clona roles devolviendo el identificador', async () => {
     const crear = service.crearRol({ institucionId: 'i1', codigo: 'caja', nombre: 'Caja' });
     let request = http.expectOne(`${baseUrl}/roles`);

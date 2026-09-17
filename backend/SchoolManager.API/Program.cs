@@ -31,6 +31,12 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton<ApiObservabilityMetrics>();
+builder.Services.Configure<InvitationEmailOptions>(
+    builder.Configuration.GetSection("InvitationEmail"));
+builder.Services.AddHttpClient<ResendInvitationEmailSender>();
+builder.Services.AddScoped<IInvitationEmailSender>(sp =>
+    sp.GetRequiredService<ResendInvitationEmailSender>());
+builder.Services.AddScoped<InvitationDeliveryService>();
 
 var allowedOrigins = builder.Configuration
     .GetSection("Cors:AllowedOrigins")
