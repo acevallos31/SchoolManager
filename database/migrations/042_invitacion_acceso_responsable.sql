@@ -31,9 +31,9 @@ declare
   v_auth_user_id uuid;
   v_usuario_activo boolean;
   v_plantilla_id uuid;
-  v_plantilla_version integer;
   v_rol_id uuid;
   v_rol_activo boolean;
+  v_rol_base_id uuid;
   v_asignacion_id uuid;
   v_invitacion_id uuid;
   v_invitacion_rol_id uuid;
@@ -82,12 +82,17 @@ begin
     raise exception 'Permiso denegado.' using errcode = '42501';
   end if;
 
+  -- Un lock por responsable evita duplicar usuario/invitacion. Un segundo lock
+  -- por institucion serializa la creacion perezosa del unico rol parent local.
   perform pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended('responsable:' || p_responsable_id::text, 0)
   );
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('parent-role:' || v_institucion_id::text, 0)
+  );
 
-  select r.id, r.plantilla_version
-    into v_plantilla_id, v_plantilla_version
+  select r.id
+    into v_plantilla_id
   from public.roles r
   where r.codigo = 'parent'
     and r.tipo = 'plantilla'
@@ -99,8 +104,8 @@ begin
     raise exception 'La plantilla global parent no esta disponible.' using errcode = '23503';
   end if;
 
-  select r.id, r.activo
-    into v_rol_id, v_rol_activo
+  select r.id, r.activo, r.rol_base_id
+    into v_rol_id, v_rol_activo, v_rol_base_id
   from public.roles r
   where r.institucion_id = v_institucion_id
     and r.codigo = 'parent'
@@ -116,6 +121,31 @@ begin
         using errcode = '42501';
     end if;
 
+    if exists (
+      select 1 from public.roles_permisos rp where rp.rol_id = v_plantilla_id
+    ) and not public.usuario_tiene_permiso_institucional_estricto(
+      'identidad.roles.asignar_permisos', v_institucion_id
+    ) then
+      raise exception 'El rol Padre o responsable requiere permisos que el actor no puede administrar.'
+        using errcode = '42501';
+    end if;
+
+    if exists (
+      select 1
+      from public.roles_permisos rp
+      join public.permisos p on p.id = rp.permiso_id
+      where rp.rol_id = v_plantilla_id
+        and p.estado = 'vigente'
+        and (
+          p.ambito <> 'institucion'
+          or not p.delegable
+          or not public.usuario_tiene_permiso_institucional_estricto(p.codigo, v_institucion_id)
+        )
+    ) then
+      raise exception 'La plantilla parent contiene permisos que el actor no puede delegar.'
+        using errcode = '42501';
+    end if;
+
     insert into public.roles(
       codigo, nombre, descripcion, es_sistema, activo, institucion_id,
       tipo, protegido, rol_base_id, plantilla_version
@@ -127,31 +157,20 @@ begin
     where r.id = v_plantilla_id
     returning id into v_rol_id;
     v_creo_rol := true;
-  elsif not v_rol_activo then
-    raise exception 'El rol institucional Padre o responsable esta inactivo.' using errcode = 'P0001';
-  end if;
 
-  -- Si la plantilla parent recibe permisos delegables en el futuro, el rol
-  -- institucional conserva esa definicion solo cuando el actor puede delegarlos.
-  if v_creo_rol and exists (
-    select 1
-    from public.roles_permisos rp
-    join public.permisos p on p.id = rp.permiso_id
-    where rp.rol_id = v_plantilla_id
-      and p.estado = 'vigente'
-      and (p.ambito <> 'institucion' or not p.delegable
-           or not public.usuario_tiene_permiso_institucional_estricto(p.codigo, v_institucion_id))
-  ) then
-    raise exception 'La plantilla parent contiene permisos que el actor no puede delegar.'
-      using errcode = '42501';
-  end if;
-
-  if v_creo_rol then
     insert into public.roles_permisos(rol_id, permiso_id)
     select v_rol_id, rp.permiso_id
     from public.roles_permisos rp
     where rp.rol_id = v_plantilla_id
     on conflict do nothing;
+  else
+    if not v_rol_activo then
+      raise exception 'El rol institucional Padre o responsable esta inactivo.' using errcode = 'P0001';
+    end if;
+    if v_rol_base_id is distinct from v_plantilla_id then
+      raise exception 'El codigo parent ya existe pero no deriva de la plantilla global parent; requiere revision manual.'
+        using errcode = '23505';
+    end if;
   end if;
 
   select u.id, u.auth_user_id, u.activo
