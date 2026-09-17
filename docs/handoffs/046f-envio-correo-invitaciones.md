@@ -76,7 +76,7 @@ Archivos:
 
 La migración añade/versiona el estado de entrega y las RPC internas para emitir, confirmar y registrar error de envío.
 
-**No aplicar 044 en Supabase producción antes de merge + CI verde + autorización explícita.**
+**Estado de producción:** 044 todavía no está aplicada en Supabase. Requiere autorización explícita antes de ejecutar DDL en producción.
 
 ## Backend
 
@@ -104,3 +104,13 @@ Incluye pruebas de:
 El envío todavía no se dispara automáticamente desde los botones existentes porque `/invitacion/aceptar` y el claim seguro de identidad aún no están implementados. Mandar enlaces reales antes de tener consumidor sería un flujo incompleto.
 
 Para el primer prototipo, 046F deja la infraestructura lista y segura sin bloquear la validación de lógica académica/financiera. La activación del botón y aceptación se retomarán como 046G.
+
+## Estado de cierre
+
+- PR: #114 — `feat(identity): 046F envío seguro de invitaciones por correo`.
+- Rama: `feature/046f-envio-correo-invitaciones`.
+- CI final: run #729 completamente verde.
+- SonarCloud Quality Gate: PASS.
+- Merge: squash completado en `main`.
+- Merge SHA: `4cd39743ee5cd1356630f804d73fcefbc8b0c163`.
+- Producción: despliegue de código sujeto al pipeline normal; migración 044 no aplicada todavía a Supabase.
