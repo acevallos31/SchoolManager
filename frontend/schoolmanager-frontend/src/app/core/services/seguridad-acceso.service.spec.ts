@@ -47,6 +47,24 @@ describe('SeguridadAccesoService', () => {
     await expect(result).resolves.toEqual(usuarios);
   });
 
+  it('prepara una invitación administrativa sin crear identidad externa', async () => {
+    const result = service.prepararInvitacionUsuario({
+      institucionId: 'i1', nombres: 'Ana', apellidos: 'Pérez',
+      correo: 'ana@example.com', rolId: 'r1'
+    });
+    const request = http.expectOne(`${baseUrl}/usuarios/invitaciones/preparar`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({
+      institucionId: 'i1', nombres: 'Ana', apellidos: 'Pérez',
+      correo: 'ana@example.com', rolId: 'r1', origen: 'administracion'
+    });
+    request.flush({
+      personaId: 'p1', usuarioId: 'u1', rolId: 'r1', invitacionId: 'inv1', estado: 'pendiente',
+      personaCreada: true, usuarioCreado: true, asignacionCreada: true, invitacionCreada: true
+    });
+    await expect(result).resolves.toMatchObject({ invitacionId: 'inv1', estado: 'pendiente' });
+  });
+
   it('crea y clona roles devolviendo el identificador', async () => {
     const crear = service.crearRol({ institucionId: 'i1', codigo: 'caja', nombre: 'Caja' });
     let request = http.expectOne(`${baseUrl}/roles`);

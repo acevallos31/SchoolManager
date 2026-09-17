@@ -32,6 +32,7 @@ export class ConfiguracionSeguridadAcceso implements OnInit, OnDestroy {
   filtroUsuario = '';
   rolPorUsuario: Record<string, string> = {};
 
+  nuevoUsuario = { nombres: '', apellidos: '', correo: '', rolId: '' };
   nuevoRol = { codigo: '', nombre: '', descripcion: '' };
   clonado = { plantillaCodigo: '', codigo: '', nombre: '', descripcion: '' };
   edicionRol = { nombre: '', descripcion: '' };
@@ -74,6 +75,16 @@ export class ConfiguracionSeguridadAcceso implements OnInit, OnDestroy {
     return this.snapshot?.capacidades.usuariosAsignarRoles ?? false;
   }
 
+  get puedePrepararInvitacion(): boolean {
+    return (this.snapshot?.capacidades.usuariosVer ?? false)
+      && this.puedeGestionarAsignaciones
+      && this.rolesActivos.length > 0;
+  }
+
+  get rolesActivos(): RolInstitucionalSeguridad[] {
+    return (this.snapshot?.roles ?? []).filter(rol => rol.activo);
+  }
+
   get usuariosFiltrados(): UsuarioSeguridad[] {
     const filtro = this.filtroUsuario.trim().toLocaleLowerCase();
     if (!filtro) return this.usuarios;
@@ -85,13 +96,11 @@ export class ConfiguracionSeguridadAcceso implements OnInit, OnDestroy {
 
   async ngOnInit(): Promise<void> {
     await this.cargar();
-    // BehaviorSubject emite el contexto actual al suscribirse; se omite esa
-    // primera emisión porque ya fue cargada arriba. Cambios posteriores desde
-    // el selector del AppShell refrescan esta pantalla sin recargar el browser.
     this.contextoSubscription = this.contexto.institucionActual$
       .pipe(skip(1))
       .subscribe(() => {
         this.limpiarSeleccionRol();
+        this.nuevoUsuario = { nombres: '', apellidos: '', correo: '', rolId: '' };
         this.usuarios = [];
         this.filtroUsuario = '';
         this.rolPorUsuario = {};
@@ -142,6 +151,38 @@ export class ConfiguracionSeguridadAcceso implements OnInit, OnDestroy {
       this.cargando = false;
       this.cdr.detectChanges();
     }
+  }
+
+  async prepararNuevoUsuario(): Promise<void> {
+    const institucionId = this.institucionId;
+    if (!institucionId || !this.puedePrepararInvitacion || this.guardando) return;
+
+    const nombres = this.nuevoUsuario.nombres.trim();
+    const apellidos = this.nuevoUsuario.apellidos.trim();
+    const correo = this.nuevoUsuario.correo.trim().toLowerCase();
+    const rolId = this.nuevoUsuario.rolId;
+
+    if (!nombres || !apellidos || !correo || !rolId) {
+      this.mostrarError('Nombre, apellido, correo y rol inicial son obligatorios.');
+      return;
+    }
+
+    await this.ejecutar(async () => {
+      const respuesta = await this.seguridad.prepararInvitacionUsuario({
+        institucionId,
+        nombres,
+        apellidos,
+        correo,
+        rolId,
+        origen: 'administracion'
+      });
+      this.nuevoUsuario = { nombres: '', apellidos: '', correo: '', rolId: '' };
+      this.mostrarExito(
+        respuesta.invitacionCreada
+          ? 'Usuario preparado e invitación pendiente creada correctamente.'
+          : 'El usuario ya tenía una invitación pendiente; se reutilizó sin duplicarla.'
+      );
+    });
   }
 
   async crearRol(): Promise<void> {
@@ -238,7 +279,7 @@ export class ConfiguracionSeguridadAcceso implements OnInit, OnDestroy {
 
   rolesAsignables(usuario: UsuarioSeguridad): RolInstitucionalSeguridad[] {
     const asignados = new Set(usuario.roles.map(rol => rol.rolId));
-    return (this.snapshot?.roles ?? []).filter(rol => rol.activo && !asignados.has(rol.id));
+    return this.rolesActivos.filter(rol => !asignados.has(rol.id));
   }
 
   async asignarRolUsuario(usuario: UsuarioSeguridad): Promise<void> {
