@@ -17,7 +17,10 @@ describe('ConfiguracionSeguridadAcceso edición de usuarios', () => {
 
   function crear() {
     const contexto = {
-      institucionActual: vi.fn(() => ({ id: 'inst-1', nombre: 'Colegio Alfa' }))
+      institucionActual: vi.fn((): { id: string; nombre: string } | null => ({
+        id: 'inst-1',
+        nombre: 'Colegio Alfa'
+      }))
     };
     const seguridad = {
       editarUsuario: vi.fn().mockResolvedValue(undefined),
