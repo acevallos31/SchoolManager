@@ -11,8 +11,6 @@ var builder = WebApplication.CreateBuilder(args);
 
 StagingSafety.Validate(builder.Configuration, builder.Environment.IsStaging());
 
-// Logs estructurados a stdout para Render/contenedores, sin agregar un servicio
-// externo ni una dependencia de terceros. Los scopes incluyen RequestId/TraceId.
 builder.Logging.ClearProviders();
 builder.Logging.AddJsonConsole(options =>
 {
@@ -31,6 +29,12 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton<ApiObservabilityMetrics>();
+builder.Services.Configure<InvitationEmailOptions>(
+    builder.Configuration.GetSection("InvitationEmail"));
+builder.Services.AddHttpClient<ResendInvitationEmailSender>();
+builder.Services.AddScoped<IInvitationEmailSender>(sp =>
+    sp.GetRequiredService<ResendInvitationEmailSender>());
+builder.Services.AddScoped<InvitationDeliveryService>();
 
 var allowedOrigins = builder.Configuration
     .GetSection("Cors:AllowedOrigins")
@@ -135,12 +139,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
 app.UseCors("FrontendPolicy");
-
 app.UseAuthentication();
-// Después de Authentication para disponer del claim sub, pero antes de
-// Authorization para observar también 401/403 y toda la ejecución del endpoint.
 app.UseMiddleware<RequestObservabilityMiddleware>();
 app.UseAuthorization();
 
@@ -151,10 +151,6 @@ app.MapGet("/health", () => Results.Ok(new
     timestamp = DateTimeOffset.UtcNow
 }));
 
-// Readiness: verifica conectividad real con PostgreSQL. Devuelve 200 si la
-// API esta lista para recibir trafico y 503 si una dependencia critica (DB)
-// falla. No expone secretos ni connection strings; el chequeo usa el
-// NpgsqlDataSource singleton registrado.
 app.MapGet("/health/ready", async (NpgsqlDataSource dataSource) =>
 {
     try
@@ -185,7 +181,6 @@ app.MapGet("/health/ready", async (NpgsqlDataSource dataSource) =>
 });
 
 app.MapControllers();
-
 app.Run();
 
 static bool IsAllowedFrontendOrigin(
