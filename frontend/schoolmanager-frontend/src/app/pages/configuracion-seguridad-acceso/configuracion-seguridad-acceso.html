@@ -154,7 +154,7 @@
         <div class="section-heading">
           <div>
             <h2 class="sm-section-title">Administración de usuarios</h2>
-            <p class="sm-helper">Gestiona el acceso y los roles institucionales. Crear un usuario prepara una invitación pendiente; todavía no crea una contraseña ni vincula automáticamente Google o Microsoft.</p>
+            <p class="sm-helper">Gestiona el acceso y los roles institucionales. Crear un usuario prepara una invitación pendiente; editar un usuario cambia únicamente su ficha en SchoolManager y nunca modifica la identidad de Google o Microsoft.</p>
           </div>
           <span class="sm-badge sm-badge--neutral">{{ usuarios.length }} usuarios</span>
         </div>
@@ -178,7 +178,7 @@
                 <input class="sm-input" name="nuevoUsuarioApellidos" [(ngModel)]="nuevoUsuario.apellidos" autocomplete="family-name" required [disabled]="guardando">
               </label>
               <label class="sm-field">
-                <span class="sm-label">Correo de acceso *</span>
+                <span class="sm-label">Correo de contacto *</span>
                 <input class="sm-input" type="email" name="nuevoUsuarioCorreo" [(ngModel)]="nuevoUsuario.correo" autocomplete="email" required [disabled]="guardando">
               </label>
               <label class="sm-field">
@@ -197,6 +197,27 @@
           </form>
         }
 
+        @if (usuarioEditandoId) {
+          <form (ngSubmit)="guardarUsuario()" class="form-stack user-invitation-form">
+            <div class="section-heading compact">
+              <div>
+                <h3 class="sm-section-title">Editar usuario</h3>
+                <p class="sm-helper">Modifica la ficha interna de la persona. Teléfono, dirección y otros datos personales se completarán en el proceso de matrícula. Esta operación no cambia Google, Microsoft ni Supabase Auth.</p>
+              </div>
+              <span class="sm-badge sm-badge--neutral">Perfil SchoolManager</span>
+            </div>
+            <div class="creation-grid">
+              <label class="sm-field"><span class="sm-label">Nombres *</span><input class="sm-input" name="editarUsuarioNombres" [(ngModel)]="edicionUsuario.nombres" required [disabled]="guardando"></label>
+              <label class="sm-field"><span class="sm-label">Apellidos *</span><input class="sm-input" name="editarUsuarioApellidos" [(ngModel)]="edicionUsuario.apellidos" required [disabled]="guardando"></label>
+              <label class="sm-field"><span class="sm-label">Correo de contacto</span><input class="sm-input" type="email" name="editarUsuarioCorreo" [(ngModel)]="edicionUsuario.correo" [disabled]="guardando"></label>
+            </div>
+            <div class="actions">
+              <button type="submit" class="sm-btn sm-btn--primary" [disabled]="guardando">Guardar usuario</button>
+              <button type="button" class="sm-btn sm-btn--secondary" (click)="cancelarEdicionUsuario()" [disabled]="guardando">Cancelar</button>
+            </div>
+          </form>
+        }
+
         <div class="user-toolbar">
           <label class="sm-field user-search">
             <span class="sm-label">Buscar usuario</span>
@@ -211,7 +232,7 @@
         } @else {
           <div class="sm-table-wrap">
             <table class="sm-table">
-              <thead><tr><th>Usuario</th><th>Estado</th><th>Identidad</th><th>Roles en la institución</th>@if (puedeGestionarAsignaciones) { <th>Asignar rol</th> }</tr></thead>
+              <thead><tr><th>Usuario</th><th>Estado</th><th>Identidad</th><th>Roles en la institución</th><th>Perfil</th>@if (puedeGestionarAsignaciones) { <th>Asignar rol</th> }</tr></thead>
               <tbody>
                 @for (usuario of usuariosFiltrados; track usuario.id) {
                   <tr>
@@ -231,6 +252,13 @@
                             </span>
                           }
                         </div>
+                      }
+                    </td>
+                    <td>
+                      @if (usuario.puedeEditar) {
+                        <button type="button" class="sm-btn sm-btn--secondary sm-btn--sm" (click)="editarUsuario(usuario)" [disabled]="guardando">Editar</button>
+                      } @else {
+                        <span class="sm-helper">Solo lectura</span>
                       }
                     </td>
                     @if (puedeGestionarAsignaciones) {
