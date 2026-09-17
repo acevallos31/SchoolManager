@@ -102,12 +102,10 @@ public sealed class SeguridadAccesoControllerTests(SeguridadAccesoApiFactory fac
             new { institucionId = factory.InstitucionA, nombres = " ", apellidos = "Pérez", correo = "ana@example.com" });
         Assert.Equal(HttpStatusCode.BadRequest, invalido.StatusCode);
 
-        // La autoridad estricta rechaza el contexto institucional ajeno antes de
-        // resolver el usuario objetivo; ApiControllerBase lo normaliza a 400.
         var ajeno = await admin.PutAsJsonAsync(
             $"/api/configuracion/seguridad/usuarios/{usuarioId}",
             new { institucionId = factory.InstitucionB, nombres = "Ana", apellidos = "Pérez", correo = "ana@example.com" });
-        Assert.Equal(HttpStatusCode.BadRequest, ajeno.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, ajeno.StatusCode);
 
         var inexistente = await admin.PutAsJsonAsync(
             $"/api/configuracion/seguridad/usuarios/{Guid.NewGuid()}",
