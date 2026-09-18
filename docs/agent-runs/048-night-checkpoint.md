@@ -46,19 +46,24 @@ Separación semántica de los tres estados que antes se conflacionaban en un sol
 | Proyecto Supabase distinto entre frontend y backend | **Descartada** (config commiteada) | `environment.ts` y `appsettings` apuntan al mismo project ref. |
 | `persona_id` nulo | **No representable en el baseline** | `database/baseline/001_schoolmanager_fase1a.sql:86` → `persona_id uuid not null references public.personas(id)`. Solo posible en instalaciones heredadas (migración 003 lo declara nullable). Endurecido igualmente. |
 | El backend desplegado lee otra base que la que se revisó a mano | **VIVA — hipótesis principal** | Ver siguiente sección. |
-| RLS filtrando filas para el rol de conexión del API | **VIVA — secundaria** | `009_seguridad_rls_rpc.sql` habilita RLS en `usuarios`/`personas`. Si el rol de conexión no es owner y no lleva contexto JWT, la fila se filtra → cero filas → `IDENTIDAD_NO_VINCULADA`. |
+| RLS filtrando filas para el rol de conexión del API | **Refutada como causa en prod** | Demo por test (commit `8a36b79`): con `authenticated` sin `request.jwt.claim.sub` se reproduce `IDENTIDAD_NO_VINCULADA`; con el sub publicado vuelve a verse. **Pero** no existe `FORCE ROW LEVEL SECURITY` en `database/`, así que el owner (conexión estándar Supabase) ignora RLS → la fila está visible. Además `authenticated` no tiene SELECT sobre `instituciones` → un rol no-owner rompería con `42501` (500) para todos, no 403 solo en Demo. |
 
 ## Siguiente paso (arranque de la próxima sesión)
 
-1. **Confirmar qué base lee el API desplegado** (sin escribir nada, sin tocar datos):
-   revisar los logs de Render de `RequestObservabilityMiddleware` para el request
-   fallido y comparar el `UserId` (sub) registrado con el `auth_user_id` observado a
-   mano en la base; y revisar la variable `ConnectionStrings__PostgreSQL` del servicio
-   Render vs. la config commiteada. Si el project ref difiere, la causa raíz está en
-   la configuración del entorno, no en el código.
-2. **Test local que reproduce el escenario RLS**: ejecutar la consulta de
-   `UsuarioActualService` bajo un rol no-owner sujeto a RLS (sin contexto JWT) y
-   comprobar que devuelve cero filas → serializa el bug como regresión.
+1. **Demostrar la causa raíz Demo (AUTORIZADO ya por el usuario)**: lectura SOLO-LECTURA
+   de los logs de producción de Render del `RequestObservabilityMiddleware`, para el
+   request fallido de `/api/auth/me`:
+   - capturar `RequestId` (trace id), ruta, `status`, `UserId` (claim sub) y código de error;
+   - comparar el `UserId` con el `auth_user_id` observado: coincidencia → descartar
+     "identidad distinta" y seguir la traza del 403 (perfil/RBAC/mapeo frontend);
+     no-coincidencia → discrepancia = sesión/token equivocado o config cruzada Auth/API;
+   - **no** corregir producción; **no** ejecutar SQL, modificar/deploy/load-test en Render.
+   Prohibido reproducir: connection strings, passwords, JWT, tokens, service_role,
+   variables de entorno completas, datos personales innecesarios.
+2. **RLS: serializado y refutado (DONE, commit `8a36b79`)**:
+   `tests/.../UsuarioActualServiceTests.cs` con 3 pruebas — owner ve la fila con RLS
+   y sin claim (`relforcerowsecurity=false`); rol `authenticated` sin `sub` → `IDENTIDAD_NO_VINCULADA`;
+   con `sub` → visible. Cierra la hipótesis RLS como causa del Demo (owner ignora RLS).
 3. `tests/SchoolManager.Database.IntegrationTests` → **220/220 passed** (ejecutado en
    este bloque; sin regresiones en RLS/RPC tras el cambio de join).
 4. Continuar con las fases siguientes de `048-launcher.md`.
