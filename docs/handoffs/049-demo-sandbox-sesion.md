@@ -7,58 +7,100 @@
 ## Estado
 
 - Rama: `feature/demo-sandbox-049`.
-- Fase actual: **049A — contrato/arquitectura**.
+- 049A: **cerrada**.
+- 049B: **en implementación**.
 - Base: `main`.
-- No hay migración nueva todavía.
-- No se ha modificado producción.
-- El PR #119 / 048 mantiene pendiente la migración 045; 049 no debe generar conflicto
-  de numeración ni depender de DDL no integrado.
+- Migración propuesta: `046_demo_sandbox_sesiones.sql`.
+- Sin DDL ni escrituras de datos realizadas en producción.
 
-## Decisión aprobada
+## Decisión vigente
 
-SchoolManager usará **sandbox por sesión Demo** en lugar de un dataset mutable
-compartido.
+049 complementa `docs/handoffs/042-entorno-demo-aislado.md`:
 
-Cada visitante obtiene una institución temporal aislada, clonada desde una plantilla
-Demo protegida. Puede probar flujos académicos y financieros reales sin afectar a otros
-visitantes.
+**entorno Demo separado de producción + sandbox institucional por visitante dentro del
+entorno Demo**.
 
-Documento canónico de la decisión:
+No se autoriza una Demo pública sobre la base productiva.
+
+Documento canónico:
 
 `docs/decisiones/049-demo-sandbox-por-sesion.md`
 
-## Objetivo técnico inmediato
+## Verificaciones realizadas
 
-Cerrar 049A y preparar 049B sin tocar todavía el esquema:
+- `045_operacion_vinculacion_identidad_autorizada.sql` está en `main`.
+- 045 aparece aplicada en Supabase producción.
+- Siguiente versión disponible del runner: 046.
+- `personas` y `usuarios` son globales: deben clonarse/crearse por sandbox.
+- `alumnos.rne` y la identificación normalizada de Persona tienen unicidad global:
+  no copiar literalmente.
+- `pagos.numero_recibo` es global: al clonar debe generarse uno nuevo.
+- `codigo_interno` de alumno es único por institución y puede reutilizarse al clonar.
+- `demo_viewer` existe pero es solo lectura; una Demo funcional necesita un rol
+  institucional acotado, nunca `platform_admin`.
 
-1. inventariar qué tablas/RPC deben clonarse para un dataset coherente;
-2. identificar orden de dependencias/FK;
-3. definir el límite entre datos clonables y configuración global no clonable;
-4. preparar casos de prueba de aislamiento/concurrencia;
-5. esperar que 045 quede integrada en `main` antes de numerar la migración Demo.
+## 049B agregado en la rama
+
+- `database/migrations/046_demo_sandbox_sesiones.sql`;
+- validation;
+- rollback;
+- `DemoSandboxTests.cs`;
+- catálogo de migraciones actualizado a 001→046.
+
+La 046:
+
+- agrega `instituciones.tipo` con default `normal`;
+- agrega `demo_sessions`;
+- exige `demo_template` + `demo_sandbox` activas;
+- limita una sesión activa por identidad;
+- protege cambio de tipo/desactivación mientras existan sesiones;
+- habilita RLS;
+- revoca acceso directo a `anon` y `authenticated`;
+- no crea seed, Auth users, endpoints ni permisos públicos.
+
+## Identidad Demo
+
+Estrategia elegida para 049C:
+
+- Supabase Anonymous Sign-In en el **proyecto Demo**;
+- un Auth UID por navegador;
+- validar `is_anonymous`;
+- CAPTCHA/Turnstile + rate limit;
+- sin tocar OAuth Google/Microsoft;
+- sin service role en navegador.
+
+Anonymous Sign-In todavía NO fue habilitado.
+
+## Paralelo para Hermes
+
+Prompt preparado:
+
+`docs/agent-prompts/047b-hermes-documentos-financieros.md`
+
+Alcance: documentos financieros de consulta (estado de cuenta / detalle imprimible)
+reutilizando 047A, sin modificar invariantes 021 ni Demo 049.
+
+## Próximos pasos
+
+1. validar la 046 con DB Integration/CI;
+2. corregir cualquier fallo sin debilitar los guards;
+3. completar inventario de clonado;
+4. implementar 049C en un checkpoint separado;
+5. no aplicar 046 a producción ni crear infraestructura Demo sin revisión explícita.
+
+## Nota de seguridad observada
+
+Supabase Advisor marca `public.schema_migrations` por RLS deshabilitada. Verificación
+read-only confirmó que `anon` y `authenticated` no tienen SELECT/INSERT/UPDATE/DELETE
+sobre esa tabla. No se modifica dentro de 049 para evitar mezclar hardening ajeno al
+alcance; queda como hallazgo para revisión separada.
 
 ## Guardrails
 
-- No tocar OAuth Google/Microsoft.
-- No auto-link por correo.
-- No usar `service_role` en navegador.
-- No ejecutar DDL ni escribir datos en producción.
-- No permitir que Demo llegue a `/acceso-pendiente` como flujo normal.
-- No crear un bypass de API/RPC para Demo.
-- No hacer merge automático a `main`.
-- No modificar el núcleo financiero para implementar aislamiento: Demo reutiliza las
-  mismas operaciones de cargos/pagos bajo su propio `institucion_id`.
-
-## Próximo checkpoint de implementación
-
-**049B — persistencia y clonación**, una vez 048/045 esté integrado.
-
-Entregables previstos:
-
-- persistencia de `demo_sessions`;
-- clasificación segura `DEMO_TEMPLATE` / `DEMO_SANDBOX`;
-- clonación transaccional;
-- expiración;
-- validation/rollback;
-- tests DB/API que demuestren que Demo A y Demo B no comparten alumnos, responsables,
-  matrículas, cargos ni pagos.
+- no producción;
+- no merge automático;
+- no secretos;
+- no compartir DB/credenciales con producción;
+- no `platform_admin` para Demo;
+- no lógica financiera duplicada;
+- no acceso directo de negocio desde Angular a Supabase.
