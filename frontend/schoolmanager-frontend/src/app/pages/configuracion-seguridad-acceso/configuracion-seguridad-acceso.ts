@@ -231,6 +231,35 @@ export class ConfiguracionSeguridadAcceso implements OnInit, OnDestroy {
     });
   }
 
+  async aprobarVinculacion(usuario: UsuarioSeguridad): Promise<void> {
+    const institucionId = this.institucionId;
+    if (!institucionId || !usuario.puedeEditar || !usuario.solicitudVinculacionId || this.guardando) return;
+
+    await this.ejecutar(async () => {
+      await this.seguridad.operarVinculacion(usuario.id, {
+        institucionId,
+        invitacionId: usuario.solicitudVinculacionId!,
+        operacion: 'aprobar'
+      });
+      this.mostrarExito(`Identidad de ${usuario.nombre || 'el usuario'} vinculada correctamente.`);
+    });
+  }
+
+  async rechazarVinculacion(usuario: UsuarioSeguridad): Promise<void> {
+    const institucionId = this.institucionId;
+    if (!institucionId || !usuario.puedeEditar || !usuario.solicitudVinculacionId || this.guardando) return;
+
+    await this.ejecutar(async () => {
+      await this.seguridad.operarVinculacion(usuario.id, {
+        institucionId,
+        invitacionId: usuario.solicitudVinculacionId!,
+        operacion: 'rechazar',
+        motivo: 'Rechazada desde Configuración > Seguridad y acceso'
+      });
+      this.mostrarExito(`Solicitud de identidad de ${usuario.nombre || 'el usuario'} rechazada.`);
+    });
+  }
+
   async crearRol(): Promise<void> {
     const institucionId = this.institucionId;
     if (!institucionId || !this.puedeCrear || this.guardando) return;
