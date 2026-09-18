@@ -387,4 +387,88 @@ describe('AuthService', () => {
     expect(llamadasA(fetchMock, '/api/auth/session')).toHaveLength(1);
     expect(service.tienePermiso('academico.matriculas.ver')).toBe(true);
   });
+
+  it('no re-muestra un mensaje previo de identidad ni bloquea cuando /auth/me luego responde 200', async () => {
+    vi.spyOn(service.supabase.auth, 'getSession').mockResolvedValue({
+      data: { session },
+      error: null
+    } as never);
+
+    let identidadResuelta = false;
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
+      if (esSesionEdge(input)) {
+        return new Response(null, { status: 204 });
+      }
+      if (!identidadResuelta) {
+        return new Response(JSON.stringify({ codigo: 'IDENTIDAD_NO_VINCULADA', mensaje: 'x' }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      return new Response(JSON.stringify(perfil), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    });
+
+    // 1) Primera restauración: /auth/me responde 403 → queda un mensaje previo pendiente.
+    await service.asegurarUsuarioInicial();
+    expect(service.mensajeSesionInvalidaPendiente()).toContain('no esta vinculada');
+    expect(service.consumirMensajeSesionInvalida()).toContain('no esta vinculada');
+    expect(service.isLoggedIn()).toBe(false);
+
+    // 2) El backend ya devuelve 200 con un usuario válido (evidencia de producción:
+    //    dos GET /api/auth/me exitosos con UserId válido y autenticado).
+    identidadResuelta = true;
+
+    // 3) Un nuevo intento de bootstrap (p.ej. el auth-callback tras OAuth) NO debe
+    //    re-servir el fallo memoizado sino re-consultar /auth/me.
+    await service.asegurarUsuarioInicial();
+
+    // El mensaje anterior no debe volver a mostrarse ni provocar redirección/bloqueo.
+    expect(service.mensajeSesionInvalidaPendiente()).toBeNull();
+    expect(service.consumirMensajeSesionInvalida()).toBeNull();
+    expect(service.isLoggedIn()).toBe(true);
+    expect(service.tienePermiso('academico.alumnos.ver')).toBe(true);
+  });
+
+  it('un login válido descarta un mensaje previo de identidad pendiente', async () => {
+    vi.spyOn(service.supabase.auth, 'getSession').mockResolvedValue({
+      data: { session },
+      error: null
+    } as never);
+
+    // /auth/me devuelve 403 con un mensaje previo la primera vez (estado previo real).
+    let identidadResuelta = false;
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
+      if (esSesionEdge(input)) {
+        return new Response(null, { status: 204 });
+      }
+      if (!identidadResuelta) {
+        return new Response(JSON.stringify({ codigo: 'IDENTIDAD_NO_VINCULADA', mensaje: 'x' }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      return new Response(JSON.stringify(perfil), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    });
+
+    // Estado previo: una restauración fallida deja el mensaje de identidad pendiente.
+    await service.asegurarUsuarioInicial();
+    expect(service.mensajeSesionInvalidaPendiente()).toContain('no esta vinculada');
+    expect(service.isLoggedIn()).toBe(false);
+
+    // El backend ya responde 200 para un usuario válido y el usuario completa el login.
+    identidadResuelta = true;
+    await service.login('admin@ejemplo.com', 'password');
+
+    // Un login válido debe descartar el mensaje previo y no dejar estado bloqueado.
+    expect(service.mensajeSesionInvalidaPendiente()).toBeNull();
+    expect(service.consumirMensajeSesionInvalida()).toBeNull();
+    expect(service.isLoggedIn()).toBe(true);
+    expect(service.tienePermiso('academico.alumnos.ver')).toBe(true);
+  });
 });

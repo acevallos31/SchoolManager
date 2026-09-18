@@ -115,6 +115,10 @@ export class AuthService {
       const usuario = await this.getUsuarioActual(data.session);
       await this.sincronizarSesionEdge(data.session);
       this.usuarioSubject.next(usuario);
+      // Un login válido descarta cualquier mensaje previo pendiente (p.ej.
+      // IDENTIDAD_NO_VINCULADA) para que no reaparezca ni bloquee la sesión recién
+      // establecida aunque /auth/me ya responda 200.
+      this.mensajeSesionInvalida = null;
       return usuario;
     } catch (error) {
       if (this.sessionSubject.value) await this.limpiarSesionInvalida();
@@ -282,6 +286,11 @@ export class AuthService {
       this.usuarioSubject.next(null);
       this.mensajeSesionInvalida = error instanceof AuthAppError
         ? error.message : 'No se pudo validar la sesion. Regresando al login...';
+      // Reintento permitido: no memorizar (memoizar) el fallo para siempre. Si luego
+      // /auth/me responde 200 para un usuario válido (p.ej. vínculo de identidad resuelto),
+      // una nueva restauración debe volver a consultarlo y despejar el mensaje previo en
+      // lugar de re-servir el error antiguo y mantener la redirección/bloqueo al login.
+      this.inicializacionPromise = null;
       return;
     }
     await this.sincronizarSesionEdge(session);
