@@ -4,6 +4,7 @@ import { vi } from 'vitest';
 import { AuthService } from '../../core/services/auth';
 import {
   INVITACION_TOKEN_SESSION_KEY,
+  InvitacionAccesoError,
   InvitacionAccesoService
 } from '../../core/services/invitacion-acceso.service';
 import { OAuthProviderService } from '../../core/services/oauth-provider.service';
@@ -82,6 +83,82 @@ describe('InvitacionAceptar', () => {
 
     await component.continuarConGoogle();
     expect(oauth.continuarConGoogle).toHaveBeenCalled();
+  });
+
+  it('recupera el token desde el fragmento y limpia la URL antes de aceptar', async () => {
+    tokenParam = null;
+    history.replaceState(history.state, '', '/invitacion/aceptar#token=fragment-token-abcdefghijklmnopqrstuvwxyz123456');
+    fixture.detectChanges();
+
+    await vi.waitFor(() => expect(component.estado).toBe('aceptada'));
+    expect(invitaciones.aceptar).toHaveBeenCalledWith('fragment-token-abcdefghijklmnopqrstuvwxyz123456');
+    expect(window.location.hash).toBe('');
+  });
+
+  it('recupera el token temporal de sessionStorage después del retorno OAuth', async () => {
+    tokenParam = null;
+    sessionStorage.setItem(INVITACION_TOKEN_SESSION_KEY, 'session-token-abcdefghijklmnopqrstuvwxyz123456');
+    history.replaceState(history.state, '', '/invitacion/aceptar');
+    fixture.detectChanges();
+
+    await vi.waitFor(() => expect(component.estado).toBe('aceptada'));
+    expect(invitaciones.aceptar).toHaveBeenCalledWith('session-token-abcdefghijklmnopqrstuvwxyz123456');
+    expect(sessionStorage.getItem(INVITACION_TOKEN_SESSION_KEY)).toBeNull();
+  });
+
+  it('permite iniciar Microsoft OAuth y conserva el token', async () => {
+    auth.getToken.mockReturnValue(null);
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(component.estado).toBe('autenticacion'));
+
+    await component.continuarConMicrosoft();
+
+    expect(oauth.continuarConMicrosoft).toHaveBeenCalled();
+    expect(component.proveedorCargando).toBe('microsoft');
+    expect(sessionStorage.getItem(INVITACION_TOKEN_SESSION_KEY)).toBe(tokenParam);
+  });
+
+  it('muestra error y libera el proveedor si OAuth falla', async () => {
+    auth.getToken.mockReturnValue(null);
+    oauth.continuarConGoogle.mockRejectedValueOnce(new Error('oauth failure'));
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(component.estado).toBe('autenticacion'));
+
+    await component.continuarConGoogle();
+
+    expect(component.estado).toBe('error');
+    expect(component.proveedorCargando).toBeNull();
+    expect(component.mensaje).toContain('No se pudo iniciar');
+  });
+
+  it('vuelve a autenticación si el backend responde 401 al aceptar', async () => {
+    invitaciones.aceptar.mockRejectedValueOnce(
+      new InvitacionAccesoError('Debes autenticarte para aceptar la invitación.', 401)
+    );
+    fixture.detectChanges();
+
+    await vi.waitFor(() => expect(component.estado).toBe('autenticacion'));
+    expect(component.mensaje).toBe('');
+    expect(sessionStorage.getItem(INVITACION_TOKEN_SESSION_KEY)).toBe(tokenParam);
+  });
+
+  it('muestra el error funcional y elimina el token si la invitación no es válida', async () => {
+    invitaciones.aceptar.mockRejectedValueOnce(
+      new InvitacionAccesoError('La invitación expiró.', 400)
+    );
+    fixture.detectChanges();
+
+    await vi.waitFor(() => expect(component.estado).toBe('error'));
+    expect(component.mensaje).toBe('La invitación expiró.');
+    expect(sessionStorage.getItem(INVITACION_TOKEN_SESSION_KEY)).toBeNull();
+  });
+
+  it('usa fallback seguro ante un error no estándar del backend', async () => {
+    invitaciones.aceptar.mockRejectedValueOnce('fallo-no-error');
+    fixture.detectChanges();
+
+    await vi.waitFor(() => expect(component.estado).toBe('error'));
+    expect(component.mensaje).toBe('No se pudo validar la invitación.');
   });
 
   it('muestra error si no hay token en URL ni en la sesión del navegador', async () => {
