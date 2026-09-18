@@ -68,6 +68,8 @@ export interface UsuarioSeguridad {
   correo: string | null;
   activo: boolean;
   identidadVinculada: boolean;
+  identidadEstado?: 'vinculada' | 'pendiente' | 'pendiente_aprobacion';
+  solicitudVinculacionId?: string | null;
   puedeEditar?: boolean;
   roles: UsuarioRolSeguridad[];
 }
@@ -106,6 +108,13 @@ export interface EditarUsuarioInput {
   nombres: string;
   apellidos: string;
   correo: string | null;
+}
+
+export interface OperarVinculacionIdentidadInput {
+  institucionId: string;
+  invitacionId: string;
+  operacion: 'aprobar' | 'rechazar';
+  motivo?: string | null;
 }
 
 export interface InvitacionUsuarioPreparada {
@@ -155,6 +164,17 @@ export class SeguridadAccesoService {
 
   async editarUsuario(usuarioId: string, input: EditarUsuarioInput): Promise<void> {
     await this.ejecutar('PUT', `/usuarios/${encodeURIComponent(usuarioId)}`, input);
+  }
+
+  async operarVinculacion(
+    usuarioId: string,
+    input: OperarVinculacionIdentidadInput
+  ): Promise<void> {
+    await this.ejecutar(
+      'POST',
+      `/usuarios/${encodeURIComponent(usuarioId)}/vinculacion`,
+      input
+    );
   }
 
   async prepararInvitacionUsuario(

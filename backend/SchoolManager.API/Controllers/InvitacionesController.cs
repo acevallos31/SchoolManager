@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
 using SchoolManager.API.Identity;
+using SchoolManager.API.DTOs;
 
 namespace SchoolManager.API.Controllers;
 
@@ -10,8 +11,36 @@ namespace SchoolManager.API.Controllers;
 [Authorize]
 public sealed class InvitacionesController(
     NpgsqlDataSource dataSource,
-    InvitationDeliveryService deliveryService) : ApiControllerBase(dataSource)
+    InvitationDeliveryService deliveryService,
+    InvitationAcceptanceService acceptanceService) : ApiControllerBase(dataSource)
 {
+    [HttpPost("aceptar")]
+    public async Task<IActionResult> Aceptar(
+        [FromBody] AceptarInvitacionAccesoDto dto,
+        CancellationToken ct)
+    {
+        var sub = User.FindFirstValue("sub");
+        if (string.IsNullOrWhiteSpace(sub))
+            return Unauthorized();
+
+        try
+        {
+            return Ok(await acceptanceService.AcceptAsync(dto.Token, sub, ct));
+        }
+        catch (ArgumentException)
+        {
+            return BadRequest(new { error = "El token de invitacion no es valido." });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Unauthorized();
+        }
+        catch (PostgresException ex)
+        {
+            return ToError(ex);
+        }
+    }
+
     [HttpPost("{invitacionId:guid}/enviar")]
     public async Task<IActionResult> Enviar(Guid invitacionId, CancellationToken ct)
     {

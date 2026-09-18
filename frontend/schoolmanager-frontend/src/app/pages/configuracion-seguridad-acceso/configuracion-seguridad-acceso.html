@@ -238,7 +238,25 @@
                   <tr>
                     <td><div class="user-identity"><strong>{{ usuario.nombre || 'Usuario sin nombre' }}</strong><small>{{ usuario.correo || 'Sin correo registrado' }}</small></div></td>
                     <td><span class="sm-badge" [class.sm-badge--success]="usuario.activo" [class.sm-badge--neutral]="!usuario.activo">{{ usuario.activo ? 'Activo' : 'Inactivo' }}</span></td>
-                    <td><span class="sm-badge" [class.sm-badge--success]="usuario.identidadVinculada" [class.sm-badge--warning]="!usuario.identidadVinculada">{{ usuario.identidadVinculada ? 'Vinculada' : 'Pendiente' }}</span></td>
+                    <td>
+                      <div class="user-identity-status">
+                        <span class="sm-badge"
+                          [class.sm-badge--success]="usuario.identidadVinculada"
+                          [class.sm-badge--warning]="!usuario.identidadVinculada">
+                          {{ usuario.identidadVinculada
+                            ? 'Vinculada'
+                            : (usuario.identidadEstado === 'pendiente_aprobacion' ? 'Pendiente de aprobación' : 'Pendiente') }}
+                        </span>
+                        @if (!usuario.identidadVinculada && usuario.solicitudVinculacionId && usuario.puedeEditar) {
+                          <div class="actions">
+                            <button type="button" class="sm-btn sm-btn--primary sm-btn--sm"
+                              (click)="aprobarVinculacion(usuario)" [disabled]="guardando">Aprobar</button>
+                            <button type="button" class="sm-btn sm-btn--secondary sm-btn--sm"
+                              (click)="rechazarVinculacion(usuario)" [disabled]="guardando">Rechazar</button>
+                          </div>
+                        }
+                      </div>
+                    </td>
                     <td>
                       @if (usuario.roles.length === 0) {
                         <span class="sm-helper">Sin rol en esta institución</span>

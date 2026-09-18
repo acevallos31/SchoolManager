@@ -74,6 +74,10 @@ export const routes: Routes = [
       }
     ]
   },
+  {
+    path: 'invitacion/aceptar',
+    loadComponent: () => import('./pages/invitacion-aceptar/invitacion-aceptar').then(m => m.InvitacionAceptar)
+  },
   { path: 'login', component: Login },
   { path: 'auth/callback', component: AuthCallback },
   { path: 'portal-padre', component: PortalPadre },

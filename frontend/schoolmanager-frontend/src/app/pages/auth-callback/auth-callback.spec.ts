@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { vi } from 'vitest';
 
 import { AuthService } from '../../core/services/auth';
+import { INVITACION_TOKEN_SESSION_KEY } from '../../core/services/invitacion-acceso.service';
 import { AuthCallback } from './auth-callback';
 
 describe('AuthCallback', () => {
@@ -13,6 +14,7 @@ describe('AuthCallback', () => {
     isLoggedIn: ReturnType<typeof vi.fn>;
     usuarioActual: ReturnType<typeof vi.fn>;
     mensajeSesionInvalidaPendiente: ReturnType<typeof vi.fn>;
+    getToken: ReturnType<typeof vi.fn>;
   };
   let router: { navigate: ReturnType<typeof vi.fn> };
 
@@ -21,7 +23,8 @@ describe('AuthCallback', () => {
       asegurarUsuarioInicial: vi.fn().mockResolvedValue(undefined),
       isLoggedIn: vi.fn(),
       usuarioActual: vi.fn(),
-      mensajeSesionInvalidaPendiente: vi.fn().mockReturnValue(null)
+      mensajeSesionInvalidaPendiente: vi.fn().mockReturnValue(null),
+      getToken: vi.fn().mockReturnValue(null)
     };
     router = { navigate: vi.fn().mockResolvedValue(true) };
 
@@ -35,6 +38,19 @@ describe('AuthCallback', () => {
 
     fixture = TestBed.createComponent(AuthCallback);
     component = fixture.componentInstance;
+  });
+
+  afterEach(() => sessionStorage.clear());
+
+  it('retoma la invitación pendiente antes de exigir un perfil SchoolManager', async () => {
+    sessionStorage.setItem(INVITACION_TOKEN_SESSION_KEY, 'token-pendiente');
+    auth.getToken.mockReturnValue('jwt');
+    auth.isLoggedIn.mockReturnValue(false);
+
+    await component.ngOnInit();
+
+    expect(router.navigate).toHaveBeenCalledWith(['/invitacion/aceptar']);
+    expect(router.navigate).not.toHaveBeenCalledWith(['/login']);
   });
 
   it('redirige al login cuando no existe una sesión válida', async () => {

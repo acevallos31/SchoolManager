@@ -24,5 +24,16 @@ public sealed class PermisoAuthorizationHandler(IUsuarioActualService usuarioAct
         {
             // Una identidad no resoluble simplemente no satisface la autorizacion.
         }
+        catch (IdentidadNoVinculadaException)
+        {
+            // Vinculacion 027 pendiente: no satisface la autorizacion, pero no debe
+            // escapar como excepcion no controlada (500) desde el handler.
+        }
+        catch (UsuarioInactivoException)
+        {
+        }
+        catch (DatosUsuarioIncompletosException)
+        {
+        }
     }
 }

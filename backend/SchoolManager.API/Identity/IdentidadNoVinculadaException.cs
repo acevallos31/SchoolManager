@@ -21,3 +21,15 @@ public sealed class UsuarioInactivoException(Guid usuarioId)
 {
     public Guid UsuarioId { get; } = usuarioId;
 }
+
+/// <summary>
+/// La identidad sí está vinculada y el usuario está activo, pero el registro de
+/// <c>public.personas</c> asociado no existe o no aporta los datos mínimos de
+/// identidad. Es un estado de datos incompletos, NO una identidad sin vincular:
+/// el operador debe reparar el perfil, no volver a vincular la identidad.
+/// </summary>
+public sealed class DatosUsuarioIncompletosException(Guid usuarioId)
+    : Exception($"El usuario {usuarioId} no tiene un perfil de persona completo.")
+{
+    public Guid UsuarioId { get; } = usuarioId;
+}

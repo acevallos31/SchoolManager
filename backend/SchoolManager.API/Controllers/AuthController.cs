@@ -36,6 +36,15 @@ public sealed class AuthController(IUsuarioActualService usuarioActualService) :
                 "Tu usuario esta inactivo. Contacta al administrador."
             );
         }
+        catch (DatosUsuarioIncompletosException)
+        {
+            // Identidad OK y usuario activo: falta el perfil de persona.
+            // Nunca responder IDENTIDAD_NO_VINCULADA en este caso.
+            return PerfilNoDisponible(
+                "PERFIL_INCOMPLETO",
+                "Tu acceso esta vinculado, pero tu perfil de persona esta incompleto. Contacta al administrador."
+            );
+        }
     }
 
     /// <summary>

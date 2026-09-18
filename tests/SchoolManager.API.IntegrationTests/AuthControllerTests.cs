@@ -123,6 +123,20 @@ public sealed class AuthControllerTests : IClassFixture<AuthControllerTests.ApiF
     }
 
     [Fact]
+    public async Task Usuario_vinculado_sin_perfil_de_persona_no_reporta_identidad_no_vinculada()
+    {
+        var response = await GetMeAsync("sin-perfil");
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var codigo = json.RootElement.GetProperty("codigo").GetString();
+
+        Assert.Equal("PERFIL_INCOMPLETO", codigo);
+        Assert.NotEqual("IDENTIDAD_NO_VINCULADA", codigo);
+        Assert.NotEqual("USUARIO_INACTIVO", codigo);
+    }
+
+    [Fact]
     public async Task Error_de_identidad_no_expone_el_identificador_de_la_identidad()
     {
         var response = await GetMeAsync("no-vinculada");
@@ -173,6 +187,7 @@ public sealed class AuthControllerTests : IClassFixture<AuthControllerTests.ApiF
             if (identidad == "no-resoluble") throw new UnauthorizedAccessException();
             if (identidad == "no-vinculada") throw new IdentidadNoVinculadaException(Guid.NewGuid());
             if (identidad == "inactivo") throw new UsuarioInactivoException(Guid.NewGuid());
+            if (identidad == "sin-perfil") throw new DatosUsuarioIncompletosException(Guid.NewGuid());
 
             var rol = identidad == "padre" ? "padre" : "admin";
             var usuario = new UsuarioActual(

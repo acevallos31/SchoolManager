@@ -60,6 +60,24 @@ describe('SeguridadAccesoService', () => {
     await expect(result).resolves.toBeUndefined();
   });
 
+  it('opera una vinculación pendiente sin enviar auth_user_id desde el frontend', async () => {
+    const result = service.operarVinculacion('u/1', {
+      institucionId: 'i1',
+      invitacionId: 'inv-1',
+      operacion: 'aprobar'
+    });
+    const request = http.expectOne(`${baseUrl}/usuarios/u%2F1/vinculacion`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({
+      institucionId: 'i1',
+      invitacionId: 'inv-1',
+      operacion: 'aprobar'
+    });
+    expect(JSON.stringify(request.request.body)).not.toContain('authUserId');
+    request.flush(null);
+    await expect(result).resolves.toBeUndefined();
+  });
+
   it('prepara una invitación administrativa sin crear identidad externa', async () => {
     const result = service.prepararInvitacionUsuario({
       institucionId: 'i1', nombres: 'Ana', apellidos: 'Pérez',

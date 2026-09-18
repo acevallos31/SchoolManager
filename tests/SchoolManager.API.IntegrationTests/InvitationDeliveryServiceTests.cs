@@ -37,7 +37,9 @@ public sealed class InvitationDeliveryServiceTests : IClassFixture<MatriculasApi
         Assert.DoesNotContain("token=", JsonSerializer.Serialize(result));
 
         var uri = new Uri(sender.LastMessage.AcceptanceUrl);
-        var token = Uri.UnescapeDataString(uri.Query["?token=".Length..]);
+        Assert.Equal(string.Empty, uri.Query);
+        Assert.StartsWith("#token=", uri.Fragment, StringComparison.Ordinal);
+        var token = Uri.UnescapeDataString(uri.Fragment["#token=".Length..]);
         var expectedHash = Convert.ToHexString(
             SHA256.HashData(Encoding.UTF8.GetBytes(token))).ToLowerInvariant();
 
@@ -55,6 +57,101 @@ public sealed class InvitationDeliveryServiceTests : IClassFixture<MatriculasApi
         Assert.Equal("message-1", reader.GetString(3));
         Assert.Equal(1L, reader.GetInt64(4));
         Assert.True(reader.GetBoolean(5));
+    }
+
+    [Fact]
+    public async Task Endpoint_aceptar_deriva_identidad_del_JWT_y_deja_solicitud_pendiente()
+    {
+        var invitacionId = await PrepararInvitacionAsync();
+        var sender = new FakeSender();
+        var service = CrearServicio(sender);
+
+        await service.SendAsync(
+            invitacionId,
+            MatriculasApiFactory.AdminA.ToString(),
+            CancellationToken.None);
+
+        var uri = new Uri(sender.LastMessage!.AcceptanceUrl);
+        var token = Uri.UnescapeDataString(uri.Fragment["#token=".Length..]);
+        var authUserId = Guid.NewGuid();
+        using var client = _factory.CrearCliente(authUserId.ToString());
+
+        var response = await client.PostAsJsonAsync(
+            "/api/invitaciones/aceptar",
+            new { token });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("aceptada", body.GetProperty("estado").GetString());
+
+        await using var command = _factory.DatosAcademicos.CreateCommand("""
+            select auth_user_id_solicitado, estado
+            from public.invitaciones_acceso
+            where id=$1
+            """);
+        command.Parameters.AddWithValue(invitacionId);
+        await using var reader = await command.ExecuteReaderAsync();
+        Assert.True(await reader.ReadAsync());
+        Assert.Equal(authUserId, reader.GetGuid(0));
+        Assert.Equal("aceptada", reader.GetString(1));
+    }
+
+    [Fact]
+    public async Task Aceptacion_rechaza_sub_invalido_antes_de_consultar_DB()
+    {
+        var service = new InvitationAcceptanceService(_factory.DatosAcademicos);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            service.AcceptAsync(
+                new string('a', 64),
+                "sub-no-es-uuid",
+                CancellationToken.None));
+    }
+
+    [Theory]
+    [InlineData(5)]
+    [InlineData(513)]
+    public async Task Aceptacion_rechaza_token_fuera_de_longitud_permitida(int longitud)
+    {
+        var service = new InvitationAcceptanceService(_factory.DatosAcademicos);
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.AcceptAsync(
+                new string('a', longitud),
+                Guid.NewGuid().ToString(),
+                CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Endpoint_aceptar_devuelve400_para_token_invalido()
+    {
+        using var client = _factory.CrearCliente(Guid.NewGuid().ToString());
+
+        var response = await client.PostAsJsonAsync(
+            "/api/invitaciones/aceptar",
+            new { token = "corto" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("token de invitacion", body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Endpoint_aceptar_mapea_invitacion_inexistente_sin_exponer_SQL()
+    {
+        using var client = _factory.CrearCliente(Guid.NewGuid().ToString());
+        var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48))
+            .Replace("+", "A", StringComparison.Ordinal)
+            .Replace("/", "B", StringComparison.Ordinal);
+
+        var response = await client.PostAsJsonAsync(
+            "/api/invitaciones/aceptar",
+            new { token });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("Npgsql", body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("select ", body, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

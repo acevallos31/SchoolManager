@@ -18,10 +18,27 @@ describe('vercel.json', () => {
     );
 
     expect(callbackIndex).toBeGreaterThanOrEqual(0);
-    expect(config.routes[callbackIndex]).toMatchObject({
-      dest: '/'
-    });
+    expect(config.routes[callbackIndex]).toMatchObject({ dest: '/' });
     expect(catchAllIndex).toBeGreaterThan(callbackIndex);
     expect(config.routes.some(route => route.dest === '/index.html')).toBe(false);
+  });
+
+  it('sirve el shell Angular para aceptar invitaciones antes del catch-all 404', () => {
+    const config = JSON.parse(
+      readFileSync(resolve(process.cwd(), 'vercel.json'), 'utf8')
+    ) as {
+      routes: Array<{ src?: string; dest?: string; status?: number }>;
+    };
+
+    const invitationIndex = config.routes.findIndex(
+      route => route.src === '^/invitacion/aceptar/?$'
+    );
+    const catchAllIndex = config.routes.findIndex(
+      route => route.src === '/.*' && route.status === 404
+    );
+
+    expect(invitationIndex).toBeGreaterThanOrEqual(0);
+    expect(config.routes[invitationIndex]).toMatchObject({ dest: '/' });
+    expect(catchAllIndex).toBeGreaterThan(invitationIndex);
   });
 });
