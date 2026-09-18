@@ -18,9 +18,7 @@ describe('vercel.json', () => {
     );
 
     expect(callbackIndex).toBeGreaterThanOrEqual(0);
-    expect(config.routes[callbackIndex]).toMatchObject({
-      dest: '/'
-    });
+    expect(config.routes[callbackIndex]).toMatchObject({ dest: '/' });
     expect(catchAllIndex).toBeGreaterThan(callbackIndex);
     expect(config.routes.some(route => route.dest === '/index.html')).toBe(false);
   });
@@ -33,17 +31,7 @@ describe('vercel.json', () => {
     };
 
     const invitationIndex = config.routes.findIndex(
-      route => route.src === '^/invitacion/aceptar/?
-    const catchAllIndex = config.routes.findIndex(
-      route => route.src === '/.*' && route.status === 404
-    );
-
-    expect(invitationIndex).toBeGreaterThanOrEqual(0);
-    expect(config.routes[invitationIndex]).toMatchObject({ dest: '/' });
-    expect(catchAllIndex).toBeGreaterThan(invitationIndex);
-  });
-});
-
+      route => route.src === '^/invitacion/aceptar/?$'
     );
     const catchAllIndex = config.routes.findIndex(
       route => route.src === '/.*' && route.status === 404
