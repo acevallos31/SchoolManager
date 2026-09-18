@@ -3,9 +3,40 @@
 Rama: `chore/048-night-auth-debt-close`
 Base: rebasada sobre el commit remoto `793b2d5e6cfe32a6e347169790130ca73859b52b`
 Prompt operativo: `docs/agent-prompts/048-launcher.md` (existe y fue verificado)
-Última actualización: 2026-09-18
+Última actualización: 2026-09-18 (Phase 1 CERRADA)
 
-## Phase 1 — estado: bloque 1 CERRADO (semántica de identidad); causa raíz de producción PENDIENTE
+## Phase 1 — CERRADA (frontend/session-state + semántica de identidad)
+
+### Causa raíz confirmada (case Demo) — frontend/session-state
+`AuthService.asegurarUsuarioInicial()` **memoiza `inicializacionPromise`**: un
+`/api/auth/me` 403 transitorio (`IDENTIDAD_NO_VINCULADA`) quedaba cacheado para
+siempre; llamadas posteriores (auth-callback tras OAuth, guards, re-bootstraps)
+re-servían el fallo antiguo sin re-consultar `/me`, aunque el backend ya
+respondiera 200 para un usuario válido. Resultado: el mensaje previo persistía y
+la sesión quedaba bloqueada/redirigida al login.
+
+**Evidencia de producción (Render):** tras reproducir el login Demo, dos
+`GET /api/auth/me` con `StatusCode=200`, `Authenticated=true` y
+`UserId=a6a3d715-2418-4fb5-b95c-072e0ce216cf` = `auth.users.id` =
+`public.usuarios.auth_user_id`. Descartadas para Demo: RLS, identidad distinta,
+DB equivocada.
+
+### Fix mínimo — commit `db8ca6a` (2 partes)
+1. `restaurarSesion()` catch: `this.inicializacionPromise = null` → una
+   restauración fallida no queda cacheada; el siguiente bootstrap re-consulta
+   `/me` y despeja el mensaje previo.
+2. `login()`: al establecer sesión + usuario válidos, `mensajeSesionInvalida = null`
+   descarta cualquier mensaje pendiente.
+
+### Tests y suites (evidencia real)
+- TDD: 2 tests nuevos en `auth.spec.ts` (mensaje previo `IDENTIDAD_NO_VINCULADA`
+  → `/me` 200 posterior no debe re-mostrarse/bloquear).
+- RED: **2 failed / 416 passed**; GREEN: **418/418 passed** (40 archivos).
+- Conteo final: **API 252/252** (incluye 3 tests RLS de UsuarioActualService),
+  **DB 220/220**, **Frontend 418/418**. `git diff --check` limpio.
+- Push: `e7710a6..db8ca6a` en `chore/048-night-auth-debt-close`.
+
+## Historial: bloque 1 (semántica de identidad) — CERRADO
 
 ### Cambios aplicados (commit de esta noche)
 Separación semántica de los tres estados que antes se conflacionaban en un solo
@@ -50,23 +81,17 @@ Separación semántica de los tres estados que antes se conflacionaban en un sol
 
 ## Siguiente paso (arranque de la próxima sesión)
 
-1. **Demostrar la causa raíz Demo (AUTORIZADO ya por el usuario)**: lectura SOLO-LECTURA
-   de los logs de producción de Render del `RequestObservabilityMiddleware`, para el
-   request fallido de `/api/auth/me`:
-   - capturar `RequestId` (trace id), ruta, `status`, `UserId` (claim sub) y código de error;
-   - comparar el `UserId` con el `auth_user_id` observado: coincidencia → descartar
-     "identidad distinta" y seguir la traza del 403 (perfil/RBAC/mapeo frontend);
-     no-coincidencia → discrepancia = sesión/token equivocado o config cruzada Auth/API;
-   - **no** corregir producción; **no** ejecutar SQL, modificar/deploy/load-test en Render.
-   Prohibido reproducir: connection strings, passwords, JWT, tokens, service_role,
-   variables de entorno completas, datos personales innecesarios.
-2. **RLS: serializado y refutado (DONE, commit `8a36b79`)**:
-   `tests/.../UsuarioActualServiceTests.cs` con 3 pruebas — owner ve la fila con RLS
-   y sin claim (`relforcerowsecurity=false`); rol `authenticated` sin `sub` → `IDENTIDAD_NO_VINCULADA`;
-   con `sub` → visible. Cierra la hipótesis RLS como causa del Demo (owner ignora RLS).
-3. `tests/SchoolManager.Database.IntegrationTests` → **220/220 passed** (ejecutado en
-   este bloque; sin regresiones en RLS/RPC tras el cambio de join).
-4. Continuar con las fases siguientes de `048-launcher.md`.
+Phase 1 cerrada. Los pasos de la sección anterior (leer logs de Render de
+`/api/auth/me`, serializar/refutar RLS) quedaron **RESUELTOS**: la evidencia de
+Render (`/me`=200, Authenticated=true, UserId=a6a3d715…) confirma que el backend
+resuelve la identidad; la causa raíz es el *session-state del frontend* (memoización
+de `inicializacionPromise`), corregida en `db8ca6a`.
+
+Próximo arranque: **Phase 2 — flujo administrativo de aprobación de identidad
+pendiente** en Configuración > Seguridad y acceso (distinguir activo/inactivo de
+vinculado/pendiente; revisar identidad externa pendiente; aprobar/rechazar explícito
+reutilizando `public.vincular_identidad_usuario(usuario_id, auth_user_id)`; auditar;
+autorización backend; Angular solo orquesta; migración versionada SIN aplicar a prod).
 
 ## Restricciones respetadas
 Sin merge, sin cambios en producción, sin carga contra producción. Todo el trabajo fue
