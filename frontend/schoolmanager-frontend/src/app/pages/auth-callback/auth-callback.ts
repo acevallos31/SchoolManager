@@ -1,7 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { Component, inject, OnInit, PLATFORM_ID } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth';
 import { resolverRutaInicial } from '../../core/services/landing-route';
+import { INVITACION_TOKEN_SESSION_KEY } from '../../core/services/invitacion-acceso.service';
 
 @Component({
   selector: 'app-auth-callback',
@@ -22,6 +24,7 @@ import { resolverRutaInicial } from '../../core/services/landing-route';
   `]
 })
 export class AuthCallback implements OnInit {
+  private readonly platformId = inject(PLATFORM_ID);
   mensaje = 'Validando acceso con Google...';
 
   constructor(
@@ -31,6 +34,15 @@ export class AuthCallback implements OnInit {
 
   async ngOnInit(): Promise<void> {
     await this.auth.asegurarUsuarioInicial();
+
+    if (
+      isPlatformBrowser(this.platformId)
+      && sessionStorage.getItem(INVITACION_TOKEN_SESSION_KEY)
+      && this.auth.getToken()
+    ) {
+      await this.router.navigate(['/invitacion/aceptar']);
+      return;
+    }
 
     if (!this.auth.isLoggedIn()) {
       this.mensaje =

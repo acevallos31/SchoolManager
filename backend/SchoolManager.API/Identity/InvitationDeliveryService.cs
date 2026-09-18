@@ -189,7 +189,7 @@ public sealed class InvitationDeliveryService(
     private static string BuildAcceptanceUrl(Uri frontendBase, string token)
     {
         var baseUrl = frontendBase.ToString().TrimEnd('/');
-        return $"{baseUrl}/invitacion/aceptar?token={Uri.EscapeDataString(token)}";
+        return $"{baseUrl}/invitacion/aceptar#token={Uri.EscapeDataString(token)}";
     }
 
     private static string Base64Url(byte[] bytes) =>

@@ -37,7 +37,9 @@ public sealed class InvitationDeliveryServiceTests : IClassFixture<MatriculasApi
         Assert.DoesNotContain("token=", JsonSerializer.Serialize(result));
 
         var uri = new Uri(sender.LastMessage.AcceptanceUrl);
-        var token = Uri.UnescapeDataString(uri.Query["?token=".Length..]);
+        Assert.Equal(string.Empty, uri.Query);
+        Assert.StartsWith("#token=", uri.Fragment, StringComparison.Ordinal);
+        var token = Uri.UnescapeDataString(uri.Fragment["#token=".Length..]);
         var expectedHash = Convert.ToHexString(
             SHA256.HashData(Encoding.UTF8.GetBytes(token))).ToLowerInvariant();
 
@@ -55,6 +57,43 @@ public sealed class InvitationDeliveryServiceTests : IClassFixture<MatriculasApi
         Assert.Equal("message-1", reader.GetString(3));
         Assert.Equal(1L, reader.GetInt64(4));
         Assert.True(reader.GetBoolean(5));
+    }
+
+    [Fact]
+    public async Task Endpoint_aceptar_deriva_identidad_del_JWT_y_deja_solicitud_pendiente()
+    {
+        var invitacionId = await PrepararInvitacionAsync();
+        var sender = new FakeSender();
+        var service = CrearServicio(sender);
+
+        await service.SendAsync(
+            invitacionId,
+            MatriculasApiFactory.AdminA.ToString(),
+            CancellationToken.None);
+
+        var uri = new Uri(sender.LastMessage!.AcceptanceUrl);
+        var token = Uri.UnescapeDataString(uri.Fragment["#token=".Length..]);
+        var authUserId = Guid.NewGuid();
+        using var client = _factory.CrearCliente(authUserId.ToString());
+
+        var response = await client.PostAsJsonAsync(
+            "/api/invitaciones/aceptar",
+            new { token });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("aceptada", body.GetProperty("estado").GetString());
+
+        await using var command = _factory.DatosAcademicos.CreateCommand("""
+            select auth_user_id_solicitado, estado
+            from public.invitaciones_acceso
+            where id=$1
+            """);
+        command.Parameters.AddWithValue(invitacionId);
+        await using var reader = await command.ExecuteReaderAsync();
+        Assert.True(await reader.ReadAsync());
+        Assert.Equal(authUserId, reader.GetGuid(0));
+        Assert.Equal("aceptada", reader.GetString(1));
     }
 
     [Fact]

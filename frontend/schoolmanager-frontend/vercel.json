@@ -63,6 +63,10 @@
       "dest": "/"
     },
     {
+      "src": "^/invitacion/aceptar/?$",
+      "dest": "/"
+    },
+    {
       "src": "/.*",
       "status": 404,
       "dest": "/404.html"
