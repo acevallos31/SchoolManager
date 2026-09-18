@@ -74,7 +74,8 @@ describe('ConfiguracionSeguridadAcceso', () => {
       reemplazarPermisos: vi.fn().mockResolvedValue(undefined),
       asignarRol: vi.fn().mockResolvedValue('asig-nueva'),
       desactivarRol: vi.fn().mockResolvedValue(undefined),
-      desactivarAsignacion: vi.fn().mockResolvedValue(undefined)
+      desactivarAsignacion: vi.fn().mockResolvedValue(undefined),
+      operarVinculacion: vi.fn().mockResolvedValue(undefined)
     };
 
     await TestBed.configureTestingModule({
@@ -333,6 +334,73 @@ describe('ConfiguracionSeguridadAcceso', () => {
     await component.cargar();
     expect(component.rolSeleccionado).toBeNull();
     expect(component.rolSeleccionadoId).toBe('');
+  });
+
+  it('aprueba una solicitud pendiente de vinculación y recarga el directorio', async () => {
+    const pendiente: UsuarioSeguridad = {
+      ...usuario,
+      identidadVinculada: false,
+      identidadEstado: 'pendiente_aprobacion',
+      solicitudVinculacionId: 'inv-pendiente',
+      puedeEditar: true
+    };
+    service['obtenerUsuarios'].mockResolvedValue([pendiente]);
+    await crearComponente();
+
+    await component.aprobarVinculacion(pendiente);
+
+    expect(service['operarVinculacion']).toHaveBeenCalledWith('usuario-1', {
+      institucionId: 'inst-1',
+      invitacionId: 'inv-pendiente',
+      operacion: 'aprobar'
+    });
+    expect(component.mensaje).toContain('vinculada correctamente');
+    expect(component.esError).toBe(false);
+    expect(service['obtenerUsuarios']).toHaveBeenCalledTimes(2);
+  });
+
+  it('rechaza una solicitud pendiente con motivo explícito', async () => {
+    const pendiente: UsuarioSeguridad = {
+      ...usuario,
+      identidadVinculada: false,
+      identidadEstado: 'pendiente_aprobacion',
+      solicitudVinculacionId: 'inv-pendiente',
+      puedeEditar: true
+    };
+    service['obtenerUsuarios'].mockResolvedValue([pendiente]);
+    await crearComponente();
+
+    await component.rechazarVinculacion(pendiente);
+
+    expect(service['operarVinculacion']).toHaveBeenCalledWith('usuario-1', {
+      institucionId: 'inst-1',
+      invitacionId: 'inv-pendiente',
+      operacion: 'rechazar',
+      motivo: 'Rechazada desde Configuración > Seguridad y acceso'
+    });
+    expect(component.mensaje).toContain('rechazada');
+    expect(component.esError).toBe(false);
+  });
+
+  it('no opera vinculaciones sin solicitud, permiso o institución', async () => {
+    await crearComponente();
+    const sinSolicitud: UsuarioSeguridad = {
+      ...usuario,
+      identidadVinculada: false,
+      identidadEstado: 'pendiente',
+      solicitudVinculacionId: null,
+      puedeEditar: true
+    };
+    await component.aprobarVinculacion(sinSolicitud);
+
+    const sinPermiso: UsuarioSeguridad = {
+      ...sinSolicitud,
+      solicitudVinculacionId: 'inv-1',
+      puedeEditar: false
+    };
+    await component.rechazarVinculacion(sinPermiso);
+
+    expect(service['operarVinculacion']).not.toHaveBeenCalled();
   });
 
   it('vuelve al hub de configuración', async () => {
