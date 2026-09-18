@@ -151,6 +151,7 @@ $$;
 -- invitacion aceptada, que fue poblada por el backend desde JWT.sub.
 create or replace function public.rpc_operar_vinculacion_identidad(
   p_invitacion_id uuid,
+  p_usuario_id uuid,
   p_institucion_id uuid,
   p_operacion text,
   p_motivo text default null
@@ -174,8 +175,8 @@ begin
     raise exception 'Usuario autenticado no vinculado o inactivo.' using errcode = '42501';
   end if;
 
-  if p_invitacion_id is null or p_institucion_id is null then
-    raise exception 'Invitacion e institucion son obligatorias.' using errcode = '22023';
+  if p_invitacion_id is null or p_usuario_id is null or p_institucion_id is null then
+    raise exception 'Invitacion, usuario e institucion son obligatorios.' using errcode = '22023';
   end if;
 
   if v_operacion not in ('aprobar', 'rechazar') then
@@ -200,6 +201,10 @@ begin
 
   if v_institucion <> p_institucion_id then
     raise exception 'La solicitud pertenece a otra institucion.' using errcode = '42501';
+  end if;
+
+  if v_usuario_id <> p_usuario_id then
+    raise exception 'La solicitud no corresponde al usuario indicado.' using errcode = '42501';
   end if;
 
   if v_estado <> 'aceptada' or v_auth_user_id is null then
@@ -259,9 +264,9 @@ revoke all on function public.rpc_solicitar_vinculacion_invitacion(text,uuid)
 grant execute on function public.rpc_solicitar_vinculacion_invitacion(text,uuid)
   to service_role;
 
-revoke all on function public.rpc_operar_vinculacion_identidad(uuid,uuid,text,text)
+revoke all on function public.rpc_operar_vinculacion_identidad(uuid,uuid,uuid,text,text)
   from public, anon, authenticated;
-grant execute on function public.rpc_operar_vinculacion_identidad(uuid,uuid,text,text)
+grant execute on function public.rpc_operar_vinculacion_identidad(uuid,uuid,uuid,text,text)
   to service_role;
 
 insert into public.schema_migrations(version, nombre, checksum)

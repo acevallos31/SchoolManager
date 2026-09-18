@@ -1,6 +1,6 @@
 begin;
 
-drop function if exists public.rpc_operar_vinculacion_identidad(uuid,uuid,text,text);
+drop function if exists public.rpc_operar_vinculacion_identidad(uuid,uuid,uuid,text,text);
 drop function if exists public.rpc_solicitar_vinculacion_invitacion(text,uuid);
 
 drop index if exists public.ux_invitaciones_acceso_auth_solicitado_abierto;

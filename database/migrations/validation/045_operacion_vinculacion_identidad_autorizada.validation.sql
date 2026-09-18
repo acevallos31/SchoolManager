@@ -21,7 +21,7 @@ select 'rpc_solicitar_vinculacion_invitacion no existe' as error
 where to_regprocedure('public.rpc_solicitar_vinculacion_invitacion(text,uuid)') is null;
 
 select 'rpc_operar_vinculacion_identidad no existe' as error
-where to_regprocedure('public.rpc_operar_vinculacion_identidad(uuid,uuid,text,text)') is null;
+where to_regprocedure('public.rpc_operar_vinculacion_identidad(uuid,uuid,uuid,text,text)') is null;
 
 select 'rpc_solicitar debe ser SECURITY DEFINER' as error
 where exists (
@@ -53,7 +53,7 @@ where has_function_privilege(
 select 'authenticated puede ejecutar rpc_operar' as error
 where has_function_privilege(
   'authenticated',
-  'public.rpc_operar_vinculacion_identidad(uuid,uuid,text,text)',
+  'public.rpc_operar_vinculacion_identidad(uuid,uuid,uuid,text,text)',
   'EXECUTE'
 );
 
@@ -67,7 +67,7 @@ where has_function_privilege(
 select 'anon puede ejecutar rpc_operar' as error
 where has_function_privilege(
   'anon',
-  'public.rpc_operar_vinculacion_identidad(uuid,uuid,text,text)',
+  'public.rpc_operar_vinculacion_identidad(uuid,uuid,uuid,text,text)',
   'EXECUTE'
 );
 
@@ -81,6 +81,6 @@ where not has_function_privilege(
 select 'service_role no puede ejecutar rpc_operar' as error
 where not has_function_privilege(
   'service_role',
-  'public.rpc_operar_vinculacion_identidad(uuid,uuid,text,text)',
+  'public.rpc_operar_vinculacion_identidad(uuid,uuid,uuid,text,text)',
   'EXECUTE'
 );
