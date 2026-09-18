@@ -89,7 +89,7 @@ public sealed class UsuarioActualService(NpgsqlDataSource dataSource) : IUsuario
                   and r.activo = true
               ), '{}'::text[]) as permisos_globales
             from public.usuarios u
-            join public.personas p on p.id = u.persona_id
+            left join public.personas p on p.id = u.persona_id
             where u.auth_user_id = $1
             """))
         {
@@ -108,6 +108,14 @@ public sealed class UsuarioActualService(NpgsqlDataSource dataSource) : IUsuario
             }
 
             usuarioId = reader.GetGuid(0);
+
+            // Identidad vinculada y activa pero sin perfil de persona utilizable:
+            // es un problema de datos, distinto de "identidad no vinculada".
+            if (reader.IsDBNull(1) || reader.IsDBNull(3) || reader.IsDBNull(4))
+            {
+                throw new DatosUsuarioIncompletosException(usuarioId);
+            }
+
             personaId = reader.GetGuid(1);
             nombreCompleto = string.Join(
                 ' ',

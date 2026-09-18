@@ -267,7 +267,7 @@ describe('AuthService', () => {
     expect(service.mensajeSesionInvalidaPendiente()).toBeNull();
   });
 
-  it('distingue el usuario inactivo del error genérico de perfil', async () => {
+  it('conserva el código diferencial del usuario inactivo', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
       if (esSesionEdge(input)) {
         return new Response(null, { status: 204 });
@@ -279,13 +279,13 @@ describe('AuthService', () => {
     });
 
     await expect(service.login('padre@ejemplo.com', 'password')).rejects.toMatchObject({
-      code: 'USER_PROFILE_NOT_FOUND'
+      code: 'USUARIO_INACTIVO'
     });
 
     expect(service.isLoggedIn()).toBe(false);
   });
 
-  it('mapea la identidad no vinculada al código USER_PROFILE_NOT_FOUND en login', async () => {
+  it('conserva el código IDENTIDAD_NO_VINCULADA en login', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
       if (esSesionEdge(input)) {
         return new Response(null, { status: 204 });
@@ -297,9 +297,42 @@ describe('AuthService', () => {
     });
 
     await expect(service.login('padre@ejemplo.com', 'password')).rejects.toMatchObject({
-      code: 'USER_PROFILE_NOT_FOUND'
+      code: 'IDENTIDAD_NO_VINCULADA'
     });
     expect(signOut).toHaveBeenCalledOnce();
+  });
+
+  it('distingue el perfil de persona incompleto de la identidad no vinculada', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
+      if (esSesionEdge(input)) {
+        return new Response(null, { status: 204 });
+      }
+      return new Response(JSON.stringify({ codigo: 'PERFIL_INCOMPLETO' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    });
+
+    await expect(service.login('padre@ejemplo.com', 'password')).rejects.toMatchObject({
+      code: 'PERFIL_INCOMPLETO'
+    });
+  });
+
+  it('un 403 de autorización sin código no se presenta como identidad no vinculada', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
+      if (esSesionEdge(input)) {
+        return new Response(null, { status: 204 });
+      }
+      return new Response(null, { status: 403 });
+    });
+
+    const error = await service
+      .login('padre@ejemplo.com', 'password')
+      .then(() => null)
+      .catch(e => e as { code: string; message: string });
+
+    expect(error?.code).toBe('PERFIL_NO_HABILITADO');
+    expect(error?.message).not.toContain('no esta vinculada');
   });
 
   it('un fallo al limpiar la cookie edge no deja sesión local activa', async () => {

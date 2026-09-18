@@ -96,6 +96,32 @@ public sealed class UsuarioActualServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Usuario_vinculado_sin_persona_no_se_reporta_como_identidad_no_vinculada()
+    {
+        // Simula instalaciones heredadas al baseline: la migracion 003 declara
+        // persona_id nullable, por lo que el estado "vinculado sin persona" existe.
+        await using (var alter = _dataSource.CreateCommand(
+            "alter table public.usuarios alter column persona_id drop not null"))
+        {
+            await alter.ExecuteNonQueryAsync();
+        }
+
+        var authUserId = Guid.NewGuid();
+        await using (var insert = _dataSource.CreateCommand(
+            "insert into public.usuarios (id, auth_user_id, activo) values ($1, $2, true)"))
+        {
+            insert.Parameters.AddWithValue(Guid.NewGuid());
+            insert.Parameters.AddWithValue(authUserId);
+            await insert.ExecuteNonQueryAsync();
+        }
+
+        var excepcion = await Assert.ThrowsAsync<DatosUsuarioIncompletosException>(
+            () => _service.ObtenerAsync(CrearPrincipal(authUserId.ToString())));
+
+        Assert.NotEqual(Guid.Empty, excepcion.UsuarioId);
+    }
+
+    [Fact]
     public async Task Resuelve_usuario_multirol_y_combina_permisos_sin_duplicados()
     {
         var authUserId = Guid.NewGuid();

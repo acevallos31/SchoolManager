@@ -108,6 +108,14 @@ export class Login implements OnInit {
           return 'Correo o contrasena incorrectos.';
         case 'EMAIL_NOT_CONFIRMED':
           return 'Debes confirmar tu correo antes de iniciar sesion.';
+        case 'IDENTIDAD_NO_VINCULADA':
+          return 'Tu cuenta existe, pero todavía no está vinculada a un perfil habilitado de SchoolManager. Si eres padre o encargado, revisa la invitación enviada por tu institución.';
+        case 'USUARIO_INACTIVO':
+          return 'Tu usuario está inactivo. Contacta al administrador de tu institución.';
+        case 'PERFIL_INCOMPLETO':
+          return 'Tu acceso está vinculado, pero tu perfil de persona está incompleto. Contacta al administrador.';
+        case 'PERFIL_NO_HABILITADO':
+          return 'Tu cuenta no tiene permisos aplicables en este momento. Contacta al administrador.';
         case 'USER_PROFILE_NOT_FOUND':
           return 'Tu cuenta existe, pero todavía no está vinculada a un perfil habilitado de SchoolManager. Si eres padre o encargado, revisa la invitación enviada por tu institución.';
         case 'USER_PROFILE_ERROR':

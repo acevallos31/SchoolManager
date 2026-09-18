@@ -51,6 +51,8 @@ export class AuthAppError extends Error {
     message: string,
     public readonly code:
       | 'INVALID_CREDENTIALS' | 'EMAIL_NOT_CONFIRMED' | 'SESSION_NOT_FOUND'
+      | 'IDENTIDAD_NO_VINCULADA' | 'USUARIO_INACTIVO' | 'PERFIL_INCOMPLETO'
+      | 'PERFIL_NO_HABILITADO'
       | 'USER_PROFILE_NOT_FOUND' | 'USER_PROFILE_ERROR' | 'REQUEST_TIMEOUT' | 'UNKNOWN'
   ) {
     super(message);
@@ -227,16 +229,32 @@ export class AuthService {
     }
     if (response.status === 403) {
       const codigo = await this.leerCodigoDeError(response);
-      if (codigo === 'IDENTIDAD_NO_VINCULADA') {
-        return new AuthAppError(
-          'Tu identidad externa no esta vinculada a un usuario de SchoolManager. Solicita al administrador que revise tu acceso.',
-          'USER_PROFILE_NOT_FOUND'
-        );
+      switch (codigo) {
+        case 'IDENTIDAD_NO_VINCULADA':
+          return new AuthAppError(
+            'Tu identidad externa no esta vinculada a un usuario de SchoolManager. Solicita al administrador que revise tu acceso.',
+            'IDENTIDAD_NO_VINCULADA'
+          );
+        case 'USUARIO_INACTIVO':
+          return new AuthAppError(
+            'Tu usuario esta inactivo. Contacta al administrador.',
+            'USUARIO_INACTIVO'
+          );
+        case 'PERFIL_INCOMPLETO':
+          return new AuthAppError(
+            'Tu acceso esta vinculado, pero tu perfil de persona esta incompleto. Contacta al administrador.',
+            'PERFIL_INCOMPLETO'
+          );
+        case 'SESION_INVALIDA':
+          return new AuthAppError('La sesion no identifica un usuario valido.', 'SESSION_NOT_FOUND');
+        default:
+          // 403 de autorizacion (permiso no aplicable) o cuerpo sin codigo:
+          // nunca presentarlo como "identidad no vinculada".
+          return new AuthAppError(
+            'Tu cuenta no tiene permisos aplicables en este momento. Contacta al administrador.',
+            'PERFIL_NO_HABILITADO'
+          );
       }
-      if (codigo === 'USUARIO_INACTIVO') {
-        return new AuthAppError('Tu usuario esta inactivo. Contacta al administrador.', 'USER_PROFILE_NOT_FOUND');
-      }
-      return new AuthAppError('Tu cuenta no tiene un perfil de usuario habilitado.', 'USER_PROFILE_NOT_FOUND');
     }
     return new AuthAppError('No se pudo consultar tu perfil de usuario.', 'USER_PROFILE_ERROR');
   }
