@@ -167,7 +167,7 @@ declare
   v_auth_user_id uuid;
   v_estado text;
   v_institucion uuid;
-  v_operacion text := pg_catalog.lower(pg_catalog.btrim(pg_catalog.coalesce(p_operacion, '')));
+  v_operacion text := pg_catalog.lower(pg_catalog.btrim(coalesce(p_operacion, '')));
   v_resultado text;
   v_ahora timestamptz := pg_catalog.clock_timestamp();
 begin
@@ -244,7 +244,7 @@ begin
       'invitacion_acceso', p_invitacion_id,
       pg_catalog.jsonb_build_object(
         'usuario_id', v_usuario_id,
-        'motivo', nullif(pg_catalog.btrim(pg_catalog.coalesce(p_motivo, '')), '')
+        'motivo', nullif(pg_catalog.btrim(coalesce(p_motivo, '')), '')
       )
     );
     v_resultado := 'rechazada';
