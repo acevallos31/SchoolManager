@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
@@ -8,7 +7,6 @@ using SchoolManager.API.Authorization;
 using SchoolManager.API.Identity;
 using SchoolManager.API.Infrastructure;
 using SchoolManager.API.Services;
-using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -59,23 +57,6 @@ var vercelPreviewHostPrefix = builder.Configuration["Cors:VercelPreviewHostPrefi
     ?? "school-manager-";
 var vercelPreviewHostSuffix = builder.Configuration["Cors:VercelPreviewHostSuffix"]
     ?? "-acevallos31s-projects.vercel.app";
-
-builder.Services.AddRateLimiter(options =>
-{
-    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    options.AddPolicy("demo-session", context =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 12,
-                Window = TimeSpan.FromHours(1),
-                QueueLimit = 0,
-                AutoReplenishment = true
-            }
-        )
-    );
-});
 
 builder.Services.AddCors(options =>
 {
@@ -171,7 +152,6 @@ app.UseRouting();
 app.UseCors("FrontendPolicy");
 
 app.UseAuthentication();
-app.UseRateLimiter();
 // Después de Authentication para disponer del claim sub, pero antes de
 // Authorization para observar también 401/403 y toda la ejecución del endpoint.
 app.UseMiddleware<RequestObservabilityMiddleware>();
