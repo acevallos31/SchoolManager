@@ -1,12 +1,22 @@
 # Deuda técnica registrada — SchoolManager
 
-Estado consolidado después de los Bloques 042, 043A, 043B, 044, 045A y 046A, actualizado el 2026-09-16.
+Estado consolidado hasta el Bloque 048 (PR #119 en revisión), actualizado el 2026-09-18.
 Este archivo enumera únicamente deuda técnica **real y verificable**. El historial
 de deudas cerradas se conserva al final para no volver a abrir problemas ya
 resueltos.
 
 > Regla: no registrar deuda especulativa. Toda entrada debe salir de evidencia
 > observable en código, CI, producción o documentación operativa.
+
+## Checkpoint Bloque 048 — identidad pendiente
+
+- PR #119 abierto y mergeable sobre `chore/048-night-auth-debt-close`.
+- Phase 1 corrigió la sesión frontend que podía conservar un error de identidad previo aun después de un `/api/auth/me` válido.
+- Evidencia read-only de Render confirmó para Demo `/api/auth/me = 200`, `Authenticated=true` y el mismo `UserId` registrado en SchoolManager.
+- Phase 2 implementa aceptación de invitación y aprobación/rechazo administrativo sin vinculación automática por correo.
+- La migración 045 es aditiva, está probada en CI, pero **NO está aplicada en producción** y requiere autorización explícita antes del merge/despliegue de 048.
+- Run CI #757: compilación/tests en verde; Sonar Quality Gate PASS con 80.2% de cobertura en código nuevo, ratings A, 0% duplicación y hotspots revisados 100%.
+- Las deudas #14 (carga backend) y #15 (auditoría SECURITY DEFINER histórica) permanecen abiertas.
 
 ## Estado base verificado
 
@@ -199,20 +209,15 @@ La migración 039 centraliza el puente canónico dentro de
 `usuario_tiene_permiso_actual`, manteniendo las RPC históricas sin exigir aliases
 internos ocultos a roles institucionales dinámicos.
 
-### 046B: hardening puntual de invitaciones — EN CURSO
+### 046B: hardening puntual de invitaciones — RESUELTO
 
-La nueva superficie introducida por 040 se corrige inmediatamente mediante 041:
-se retira `EXECUTE` directo de `rpc_preparar_invitacion_usuario` a
-`authenticated` y se agregan índices para sus cuatro FK no cubiertas. Esta acción
-no cierra #15: solo evita trasladar deuda nueva al siguiente bloque funcional.
+La superficie introducida por 040 quedó endurecida mediante 041: se retiró `EXECUTE` directo de `rpc_preparar_invitacion_usuario` a `authenticated` y se agregaron índices para sus cuatro FK no cubiertas. Esta acción no cierra #15: el inventario histórico de RPC privilegiadas sigue siendo deuda transversal.
 
 ---
 
 ## No clasificar como deuda técnica
 
-- **Crear/invitar usuarios nuevos:** es funcionalidad de roadmap de identidad y
-  ya inició con 046A; envío, aceptación y aprobación siguen siendo funcionalidad
-  pendiente, no deuda técnica.
+- **Crear/invitar/aprobar identidades:** es funcionalidad de identidad, no deuda técnica. 046A–046F implementaron alta/envío y el PR #119 / Bloque 048 completa aceptación y aprobación explícita; su migración 045 sigue pendiente de autorización productiva y merge.
 - **Modo multiinstitución desactivado hoy:** es configuración de producción
   (`multiples_instituciones=false`), no una limitación; el código 042 soporta
   ambos modos.

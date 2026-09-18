@@ -16,7 +16,7 @@
 - Producción está en modo **monoinstitución** (`multiples_instituciones=false`)
   con una institución activa según la última verificación read-only; la
   implementación 042 soporta también modo multiinstitución.
-- Migraciones activas del repositorio: `001` → `039`.
+- En `main` las migraciones funcionales llegaron hasta 044. La rama 048 agrega la migración 045; está validada en CI pero NO aplicada en producción.
 
 ## Arquitectura
 
@@ -115,17 +115,18 @@ La pantalla Seguridad y acceso administra **usuarios internos existentes**:
 `platform_admin` puede consultar el directorio global, pero las asignaciones de
 roles institucionales siguen filtradas por el contexto operativo.
 
-### Funcionalidad pendiente de roadmap: Crear/Invitar usuario
+### Identidad e invitaciones — 046/048
 
-No es deuda técnica; es funcionalidad nueva. Debe preservar:
+046A–046F implementaron preparación de usuario, invitación y entrega por correo. El PR #119 / Bloque 048 completa aceptación y aprobación explícita:
 
-1. búsqueda/reutilización explícita de una `Persona` existente;
-2. creación de `Persona` solo si corresponde;
-3. creación/reutilización de `Usuario` global;
-4. asignación de rol en la institución activa;
-5. estado pendiente de invitación/vinculación cuando no exista identidad Auth;
-6. operaciones privilegiadas de Supabase Auth únicamente desde backend seguro;
-7. ninguna vinculación automática por coincidencia de correo.
+1. nunca se vincula por coincidencia de correo;
+2. el `auth_user_id` solicitado se deriva del JWT `sub` en backend;
+3. el token de invitación se transporta en fragmento y se conserva temporalmente en sessionStorage durante OAuth;
+4. aceptar una invitación crea una solicitud pendiente, no concede acceso por sí sola;
+5. aprobar exige `identidad.usuarios.editar` en la institución y reutiliza `vincular_identidad_usuario`;
+6. rechazar no modifica `auth_user_id`;
+7. las operaciones administrativas quedan auditadas;
+8. Angular nunca selecciona ni envía un `auth_user_id` externo.
 
 ## Modelo académico
 
@@ -170,8 +171,7 @@ Matrícula → Alumno.
 
 ## Migraciones
 
-Todas las migraciones activas `001` → `039` están en `main` y el test de orden
-espera exactamente esa cadena.
+Las migraciones integradas en `main` llegaron hasta 044. La rama 048 agrega 045 y el runner/validation la aplica en PostgreSQL efímero durante CI. La 045 no debe ejecutarse en producción sin autorización explícita.
 
 ### Resumen por bloques
 
@@ -201,6 +201,8 @@ espera exactamente esa cadena.
 - `037`: lectura institucional estricta.
 - `038`: consulta Seguridad y acceso.
 - `039`: canonicalización de permisos de configuración académica.
+- `040`–`044`: alta/invitaciones de acceso, hardening, emisión/entrega y soporte de identidad.
+- `045` (PR #119, aún no productiva): solicitud y operación autorizada de vinculación de identidad.
 
 ### Regla operativa de migraciones
 
@@ -286,25 +288,25 @@ Rutas principales:
 
 ## E2E
 
-- Smoke Playwright no autenticado disponible.
-- E2E autenticado completo sigue pendiente de staging seguro.
+- E2E autenticado completo en staging local/efímero quedó cerrado por 044A–044E.
+- Usa Supabase local, API .NET y Angular staging con identidades/dataset sintéticos.
+- El workflow reusable/nocturno conserva artifacts Playwright ante fallos.
 - No usar producción para E2E destructivo.
-- Plan canónico: `docs/testing/e2e-staging-plan.md` (`E2E-01` → `E2E-06`).
 
 ## Observabilidad
 
 - `/health`: liveness.
 - `/health/ready`: readiness real contra PostgreSQL.
-- Sigue pendiente logging estructurado, correlación, métricas y alertas de
-  aplicación. Ver `docs/observabilidad.md`.
+- Logging JSON estructurado, RequestId/TraceId, correlación, ProblemDetails seguro y métricas internas quedaron implementados en 045A.
+- Render logs permitieron verificar read-only el `UserId` y status de `/api/auth/me` durante el diagnóstico 048.
+- Exporters/plataformas externas son decisión operativa futura, no deuda base pendiente.
 
 ## Deuda técnica real pendiente
 
-El registro canónico es `docs/technical-debt.md`. Después de 043B quedan:
+El registro canónico es `docs/technical-debt.md`. Al cierre técnico de 048 permanecen:
 
-1. montar y ejecutar E2E autenticado en staging aislado;
-2. mejorar observabilidad más allá de health/readiness;
-3. completar prueba de carga del backend (issue #85).
+1. #14 / issue #85: prueba de carga controlada del backend;
+2. #15 / issue #109: auditoría/hardening incremental de RPC históricas `SECURITY DEFINER` expuestas a `authenticated`.
 
 Ya **no** deben listarse como deuda pendiente:
 
@@ -321,17 +323,11 @@ Ya **no** deben listarse como deuda pendiente:
 
 ## Próximo bloque técnico recomendado
 
-**044 — E2E autenticado en staging aislado**:
+Después de cerrar productivamente 048:
 
-- preparar Supabase + API + frontend separados de producción;
-- usar identidades y secretos exclusivamente de prueba;
-- ejecutar el plan `E2E-01` → `E2E-06`;
-- validar autenticación, permisos, contexto institucional y CRUD real;
-- incorporar el flujo a CI solo cuando sea reproducible y seguro;
-- no ejecutar pruebas destructivas contra producción.
-
-Después: observabilidad estructurada y prueba de carga backend como bloques
-independientes.
+1. abordar #15 / issue #109 por grupos pequeños, sin revocaciones masivas;
+2. preparar/cerrar #14 / issue #85 con carga solo en entorno seguro y cualquier medición productiva únicamente con autorización explícita;
+3. continuar integración de SchoolManager Móvil contra la API .NET compartida, manteniendo Supabase directo solo para Auth.
 
 ## Documentación
 
