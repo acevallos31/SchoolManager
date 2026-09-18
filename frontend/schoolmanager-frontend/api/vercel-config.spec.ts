@@ -34,6 +34,15 @@ describe('vercel.json', () => {
 
     const invitationIndex = config.routes.findIndex(
       route => route.src === '^/invitacion/aceptar/?
+    const catchAllIndex = config.routes.findIndex(
+      route => route.src === '/.*' && route.status === 404
+    );
+
+    expect(invitationIndex).toBeGreaterThanOrEqual(0);
+    expect(config.routes[invitationIndex]).toMatchObject({ dest: '/' });
+    expect(catchAllIndex).toBeGreaterThan(invitationIndex);
+  });
+});
 
     );
     const catchAllIndex = config.routes.findIndex(
