@@ -97,6 +97,64 @@ public sealed class InvitationDeliveryServiceTests : IClassFixture<MatriculasApi
     }
 
     [Fact]
+    public async Task Aceptacion_rechaza_sub_invalido_antes_de_consultar_DB()
+    {
+        var service = new InvitationAcceptanceService(_factory.DatosAcademicos);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            service.AcceptAsync(
+                new string('a', 64),
+                "sub-no-es-uuid",
+                CancellationToken.None));
+    }
+
+    [Theory]
+    [InlineData(5)]
+    [InlineData(513)]
+    public async Task Aceptacion_rechaza_token_fuera_de_longitud_permitida(int longitud)
+    {
+        var service = new InvitationAcceptanceService(_factory.DatosAcademicos);
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.AcceptAsync(
+                new string('a', longitud),
+                Guid.NewGuid().ToString(),
+                CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Endpoint_aceptar_devuelve400_para_token_invalido()
+    {
+        using var client = _factory.CrearCliente(Guid.NewGuid().ToString());
+
+        var response = await client.PostAsJsonAsync(
+            "/api/invitaciones/aceptar",
+            new { token = "corto" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("token de invitacion", body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Endpoint_aceptar_mapea_invitacion_inexistente_sin_exponer_SQL()
+    {
+        using var client = _factory.CrearCliente(Guid.NewGuid().ToString());
+        var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48))
+            .Replace("+", "A", StringComparison.Ordinal)
+            .Replace("/", "B", StringComparison.Ordinal);
+
+        var response = await client.PostAsJsonAsync(
+            "/api/invitaciones/aceptar",
+            new { token });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("Npgsql", body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("select ", body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Fallo_del_proveedor_persiste_error_y_elimina_hash_no_entregado()
     {
         var invitacionId = await PrepararInvitacionAsync();
