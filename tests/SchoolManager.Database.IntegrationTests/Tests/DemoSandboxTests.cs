@@ -35,12 +35,13 @@ public sealed class DemoSandboxTests(PostgreSqlFixture fixture)
             """, Guid.NewGuid(), normal, plantilla));
         Assert.Equal("23514", exSandboxNormal.SqlState);
 
+        var otroSandbox = await CrearInstitucionAsync("demo_sandbox");
         var exPlantillaNormal = await Assert.ThrowsAsync<PostgresException>(() => ScalarGuidAsync("""
             insert into public.demo_sessions(
               auth_user_id, institucion_id, plantilla_institucion_id
             ) values($1,$2,$3)
             returning id
-            """, Guid.NewGuid(), await CrearInstitucionAsync("demo_sandbox"), normal));
+            """, Guid.NewGuid(), otroSandbox, normal));
         Assert.Equal("23514", exPlantillaNormal.SqlState);
     }
 
