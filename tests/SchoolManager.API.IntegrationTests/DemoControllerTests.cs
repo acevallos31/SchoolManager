@@ -31,14 +31,14 @@ public sealed class DemoControllerTests : IClassFixture<DemoControllerTests.ApiF
     public async Task Sin_autenticacion_devuelve_401()
     {
         var response = await _client.PostAsync("/api/demo/session", null);
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        await AssertStatusAsync(HttpStatusCode.Unauthorized, response);
     }
 
     [Fact]
     public async Task Usuario_permanente_no_puede_iniciar_demo()
     {
         var response = await PostAsync("/api/demo/session", "user");
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        await AssertStatusAsync(HttpStatusCode.Forbidden, response);
 
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         Assert.Equal(
@@ -51,7 +51,7 @@ public sealed class DemoControllerTests : IClassFixture<DemoControllerTests.ApiF
     public async Task Usuario_anonimo_crea_o_reutiliza_sandbox()
     {
         var response = await PostAsync("/api/demo/session", "anon");
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        await AssertStatusAsync(HttpStatusCode.OK, response);
 
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         Assert.Equal(ApiFactory.SessionId, json.RootElement.GetProperty("sessionId").GetGuid());
@@ -80,7 +80,18 @@ public sealed class DemoControllerTests : IClassFixture<DemoControllerTests.ApiF
         using var request = CrearRequest("/api/demo/session", "anon");
         var response = await disabled.SendAsync(request);
 
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        await AssertStatusAsync(HttpStatusCode.NotFound, response);
+    }
+
+    private static async Task AssertStatusAsync(
+        HttpStatusCode expected,
+        HttpResponseMessage response)
+    {
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.True(
+            response.StatusCode == expected,
+            $"Expected {(int)expected} {expected}, actual {(int)response.StatusCode} {response.StatusCode}. Body: {body}"
+        );
     }
 
     private async Task<HttpResponseMessage> PostAsync(string path, string tipo)
@@ -117,6 +128,7 @@ public sealed class DemoControllerTests : IClassFixture<DemoControllerTests.ApiF
                 logging.SetMinimumLevel(LogLevel.Debug);
             });
 
+            builder.UseSetting("Observability:ExposeExceptionTypeForTests", "true");
             builder.UseSetting("Demo:Enabled", "true");
             builder.UseSetting("Demo:TemplateInstitutionId", TemplateId.ToString());
 
