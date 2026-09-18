@@ -84,6 +84,28 @@ public sealed class SeguridadAccesoController(NpgsqlDataSource dataSource)
                     'correo', pe.correo,
                     'activo', u.activo,
                     'identidadVinculada', u.auth_user_id is not null,
+                    'solicitudVinculacionId', (
+                      select ia.id
+                      from public.invitaciones_acceso ia
+                      where ia.usuario_id = u.id
+                        and ia.institucion_id = @institucion_id
+                        and ia.estado = 'aceptada'
+                        and ia.auth_user_id_solicitado is not null
+                      order by ia.identidad_solicitada_at desc nulls last, ia.created_at desc
+                      limit 1
+                    ),
+                    'identidadEstado', case
+                      when u.auth_user_id is not null then 'vinculada'
+                      when exists (
+                        select 1
+                        from public.invitaciones_acceso ia
+                        where ia.usuario_id = u.id
+                          and ia.institucion_id = @institucion_id
+                          and ia.estado = 'aceptada'
+                          and ia.auth_user_id_solicitado is not null
+                      ) then 'pendiente_aprobacion'
+                      else 'pendiente'
+                    end,
                     'puedeEditar', c.puede_editar and pe.id is not null,
                     'roles', coalesce((
                       select jsonb_agg(
@@ -256,6 +278,30 @@ public sealed class SeguridadAccesoController(NpgsqlDataSource dataSource)
             comando.Parameters.AddWithValue("correo", dto.Correo);
             comando.Parameters.AddWithValue("rol_id", dto.RolId);
             comando.Parameters.AddWithValue("origen", dto.Origen);
+
+            var json = (string?)await comando.ExecuteScalarAsync(ct) ?? "{}";
+            return Content(json, "application/json");
+        }, ct);
+
+    [HttpPost("usuarios/{usuarioId:guid}/vinculacion")]
+    public Task<IActionResult> OperarVinculacion(
+        Guid usuarioId,
+        [FromBody] OperarVinculacionIdentidadDto dto,
+        CancellationToken ct) =>
+        EnTransaccionComoUsuarioAsync(async (conexion, tx) =>
+        {
+            await using var comando = conexion.CreateCommand();
+            comando.Transaction = tx;
+            comando.CommandText = """
+                select public.rpc_operar_vinculacion_identidad(
+                  @invitacion_id, @usuario_id, @institucion_id, @operacion, @motivo
+                )::text
+                """;
+            comando.Parameters.AddWithValue("invitacion_id", dto.InvitacionId);
+            comando.Parameters.AddWithValue("usuario_id", usuarioId);
+            comando.Parameters.AddWithValue("institucion_id", dto.InstitucionId);
+            comando.Parameters.AddWithValue("operacion", dto.Operacion);
+            comando.Parameters.AddWithValue("motivo", (object?)dto.Motivo ?? DBNull.Value);
 
             var json = (string?)await comando.ExecuteScalarAsync(ct) ?? "{}";
             return Content(json, "application/json");

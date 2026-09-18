@@ -38,6 +38,7 @@ builder.Services.AddHttpClient<ResendInvitationEmailSender>();
 builder.Services.AddScoped<IInvitationEmailSender>(sp =>
     sp.GetRequiredService<ResendInvitationEmailSender>());
 builder.Services.AddScoped<InvitationDeliveryService>();
+builder.Services.AddScoped<InvitationAcceptanceService>();
 
 var allowedOrigins = builder.Configuration
     .GetSection("Cors:AllowedOrigins")
