@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using SchoolManager.API.Services;
@@ -11,7 +10,6 @@ namespace SchoolManager.API.Controllers;
 [ApiController]
 [Route("api/demo")]
 [Authorize]
-[EnableRateLimiting("demo-session")]
 public sealed class DemoController(
     IDemoSandboxService sandboxService,
     IOptions<DemoOptions> optionsAccessor,
