@@ -51,7 +51,8 @@ public sealed class MigrationTests(PostgreSqlFixture fixture) : IClassFixture<Po
             "042_invitacion_acceso_responsable.sql",
             "043_invitaciones_persistencia_tokens_rls.sql",
             "044_invitaciones_envio_confirmado.sql",
-            "045_operacion_vinculacion_identidad_autorizada.sql"
+            "045_operacion_vinculacion_identidad_autorizada.sql",
+            "046_hardening_security_definer_api_only.sql"
     ];
 
     [Fact]
