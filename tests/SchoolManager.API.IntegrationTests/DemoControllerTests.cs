@@ -110,6 +110,13 @@ public sealed class DemoControllerTests : IClassFixture<DemoControllerTests.ApiF
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
+            builder.ConfigureLogging(logging =>
+            {
+                logging.ClearProviders();
+                logging.AddSimpleConsole(options => options.SingleLine = true);
+                logging.SetMinimumLevel(LogLevel.Debug);
+            });
+
             builder.UseSetting("Demo:Enabled", "true");
             builder.UseSetting("Demo:TemplateInstitutionId", TemplateId.ToString());
 
