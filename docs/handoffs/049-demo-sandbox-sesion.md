@@ -73,8 +73,9 @@ Anonymous Sign-In todavía NO fue habilitado.
 
 ## Paralelo para Hermes
 
-Prompt preparado:
+Trabajo separado en la rama `feature/047b-documentos-financieros`.
 
+Prompt:
 `docs/agent-prompts/047b-hermes-documentos-financieros.md`
 
 Alcance: documentos financieros de consulta (estado de cuenta / detalle imprimible)
