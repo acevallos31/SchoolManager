@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Npgsql;
 using SchoolManager.API.Authorization;
 using SchoolManager.API.DTOs;
+using SchoolManager.API.Services;
 
 namespace SchoolManager.API.Controllers;
 
@@ -16,7 +17,8 @@ namespace SchoolManager.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class PagosController(NpgsqlDataSource dataSource) : ApiControllerBase(dataSource)
+public class PagosController(NpgsqlDataSource dataSource, IDocumentoReciboService documentoRecibo)
+    : ApiControllerBase(dataSource)
 {
     // Columnas de rpc_listar_pagos_alumno / rpc_obtener_pago (15).
     private static PagoDto LeerPago(NpgsqlDataReader r) => new()
@@ -126,6 +128,22 @@ public class PagosController(NpgsqlDataSource dataSource) : ApiControllerBase(da
             await r.DisposeAsync();
             await tx.CommitAsync(ct);
             return Ok(lista);
+        }
+        catch (PostgresException ex) { return ToError(ex); }
+    }
+
+    // Recibo de pago (Bloque 047A). El controller es delgado: delega toda la
+    // composicion autoritativa en la capa de aplicacion (IDocumentoReciboService),
+    // que reutiliza rpc_obtener_pago + rpc_obtener_aplicaciones_pago dentro de una
+    // unica transaccion. El frontend solo presenta/imprime/descarga el DTO.
+    [HttpGet("{pagoId:guid}/recibo")]
+    [Authorize(Policy = Permisos.Pagos.Ver)]
+    public async Task<IActionResult> ObtenerRecibo(Guid pagoId, [FromQuery] Guid? institucionId, CancellationToken ct)
+    {
+        try
+        {
+            var dto = await documentoRecibo.ObtenerReciboPagoAsync(pagoId, institucionId, User.FindFirstValue("sub")!, ct);
+            return dto is null ? NotFound(new { error = "El pago no existe." }) : Ok(dto);
         }
         catch (PostgresException ex) { return ToError(ex); }
     }

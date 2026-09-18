@@ -5,7 +5,9 @@ import { Pagos } from './pagos';
 import { AuthService } from '../../core/services/auth';
 import { AlumnoService } from '../../core/services/alumno.service';
 import { Cargo, CargosService } from '../../core/services/cargos.service';
-import { PagosService, Pago } from '../../core/services/pagos.service';
+import { PagosService, Pago, ReciboPago } from '../../core/services/pagos.service';
+import { ImpresionService } from '../../core/services/impresion.service';
+import { ReciboPagoDocumento } from '../../core/documents/recibo-pago.documento';
 
 describe('Pagos (021)', () => {
   const cargoPendiente: Cargo = {
@@ -28,9 +30,19 @@ describe('Pagos (021)', () => {
     createdAt: new Date().toISOString(),
   };
 
+  const reciboRegistrado: ReciboPago = {
+    pagoId: 'p1', numeroRecibo: 1, fechaPago: new Date().toISOString(), montoTotal: 200,
+    metodoPago: 'transferencia', referenciaExterna: 'REF-1', estado: 'registrado',
+    fechaAnulacion: null, motivoAnulacion: null,
+    institucion: { id: 'i1', nombre: 'Colegio Ejemplo', nombreCorto: null, direccion: null, telefono: null, correo: null, logoUrl: null },
+    alumno: { id: 'a1', nombreCompleto: 'Ana Pérez', rne: null, codigoInterno: null },
+    detalles: [{ cargoId: 'c1', concepto: 'Colegiatura', montoAplicado: 200, estado: 'aplicado' }],
+  };
+
   let f: ComponentFixture<Pagos>;
   let c: Pagos;
   let s: Record<string, ReturnType<typeof vi.fn>>;
+  let impresion!: { imprimir: ReturnType<typeof vi.fn>; descargarPdf: ReturnType<typeof vi.fn> };
   let permisos: Set<string>;
   let router: { navigate: ReturnType<typeof vi.fn> };
   let alumnoService: { listar: ReturnType<typeof vi.fn> };
@@ -45,7 +57,8 @@ describe('Pagos (021)', () => {
         { provide: AuthService, useValue: { tienePermiso: (x: string) => permisos.has(x) } },
         { provide: AlumnoService, useValue: alumnoService },
         { provide: CargosService, useValue: s },
-        { provide: PagosService, useValue: s }
+        { provide: PagosService, useValue: s },
+        { provide: ImpresionService, useValue: impresion }
       ]
     });
     await TestBed.compileComponents();
@@ -66,8 +79,10 @@ describe('Pagos (021)', () => {
       listarPagosAlumno: vi.fn().mockResolvedValue([pagoRegistrado]),
       registrarPago: vi.fn().mockResolvedValue({ id: 'p9' }),
       anularPago: vi.fn().mockResolvedValue(undefined),
-      obtenerAplicaciones: vi.fn().mockResolvedValue([])
+      obtenerAplicaciones: vi.fn().mockResolvedValue([]),
+      obtenerRecibo: vi.fn().mockResolvedValue(reciboRegistrado)
     };
+    impresion = { imprimir: vi.fn(), descargarPdf: vi.fn().mockResolvedValue(undefined) };
   });
 
   it('crea el componente', async () => {
@@ -193,5 +208,33 @@ describe('Pagos (021)', () => {
     await c.anular(pagoRegistrado);
     expect(s.anularPago).toHaveBeenCalledWith('p1', 'Pago duplicado');
     expect(c.mensaje).toContain('anulado');
+  });
+
+  it('descargarReciboPdf obtiene el DTO autoritativo y delega el PDF', async () => {
+    await armar('a1');
+    await c.descargarReciboPdf(pagoRegistrado);
+    expect(s.obtenerRecibo).toHaveBeenCalledWith('p1');
+    expect(impresion.descargarPdf).toHaveBeenCalledTimes(1);
+    const documento = impresion.descargarPdf.mock.calls[0][0];
+    expect(documento).toBeInstanceOf(ReciboPagoDocumento);
+    expect(documento.nombreArchivo).toBe('recibo-1.pdf');
+  });
+
+  it('imprimirRecibo obtiene el DTO y delega la impresión', async () => {
+    await armar('a1');
+    await c.imprimirRecibo(pagoRegistrado);
+    expect(s.obtenerRecibo).toHaveBeenCalledWith('p1');
+    expect(impresion.imprimir).toHaveBeenCalledTimes(1);
+    expect(impresion.imprimir.mock.calls[0][0]).toBeInstanceOf(ReciboPagoDocumento);
+  });
+
+  it('no genera el recibo si falta el permiso de ver', async () => {
+    permisos.delete('academico.pagos.ver');
+    await armar('a1');
+    await c.descargarReciboPdf(pagoRegistrado);
+    await c.imprimirRecibo(pagoRegistrado);
+    expect(s.obtenerRecibo).not.toHaveBeenCalled();
+    expect(impresion.descargarPdf).not.toHaveBeenCalled();
+    expect(impresion.imprimir).not.toHaveBeenCalled();
   });
 });

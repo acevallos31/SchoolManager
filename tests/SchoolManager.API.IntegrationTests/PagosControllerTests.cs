@@ -207,6 +207,71 @@ public sealed class PagosControllerTests : IClassFixture<PagosApiFactory>
         Assert.Equal(HttpStatusCode.Forbidden, listar.StatusCode);
     }
 
+    [Fact]
+    public async Task Recibo_incluye_cabecera_detalle_alumno_e_institucion()
+    {
+        var cliente = _factory.CrearCliente(SubA);
+        var ctx = await _factory.SembrarContextoAsync(_factory.InstitucionA);
+        var cargos = await PrepararCargosAsync(cliente, ctx);
+
+        var registrar = await cliente.PostAsync(
+            $"/api/pagos/alumno/{ctx.AlumnoId}?institucionId={ctx.InstitucionId}",
+            Body(new { montoTotal = 500m, aplicaciones = new[] { new { cargoId = cargos[0].Id, monto = 500m } } }));
+        Assert.Equal(HttpStatusCode.Created, registrar.StatusCode);
+        var pagoId = PagoIdDe(registrar);
+
+        var recibo = await GetAsync(cliente,
+            $"/api/pagos/{pagoId}/recibo?institucionId={ctx.InstitucionId}");
+
+        Assert.Equal(pagoId, recibo.GetProperty("pagoId").GetGuid());
+        Assert.True(recibo.GetProperty("numeroRecibo").GetInt64() >= 1);
+        Assert.Equal(500m, recibo.GetProperty("montoTotal").GetDecimal());
+        Assert.Equal("registrado", recibo.GetProperty("estado").GetString());
+
+        var institucion = recibo.GetProperty("institucion");
+        Assert.Equal(ctx.InstitucionId, institucion.GetProperty("id").GetGuid());
+        Assert.False(string.IsNullOrWhiteSpace(institucion.GetProperty("nombre").GetString()));
+
+        var alumno = recibo.GetProperty("alumno");
+        Assert.Equal(ctx.AlumnoId, alumno.GetProperty("id").GetGuid());
+        Assert.False(string.IsNullOrWhiteSpace(alumno.GetProperty("nombreCompleto").GetString()));
+
+        var detalles = recibo.GetProperty("detalles");
+        Assert.Equal(1, detalles.GetArrayLength());
+        Assert.Equal(cargos[0].Id, detalles[0].GetProperty("cargoId").GetGuid());
+        Assert.Equal(500m, detalles[0].GetProperty("montoAplicado").GetDecimal());
+    }
+
+    [Fact]
+    public async Task Recibo_de_un_pago_inexistente_es_404()
+    {
+        var cliente = _factory.CrearCliente(SubA);
+        var ctx = await _factory.SembrarContextoAsync(_factory.InstitucionA);
+
+        var response = await cliente.GetAsync(
+            $"/api/pagos/{Guid.NewGuid()}/recibo?institucionId={ctx.InstitucionId}");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Recibo_sin_permiso_de_pagos_es_403()
+    {
+        var cliente = _factory.CrearCliente(SubA);
+        var ctx = await _factory.SembrarContextoAsync(_factory.InstitucionA);
+        var cargos = await PrepararCargosAsync(cliente, ctx);
+        var registrar = await cliente.PostAsync(
+            $"/api/pagos/alumno/{ctx.AlumnoId}?institucionId={ctx.InstitucionId}",
+            Body(new { montoTotal = 500m, aplicaciones = new[] { new { cargoId = cargos[0].Id, monto = 500m } } }));
+        var pagoId = PagoIdDe(registrar);
+
+        var anonimo = _factory.CrearCliente("sin-permiso");
+        var recibo = await anonimo.GetAsync(
+            $"/api/pagos/{pagoId}/recibo?institucionId={ctx.InstitucionId}");
+
+        Assert.Equal(HttpStatusCode.Forbidden, recibo.StatusCode);
+    }
+
     // ----- Helpers -----
 
     private async Task<List<CargoInfo>> PrepararCargosAsync(
