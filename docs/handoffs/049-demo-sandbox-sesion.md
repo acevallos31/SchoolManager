@@ -8,7 +8,8 @@
 
 - Rama: `feature/demo-sandbox-049`.
 - 049A: **cerrada**.
-- 049B: **en implementación**.
+- 049B: **cerrada e integrada en main mediante PR #121**.
+- 049C: **en implementación en `feature/049c-demo-clonacion-api`**.
 - Base: `main`.
 - Migración propuesta: `046_demo_sandbox_sesiones.sql`.
 - Sin DDL ni escrituras de datos realizadas en producción.
@@ -105,3 +106,12 @@ alcance; queda como hallazgo para revisión separada.
 - no `platform_admin` para Demo;
 - no lógica financiera duplicada;
 - no acceso directo de negocio desde Angular a Supabase.
+
+
+## Actualización 049C
+
+Ver `docs/handoffs/049C-demo-clonacion-api.md`.
+
+049C agrega migración 047, clonación transaccional, rol `demo_operator`, API con
+feature flag/claim anónimo y rate limiting. No habilita la Demo ni toca Supabase
+producción.
