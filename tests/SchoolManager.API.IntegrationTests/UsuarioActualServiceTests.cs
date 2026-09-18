@@ -208,6 +208,120 @@ public sealed class UsuarioActualServiceTests : IAsyncLifetime
         Assert.Empty(actual.Instituciones);
     }
 
+    /// <summary>
+    /// Reproduce el contexto de conexion de un backend que NO conecta como owner.
+    /// Las policies RLS de public.usuarios / public.personas son `to authenticated`
+    /// y se resuelven contra auth.uid() (= request.jwt.claim.sub). Un rol no-owner
+    /// sin ese claim no ve la fila aunque el usuario este vinculado y activo: es el
+    /// mismo sintoma que el IDENTIDAD_NO_VINCULADA del caso Demo.
+    /// </summary>
+    [Fact]
+    public async Task Bajo_rol_no_owner_sin_claim_jwt_la_fila_vinculada_queda_invisible()
+    {
+        var authUserId = Guid.NewGuid();
+        await InsertarUsuarioAsync(authUserId, ["operador"], activo: true);
+
+        // Control: como owner la RLS no aplica y el usuario vinculado SI resuelve.
+        var comoOwner = await _service.ObtenerAsync(CrearPrincipal(authUserId.ToString()));
+        Assert.Equal("Usuario Prueba", comoOwner.NombreCompleto);
+
+        await using var dataSourceNoOwner = NpgsqlDataSource.Create(
+            await PrepararConexionRolAuthenticatedAsync(claimSub: null));
+        var servicioNoOwner = new UsuarioActualService(dataSourceNoOwner);
+
+        var excepcion = await Assert.ThrowsAsync<IdentidadNoVinculadaException>(
+            () => servicioNoOwner.ObtenerAsync(CrearPrincipal(authUserId.ToString())));
+
+        Assert.Equal(authUserId, excepcion.AuthUserId);
+    }
+
+    /// <summary>
+    /// Remedio: si el backend conectara con un rol no-owner, publicar el sub del JWT
+    /// como request.jwt.claim.sub restaura la visibilidad de la fila.
+    /// </summary>
+    [Fact]
+    public async Task El_claim_jwt_en_la_conexion_restaura_la_visibilidad_bajo_rol_no_owner()
+    {
+        var authUserId = Guid.NewGuid();
+        await InsertarUsuarioAsync(authUserId, ["operador"], activo: true);
+
+        await using var dataSourceConClaim = NpgsqlDataSource.Create(
+            await PrepararConexionRolAuthenticatedAsync(claimSub: authUserId));
+        var servicioConClaim = new UsuarioActualService(dataSourceConClaim);
+
+        var actual = await servicioConClaim.ObtenerAsync(CrearPrincipal(authUserId.ToString()));
+
+        Assert.Equal("Usuario Prueba", actual.NombreCompleto);
+    }
+
+    /// <summary>
+    /// Refutacion de RLS como causa del caso Demo: la RLS esta habilitada en
+    /// usuarios/personas, pero NO forzada (no hay `force row level security`), de modo
+    /// que el rol owner la ignora. La conexion del backend a Supabase es owner
+    /// (postgres / postgres.&lt;ref&gt;), asi que puede resolver la fila vinculada
+    /// incluso sin ningun claim JWT en la conexion.
+    /// </summary>
+    [Fact]
+    public async Task Como_owner_la_rls_no_oculta_la_fila_vinculada_ni_sin_claim_jwt()
+    {
+        var authUserId = Guid.NewGuid();
+        var esperado = await InsertarUsuarioAsync(authUserId, ["operador"], activo: true);
+
+        // Sin claim alguno en la conexion: si la RLS aplicara, la fila desapareceria.
+        var actual = await _service.ObtenerAsync(CrearPrincipal(authUserId.ToString()));
+
+        Assert.Equal(esperado.Id, actual.Id);
+        Assert.Equal("Usuario Prueba", actual.NombreCompleto);
+
+        // Evidencia de catalogo: RLS habilitada, pero sin FORCE (owner la ignora).
+        await using var catalogo = _dataSource.CreateCommand(@"
+            select relrowsecurity, relforcerowsecurity
+            from pg_class
+            where oid in ('public.usuarios'::regclass, 'public.personas'::regclass)
+            ");
+        await using var reader = await catalogo.ExecuteReaderAsync();
+        var filas = 0;
+        while (await reader.ReadAsync())
+        {
+            filas++;
+            Assert.True(reader.GetBoolean(0), "La RLS deberia estar habilitada.");
+            Assert.False(reader.GetBoolean(1), "FORCE RLS haria que el owner tambien fuera filtrado.");
+        }
+
+        Assert.Equal(2, filas);
+    }
+
+    private async Task<string> PrepararConexionRolAuthenticatedAsync(Guid? claimSub)
+    {
+        // El bootstrap de test crea `authenticated` como nologin (igual que Supabase,
+        // donde el login lo hace PostgREST). Para ejercitar la RLS desde una conexion
+        // real se habilita login con contrasena local de test.
+        await using (var habilitar = _dataSource.CreateCommand(
+            "alter role authenticated login password 'authenticated_test'"))
+        {
+            await habilitar.ExecuteNonQueryAsync();
+        }
+
+        // El baseline solo concede SELECT a `authenticated` sobre una lista de tablas y
+        // deja fuera instituciones (que el servicio consulta). Supabase, en cambio,
+        // concede DML completo y delega el control en la RLS; se emula ese grant para
+        // que la prueba aísle el efecto de la RLS y no un 42501 de permisos.
+        await using (var grant = _dataSource.CreateCommand(
+            "grant select on all tables in schema public to authenticated"))
+        {
+            await grant.ExecuteNonQueryAsync();
+        }
+
+        return new NpgsqlConnectionStringBuilder(_container.GetConnectionString())
+        {
+            Username = "authenticated",
+            Password = "authenticated_test",
+            Options = claimSub is null
+                ? null
+                : $"-c request.jwt.claim.sub={claimSub}",
+        }.ConnectionString;
+    }
+
     private async Task<UsuarioActual> InsertarUsuarioAsync(
         Guid authUserId,
         IReadOnlyList<string> roles,
