@@ -15,16 +15,20 @@ public sealed class RequestObservabilityMiddleware
     private readonly RequestDelegate _next;
     private readonly ILogger<RequestObservabilityMiddleware> _logger;
     private readonly ApiObservabilityMetrics _metrics;
+    private readonly bool _exposeExceptionTypeForTests;
 
     public RequestObservabilityMiddleware(
         RequestDelegate next,
         ILogger<RequestObservabilityMiddleware> logger,
-        ApiObservabilityMetrics metrics
+        ApiObservabilityMetrics metrics,
+        IConfiguration configuration
     )
     {
         _next = next;
         _logger = logger;
         _metrics = metrics;
+        _exposeExceptionTypeForTests =
+            configuration.GetValue<bool>("Observability:ExposeExceptionTypeForTests");
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -83,6 +87,11 @@ public sealed class RequestObservabilityMiddleware
             };
             problem.Extensions["requestId"] = requestId;
             problem.Extensions["traceId"] = traceId;
+            if (_exposeExceptionTypeForTests)
+            {
+                problem.Extensions["exceptionType"] = exception.GetType().FullName;
+                problem.Extensions["exceptionMessage"] = exception.Message;
+            }
 
             await context.Response.WriteAsJsonAsync(
                 problem,
