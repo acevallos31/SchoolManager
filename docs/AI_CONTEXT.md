@@ -348,3 +348,21 @@ estado canónico de este archivo.
 - No ejecutar pruebas destructivas contra producción.
 - No aplicar migraciones ni cambios de datos reales sin autorización explícita.
 - Las reglas operativas completas están en `AGENTS.md`.
+
+## 049 — Demo pública aislada (2026-09-18)
+
+- Extiende la decisión 042: la Demo pública vive en **infraestructura separada**
+  (frontend/API/Supabase propios), nunca sobre la DB productiva.
+- Dentro del entorno Demo, cada visitante obtiene una **institución sandbox por sesión**
+  clonada desde una plantilla protegida.
+- 049A cerrada: arquitectura + inventario de clonación.
+- 049B en curso: migración `046_demo_sandbox_sesiones.sql` agrega
+  `instituciones.tipo` (`normal|demo_template|demo_sandbox`) y `demo_sessions`,
+  con RLS/revokes e invariantes de sesión.
+- Identidad prevista para la Demo pública: Supabase Anonymous Sign-In únicamente en el
+  proyecto Demo, un Auth UID por navegador, con claim `is_anonymous`,
+  CAPTCHA/Turnstile y rate limiting antes de publicar.
+- No se comparten Personas/Usuarios entre sandboxes. RNE, identificación global y
+  número de recibo se regeneran/nullifican según corresponda durante el clonado.
+- `DemoModeEnabled` deberá quedar apagado por defecto y en producción.
+- PR de trabajo: #121 (Draft). No aplicar 046 ni hacer merge hasta completar validación.
