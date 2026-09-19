@@ -121,6 +121,7 @@ builder.Services.AddSingleton(sp =>
 });
 builder.Services.AddScoped<IUsuarioActualService, UsuarioActualService>();
 builder.Services.AddScoped<IDocumentoReciboService, DocumentoReciboService>();
+builder.Services.AddScoped<IEstadoCuentaService, EstadoCuentaService>();
 builder.Services.AddScoped<IAuthorizationHandler, PermisoAuthorizationHandler>();
 
 builder.Services.AddAuthorization(options =>
