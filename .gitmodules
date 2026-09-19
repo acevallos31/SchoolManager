@@ -1,0 +1,4 @@
+[submodule "mobile/SchoolManager-Mobile"]
+	path = mobile/SchoolManager-Mobile
+	url = https://github.com/acevallos31/SchoolManager-Mobile.git
+	branch = feature/backend-integration-mvp
