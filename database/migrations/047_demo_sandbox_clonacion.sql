@@ -18,6 +18,29 @@ end
 $$;
 
 -- ---------------------------------------------------------------------
+-- Compatibilidad legacy: la bootstrap histórica creó UNIQUE(nombre) para
+-- ciclos. El modelo multiinstitución vigente usa UNIQUE(institucion_id,nombre).
+-- Producción ya está normalizada; IF EXISTS hace este ajuste inocuo allí.
+-- ---------------------------------------------------------------------
+alter table public.ciclos_escolares
+  drop constraint if exists ciclos_escolares_nombre_key;
+
+do $
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname='uq_ciclos_escolares_institucion_nombre'
+      and conrelid='public.ciclos_escolares'::regclass
+  ) then
+    alter table public.ciclos_escolares
+      add constraint uq_ciclos_escolares_institucion_nombre
+      unique (institucion_id,nombre);
+  end if;
+end
+$;
+
+-- ---------------------------------------------------------------------
 -- 1. Plantilla RBAC para el visitante Demo.
 -- ---------------------------------------------------------------------
 insert into public.roles(
