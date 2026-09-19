@@ -117,3 +117,15 @@ where not exists (
   where conname='uq_ciclos_escolares_institucion_nombre'
     and conrelid='public.ciclos_escolares'::regclass
 );
+
+
+select 'demo_operator contiene permiso no delegable' as error
+where exists (
+  select 1
+  from public.roles r
+  join public.roles_permisos rp on rp.rol_id=r.id
+  join public.permisos p on p.id=rp.permiso_id
+  where r.codigo='demo_operator'
+    and r.institucion_id is null
+    and not p.delegable
+);
