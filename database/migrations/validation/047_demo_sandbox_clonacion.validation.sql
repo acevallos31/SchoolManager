@@ -100,3 +100,20 @@ select 'service_role no puede ejecutar rpc_reset_sandbox_demo' as error
 where not has_function_privilege(
   'service_role','public.rpc_reset_sandbox_demo(uuid,uuid)','EXECUTE'
 );
+
+
+select 'persiste unicidad global legacy de ciclos' as error
+where exists (
+  select 1
+  from pg_constraint
+  where conname='ciclos_escolares_nombre_key'
+    and conrelid='public.ciclos_escolares'::regclass
+);
+
+select 'falta unicidad de ciclo por institucion' as error
+where not exists (
+  select 1
+  from pg_constraint
+  where conname='uq_ciclos_escolares_institucion_nombre'
+    and conrelid='public.ciclos_escolares'::regclass
+);
