@@ -38,11 +38,14 @@ export class Login implements OnInit {
   async login() {
     this.error = '';
 
-    const correo = this.correo.trim();
+    const identificador = this.correo.trim();
     const password = this.password.trim();
+    const correo = identificador.toLowerCase() === 'demo'
+      ? 'demo@schoolmanager.com'
+      : identificador;
 
-    if (!correo || !password) {
-      this.error = 'Ingresa tu correo y contrasena para continuar.';
+    if (!identificador || !password) {
+      this.error = 'Ingresa tu usuario o correo y contrasena para continuar.';
       return;
     }
 
