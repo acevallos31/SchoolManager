@@ -366,3 +366,17 @@ estado canónico de este archivo.
   número de recibo se regeneran/nullifican según corresponda durante el clonado.
 - `DemoModeEnabled` deberá quedar apagado por defecto y en producción.
 - PR de trabajo: #121 (Draft). No aplicar 046 ni hacer merge hasta completar validación.
+
+
+### 049C — clonación/API Demo
+
+- Rama: `feature/049c-demo-clonacion-api`.
+- Migración 047 agrega plantilla `demo_operator` y RPC internas
+  `rpc_crear_sandbox_demo` / `rpc_reset_sandbox_demo`.
+- La clonación remapea toda entidad mutable del template y regenera identificadores
+  globales (documento/RNE/recibo).
+- API: `POST /api/demo/session` y `POST /api/demo/session/reset`.
+- Requiere JWT con `is_anonymous=true`, `Demo:Enabled=true` y template configurado.
+- Configuración base mantiene `Demo.Enabled=false`; no habilitar en producción.
+- 049D deberá crear infraestructura Demo separada, habilitar Anonymous Sign-In allí,
+  Turnstile, frontend/E2E y cleanup.
