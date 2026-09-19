@@ -7,6 +7,9 @@ import { AlumnoListado, AlumnoService } from '../../core/services/alumno.service
 import {
   Cargo, CargoError, CargosService, ResumenFinanciero,
 } from '../../core/services/cargos.service';
+import { EstadoCuenta, EstadoCuentaError, EstadoCuentaService } from '../../core/services/estado-cuenta.service';
+import { ImpresionService } from '../../core/services/impresion.service';
+import { EstadoCuentaDocumento } from '../../core/documents/estado-cuenta.documento';
 import {
   inicializarVistaFinanciera,
   sincronizarAlumnoFinancieroEnUrl,
@@ -27,6 +30,7 @@ export class Cargos implements OnInit {
   cargando = false;
   mensaje = '';
   esError = false;
+  generandoDocumento = false;
 
   constructor(
     private readonly route: ActivatedRoute,
@@ -34,6 +38,8 @@ export class Cargos implements OnInit {
     private readonly auth: AuthService,
     private readonly alumnoService: AlumnoService,
     private readonly service: CargosService,
+    private readonly estadoCuentaService: EstadoCuentaService,
+    private readonly impresion: ImpresionService,
     private readonly cdr: ChangeDetectorRef,
   ) {}
 
@@ -103,6 +109,42 @@ export class Cargos implements OnInit {
     } catch (e: unknown) { this.error(e); }
     finally {
       this.cargando = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  async imprimirEstadoCuenta(): Promise<void> {
+    if (!this.alumnoId) return;
+    this.generandoDocumento = true;
+    this.mensaje = '';
+    this.esError = false;
+    try {
+      const estado = await this.estadoCuentaService.obtenerEstadoCuenta(this.alumnoId);
+      const documento = new EstadoCuentaDocumento(estado);
+      this.impresion.imprimir(documento);
+    } catch (e: unknown) {
+      this.mensaje = e instanceof EstadoCuentaError ? e.message : 'No se pudo imprimir el estado de cuenta.';
+      this.esError = true;
+    } finally {
+      this.generandoDocumento = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  async descargarEstadoCuentaPdf(): Promise<void> {
+    if (!this.alumnoId) return;
+    this.generandoDocumento = true;
+    this.mensaje = '';
+    this.esError = false;
+    try {
+      const estado = await this.estadoCuentaService.obtenerEstadoCuenta(this.alumnoId);
+      const documento = new EstadoCuentaDocumento(estado);
+      await this.impresion.descargarPdf(documento);
+    } catch (e: unknown) {
+      this.mensaje = e instanceof EstadoCuentaError ? e.message : 'No se pudo descargar el estado de cuenta.';
+      this.esError = true;
+    } finally {
+      this.generandoDocumento = false;
       this.cdr.detectChanges();
     }
   }
