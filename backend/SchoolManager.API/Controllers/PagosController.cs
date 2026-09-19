@@ -20,41 +20,6 @@ namespace SchoolManager.API.Controllers;
 public class PagosController(NpgsqlDataSource dataSource, IDocumentoReciboService documentoRecibo)
     : ApiControllerBase(dataSource)
 {
-    // Columnas de rpc_listar_pagos_alumno / rpc_obtener_pago (15).
-    private static PagoDto LeerPago(NpgsqlDataReader r) => new()
-    {
-        Id = r.GetGuid(0),
-        InstitucionId = r.GetGuid(1),
-        AlumnoId = r.GetGuid(2),
-        ResponsableId = r.IsDBNull(3) ? null : r.GetGuid(3),
-        NumeroRecibo = r.GetInt64(4),
-        MontoTotal = r.GetDecimal(5),
-        FechaPago = r.GetFieldValue<DateTimeOffset>(6),
-        MetodoPago = r.IsDBNull(7) ? null : r.GetString(7),
-        ReferenciaExterna = r.IsDBNull(8) ? null : r.GetString(8),
-        Estado = r.GetString(9),
-        RegistradoPor = r.IsDBNull(10) ? null : r.GetGuid(10),
-        FechaAnulacion = r.IsDBNull(11) ? null : r.GetFieldValue<DateTimeOffset>(11),
-        AnuladoPor = r.IsDBNull(12) ? null : r.GetGuid(12),
-        MotivoAnulacion = r.IsDBNull(13) ? null : r.GetString(13),
-        CreatedAt = r.GetFieldValue<DateTimeOffset>(14),
-    };
-
-    // Columnas de rpc_obtener_aplicaciones_pago (10).
-    private static AplicacionPagoDto LeerAplicacion(NpgsqlDataReader r) => new()
-    {
-        AplicacionId = r.GetGuid(0),
-        PagoId = r.GetGuid(1),
-        CargoId = r.GetGuid(2),
-        InstitucionId = r.GetGuid(3),
-        MontoAplicado = r.GetDecimal(4),
-        Estado = r.GetString(5),
-        FechaReversion = r.IsDBNull(6) ? null : r.GetFieldValue<DateTimeOffset>(6),
-        CargoEstado = r.GetString(7),
-        ConceptoNombre = r.IsDBNull(8) ? null : r.GetString(8),
-        MontoOriginal = r.GetDecimal(9),
-    };
-
     [HttpGet("alumno/{alumnoId:guid}")]
     [Authorize(Policy = Permisos.Pagos.Ver)]
     public async Task<IActionResult> ListarPorAlumno(Guid alumnoId, [FromQuery] Guid? institucionId, CancellationToken ct)
@@ -71,7 +36,7 @@ public class PagosController(NpgsqlDataSource dataSource, IDocumentoReciboServic
             cmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
             await using var r = await cmd.ExecuteReaderAsync(ct);
             var lista = new List<PagoDto>();
-            while (await r.ReadAsync(ct)) lista.Add(LeerPago(r));
+            while (await r.ReadAsync(ct)) lista.Add(FinanzasDataReader.LeerPago(r));
             await r.DisposeAsync();
             await tx.CommitAsync(ct);
             return Ok(lista);
@@ -100,7 +65,7 @@ public class PagosController(NpgsqlDataSource dataSource, IDocumentoReciboServic
                 await tx.CommitAsync(ct);
                 return NotFound(new { error = "El pago no existe." });
             }
-            var dto = LeerPago(r);
+            var dto = FinanzasDataReader.LeerPago(r);
             await r.DisposeAsync();
             await tx.CommitAsync(ct);
             return Ok(dto);
@@ -124,7 +89,7 @@ public class PagosController(NpgsqlDataSource dataSource, IDocumentoReciboServic
             cmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
             await using var r = await cmd.ExecuteReaderAsync(ct);
             var lista = new List<AplicacionPagoDto>();
-            while (await r.ReadAsync(ct)) lista.Add(LeerAplicacion(r));
+            while (await r.ReadAsync(ct)) lista.Add(FinanzasDataReader.LeerAplicacion(r));
             await r.DisposeAsync();
             await tx.CommitAsync(ct);
             return Ok(lista);
