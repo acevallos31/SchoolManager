@@ -1,7 +1,29 @@
 <div class="page-container">
   <div class="page-header">
     <h1 class="sm-page-title">Cargos y mensualidades</h1>
-    <button class="sm-btn sm-btn--secondary" type="button" (click)="volver()">Volver a alumnos</button>
+    <div class="page-actions">
+      @if (alumnoId) {
+        @if (generandoDocumento) {
+          <span class="sm-spinner" aria-hidden="true"></span>
+        } @else {
+          <button
+            class="sm-btn sm-btn--primary"
+            type="button"
+            (click)="imprimirEstadoCuenta()"
+            [disabled]="generandoDocumento">
+            Imprimir estado de cuenta
+          </button>
+          <button
+            class="sm-btn sm-btn--secondary"
+            type="button"
+            (click)="descargarEstadoCuentaPdf()"
+            [disabled]="generandoDocumento">
+            Descargar PDF
+          </button>
+        }
+      }
+      <button class="sm-btn sm-btn--secondary" type="button" (click)="volver()">Volver a alumnos</button>
+    </div>
   </div>
 
   <div class="filtros">

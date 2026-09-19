@@ -17,28 +17,6 @@ namespace SchoolManager.API.Controllers;
 [Authorize]
 public class CargosController(NpgsqlDataSource dataSource) : ApiControllerBase(dataSource)
 {
-    // Columnas de rpc_listar_cargos_matricula / rpc_listar_cargos_alumno (15).
-    private static CargoDto LeerCargo(NpgsqlDataReader r) => new()
-    {
-        Id = r.GetGuid(0),
-        MatriculaId = r.GetGuid(1),
-        AlumnoId = r.GetGuid(2),
-        PlanPagoId = r.IsDBNull(3) ? null : r.GetGuid(3),
-        Orden = r.GetInt32(4),
-        ConceptoId = r.IsDBNull(5) ? null : r.GetGuid(5),
-        ConceptoNombre = r.IsDBNull(6) ? null : r.GetString(6),
-        Descripcion = r.IsDBNull(7) ? null : r.GetString(7),
-        MontoOriginal = r.GetDecimal(8),
-        FechaVencimiento = r.GetFieldValue<DateOnly>(9),
-        Estado = r.GetString(10),
-        FechaGeneracion = r.GetFieldValue<DateTimeOffset>(11),
-        FechaAnulacion = r.IsDBNull(12) ? null : r.GetFieldValue<DateTimeOffset>(12),
-        MotivoAnulacion = r.IsDBNull(13) ? null : r.GetString(13),
-        EsVencido = r.GetBoolean(14),
-        Saldo = r.GetDecimal(15),
-        Aplicado = r.GetDecimal(16),
-    };
-
     [HttpGet("matricula/{matriculaId:guid}")]
     [Authorize(Policy = Permisos.Cargos.Ver)]
     public async Task<IActionResult> GetPorMatricula(Guid matriculaId, [FromQuery] Guid? institucionId, CancellationToken ct)
@@ -55,7 +33,7 @@ public class CargosController(NpgsqlDataSource dataSource) : ApiControllerBase(d
             cmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
             await using var r = await cmd.ExecuteReaderAsync(ct);
             var lista = new List<CargoDto>();
-            while (await r.ReadAsync(ct)) lista.Add(LeerCargo(r));
+            while (await r.ReadAsync(ct)) lista.Add(FinanzasDataReader.LeerCargo(r));
             await r.DisposeAsync();
             await tx.CommitAsync(ct);
             return Ok(lista);
@@ -79,7 +57,7 @@ public class CargosController(NpgsqlDataSource dataSource) : ApiControllerBase(d
             cmd.Parameters.AddWithValue("institucionId", (object?)institucionId ?? DBNull.Value);
             await using var r = await cmd.ExecuteReaderAsync(ct);
             var lista = new List<CargoDto>();
-            while (await r.ReadAsync(ct)) lista.Add(LeerCargo(r));
+            while (await r.ReadAsync(ct)) lista.Add(FinanzasDataReader.LeerCargo(r));
             await r.DisposeAsync();
             await tx.CommitAsync(ct);
             return Ok(lista);
@@ -108,17 +86,7 @@ public class CargosController(NpgsqlDataSource dataSource) : ApiControllerBase(d
                 await tx.CommitAsync(ct);
                 return NotFound(new { error = "El alumno no existe." });
             }
-            var dto = new ResumenFinancieroDto
-            {
-                AlumnoId = r.GetGuid(0),
-                InstitucionId = r.GetGuid(1),
-                TotalObligaciones = r.GetInt64(2),
-                TotalMontoOriginal = r.GetDecimal(3),
-                TotalPendiente = r.GetDecimal(4),
-                TotalVencido = r.GetDecimal(5),
-                TotalAnulado = r.GetDecimal(6),
-                TotalAplicado = r.GetDecimal(7),
-            };
+            var dto = FinanzasDataReader.LeerResumen(r);
             await r.DisposeAsync();
             await tx.CommitAsync(ct);
             return Ok(dto);

@@ -5,6 +5,9 @@ import { Cargos } from './cargos';
 import { AuthService } from '../../core/services/auth';
 import { AlumnoService } from '../../core/services/alumno.service';
 import { Cargo, CargosService, ResumenFinanciero } from '../../core/services/cargos.service';
+import { EstadoCuenta, EstadoCuentaError, EstadoCuentaService } from '../../core/services/estado-cuenta.service';
+import { ImpresionService } from '../../core/services/impresion.service';
+import { EstadoCuentaDocumento } from '../../core/documents/estado-cuenta.documento';
 
 describe('Cargos (020)', () => {
   const cargoPendiente: Cargo = {
@@ -24,9 +27,22 @@ describe('Cargos (020)', () => {
     totalAnulado: 0, totalAplicado: 0,
   };
 
+  const estadoCuenta: EstadoCuenta = {
+    institucion: {
+      id: '11111111-1111-1111-1111-111111111111', nombre: 'Colegio Ejemplo',
+      nombreCorto: null, direccion: null, telefono: null, correo: null, logoUrl: null,
+    },
+    alumno: { id: 'a1', nombreCompleto: 'Ana Pérez', rne: null, codigoInterno: 'A-01' },
+    resumen,
+    cargos: [cargoPendiente, cargoVencido],
+    pagos: [],
+  };
+
   let f: ComponentFixture<Cargos>;
   let c: Cargos;
   let s: Record<string, ReturnType<typeof vi.fn>>;
+  let estadoCuentaService: { obtenerEstadoCuenta: ReturnType<typeof vi.fn> };
+  let impresion: { imprimir: ReturnType<typeof vi.fn>; descargarPdf: ReturnType<typeof vi.fn> };
   let permisos: Set<string>;
   let router: { navigate: ReturnType<typeof vi.fn> };
   let alumnoService: { listar: ReturnType<typeof vi.fn> };
@@ -40,7 +56,9 @@ describe('Cargos (020)', () => {
         { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => alumnoId } } } },
         { provide: AuthService, useValue: { tienePermiso: (x: string) => permisos.has(x) } },
         { provide: AlumnoService, useValue: alumnoService },
-        { provide: CargosService, useValue: s }
+        { provide: CargosService, useValue: s },
+        { provide: EstadoCuentaService, useValue: estadoCuentaService },
+        { provide: ImpresionService, useValue: impresion }
       ]
     });
     await TestBed.compileComponents();
@@ -59,6 +77,13 @@ describe('Cargos (020)', () => {
     s = {
       listarCargosAlumno: vi.fn().mockResolvedValue([cargoPendiente, cargoVencido]),
       obtenerResumenAlumno: vi.fn().mockResolvedValue(resumen)
+    };
+    estadoCuentaService = {
+      obtenerEstadoCuenta: vi.fn().mockResolvedValue(estadoCuenta),
+    };
+    impresion = {
+      imprimir: vi.fn(),
+      descargarPdf: vi.fn().mockResolvedValue(undefined),
     };
   });
 
@@ -156,4 +181,73 @@ describe('Cargos (020)', () => {
     c.volver();
     expect(router.navigate).toHaveBeenCalledWith(['/alumnos']);
   });
+  it('imprime el estado de cuenta autoritativo del alumno seleccionado', async () => {
+    await armar('a1');
+    c.alumnoId = 'a1';
+
+    await c.imprimirEstadoCuenta();
+
+    expect(estadoCuentaService.obtenerEstadoCuenta).toHaveBeenCalledWith('a1');
+    expect(impresion.imprimir).toHaveBeenCalledTimes(1);
+    expect(impresion.imprimir.mock.calls[0][0]).toBeInstanceOf(EstadoCuentaDocumento);
+    expect(c.generandoDocumento).toBe(false);
+  });
+
+  it('descarga el estado de cuenta en PDF', async () => {
+    await armar('a1');
+    c.alumnoId = 'a1';
+
+    await c.descargarEstadoCuentaPdf();
+
+    expect(estadoCuentaService.obtenerEstadoCuenta).toHaveBeenCalledWith('a1');
+    expect(impresion.descargarPdf).toHaveBeenCalledTimes(1);
+    expect(impresion.descargarPdf.mock.calls[0][0]).toBeInstanceOf(EstadoCuentaDocumento);
+    expect(c.generandoDocumento).toBe(false);
+  });
+
+  it('no intenta generar documento si no hay alumno seleccionado', async () => {
+    await armar(null);
+    c.alumnoId = null;
+
+    await c.imprimirEstadoCuenta();
+    await c.descargarEstadoCuentaPdf();
+
+    expect(estadoCuentaService.obtenerEstadoCuenta).not.toHaveBeenCalled();
+    expect(impresion.imprimir).not.toHaveBeenCalled();
+    expect(impresion.descargarPdf).not.toHaveBeenCalled();
+  });
+
+  it('mantiene generandoDocumento mientras espera la API y lo libera al terminar', async () => {
+    await armar('a1');
+    c.alumnoId = 'a1';
+
+    let resolver!: (estado: EstadoCuenta) => void;
+    estadoCuentaService.obtenerEstadoCuenta.mockReturnValueOnce(
+      new Promise<EstadoCuenta>((resolve) => { resolver = resolve; }),
+    );
+
+    const pendiente = c.descargarEstadoCuentaPdf();
+    expect(c.generandoDocumento).toBe(true);
+
+    resolver(estadoCuenta);
+    await pendiente;
+
+    expect(c.generandoDocumento).toBe(false);
+  });
+
+  it('libera generandoDocumento y muestra error cuando falla el estado de cuenta', async () => {
+    await armar('a1');
+    c.alumnoId = 'a1';
+    estadoCuentaService.obtenerEstadoCuenta.mockRejectedValueOnce(
+      new EstadoCuentaError('No se pudo obtener el estado de cuenta.'),
+    );
+
+    await c.imprimirEstadoCuenta();
+
+    expect(c.generandoDocumento).toBe(false);
+    expect(c.esError).toBe(true);
+    expect(c.mensaje).toBe('No se pudo obtener el estado de cuenta.');
+    expect(impresion.imprimir).not.toHaveBeenCalled();
+  });
+
 });
