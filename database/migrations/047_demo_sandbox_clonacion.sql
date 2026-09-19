@@ -68,6 +68,7 @@ where r.codigo = 'demo_operator'
   and r.institucion_id is null
   and p.ambito = 'institucion'
   and p.estado = 'vigente'
+  and p.delegable
   and p.codigo not like 'identidad.%'
   and p.codigo <> 'configuracion.sistema.editar'
 on conflict do nothing;
