@@ -33,31 +33,7 @@ export class EstadoCuentaDocumento extends DocumentoImprimible {
     const ancho = lienzo.getWidth();
     const anchoUtil = ancho - margen * 2;
     const xDerecha = ancho - margen;
-    let y = margen + 5;
-
-    // Encabezado: institución emisora.
-    lienzo.setFont('bold');
-    lienzo.setFontSize(14);
-    lienzo.setTextColor(15, 23, 42);
-    lienzo.text(this.institucion.nombre || 'Institución', margen, y);
-    y += 5;
-
-    lienzo.setFont('normal');
-    lienzo.setFontSize(9);
-    lienzo.setTextColor(71, 85, 105);
-    const contacto = [this.institucion.telefono, this.institucion.correo].filter(Boolean).join(' · ');
-    for (const linea of [this.institucion.direccion, contacto]) {
-      if (linea) {
-        lienzo.text(linea, margen, y);
-        y += 4;
-      }
-    }
-
-    y += 3;
-    lienzo.setDrawColor(203, 213, 225);
-    lienzo.setLineWidth(0.3);
-    lienzo.line(margen, y, xDerecha, y);
-    y += 8;
+    let y = this.crearEncabezadoPdf(lienzo, margen);
 
     // Título y alumno.
     lienzo.setFont('bold');
@@ -198,20 +174,12 @@ export class EstadoCuentaDocumento extends DocumentoImprimible {
 <meta charset="utf-8" />
 <title>${e(this.titulo)}</title>
 <style>
-  :root { color-scheme: light; }
-  body { font-family: Arial, Helvetica, sans-serif; color: #0f172a; margin: 24px; }
-  header { border-bottom: 1px solid #cbd5e1; padding-bottom: 8px; margin-bottom: 16px; }
-  h1 { font-size: 20px; margin: 0; }
-  .contacto { color: #475569; font-size: 12px; margin-top: 4px; }
-  h2 { font-size: 16px; margin: 0 0 4px; }
-  .meta { color: #334155; font-size: 13px; margin: 0 0 12px; }
+${this.estilosHtml(`
   .resumen { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 0 0 16px; font-size: 13px; }
   .resumen strong { display: block; font-size: 15px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-  th, td { border-bottom: 1px solid #e2e8f0; padding: 6px 4px; font-size: 13px; text-align: left; }
-  th.num, td.num { text-align: right; }
-  .vacio { color: #64748b; text-align: center; }
+  table { margin-top: 8px; }
   h3 { font-size: 14px; margin: 16px 0 0; }
+  `)}
 </style>
 </head>
 <body>
@@ -250,15 +218,4 @@ export class EstadoCuentaDocumento extends DocumentoImprimible {
 </html>`;
   }
 
-  private formatoFecha(iso: string): string {
-    const fecha = new Date(iso);
-    if (Number.isNaN(fecha.getTime())) return iso;
-    const dd = String(fecha.getDate()).padStart(2, '0');
-    const mm = String(fecha.getMonth() + 1).padStart(2, '0');
-    return `${dd}/${mm}/${fecha.getFullYear()}`;
-  }
-
-  private formatoMoneda(valor: number): string {
-    return `$${Number(valor).toFixed(2)}`;
-  }
 }

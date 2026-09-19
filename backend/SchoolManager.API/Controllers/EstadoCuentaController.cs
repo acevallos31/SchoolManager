@@ -12,7 +12,8 @@ namespace SchoolManager.API.Controllers;
 // que reutiliza las RPC de 021 (resumen, cargos, pagos) dentro de una unica
 // transaccion. El frontend solo presenta/imprime/descarga el DTO.
 [ApiController]
-[Route("api/[controller]")]
+// Ruta explícita: el frontend consume /api/estado-cuenta; [controller] produciría /api/EstadoCuenta.
+[Route("api/estado-cuenta")]
 [Authorize]
 public class EstadoCuentaController(NpgsqlDataSource dataSource, IEstadoCuentaService estadoCuenta)
     : ApiControllerBase(dataSource)
