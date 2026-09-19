@@ -25,7 +25,7 @@ $$;
 alter table public.ciclos_escolares
   drop constraint if exists ciclos_escolares_nombre_key;
 
-do $
+do $$
 begin
   if not exists (
     select 1
@@ -38,7 +38,7 @@ begin
       unique (institucion_id,nombre);
   end if;
 end
-$;
+$$;
 
 -- ---------------------------------------------------------------------
 -- 1. Plantilla RBAC para el visitante Demo.
