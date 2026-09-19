@@ -21,14 +21,14 @@ public sealed class RequestObservabilityMiddleware
         RequestDelegate next,
         ILogger<RequestObservabilityMiddleware> logger,
         ApiObservabilityMetrics metrics,
-        IConfiguration configuration
+        IConfiguration? configuration = null
     )
     {
         _next = next;
         _logger = logger;
         _metrics = metrics;
         _exposeExceptionTypeForTests =
-            configuration.GetValue<bool>("Observability:ExposeExceptionTypeForTests");
+            configuration?.GetValue<bool>("Observability:ExposeExceptionTypeForTests") ?? false;
     }
 
     public async Task InvokeAsync(HttpContext context)
