@@ -121,14 +121,6 @@ public sealed class DemoControllerTests : IClassFixture<DemoControllerTests.ApiF
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
-            builder.ConfigureLogging(logging =>
-            {
-                logging.ClearProviders();
-                logging.AddSimpleConsole(options => options.SingleLine = true);
-                logging.SetMinimumLevel(LogLevel.Debug);
-            });
-
-            builder.UseSetting("Observability:ExposeExceptionTypeForTests", "true");
             builder.UseSetting("Demo:Enabled", "true");
             builder.UseSetting("Demo:TemplateInstitutionId", TemplateId.ToString());
 
@@ -147,7 +139,25 @@ public sealed class DemoControllerTests : IClassFixture<DemoControllerTests.ApiF
 
                 services.RemoveAll<IDemoSandboxService>();
                 services.AddSingleton<IDemoSandboxService, DemoSandboxControlado>();
+                services.RemoveAll<SchoolManager.API.Identity.IUsuarioActualService>();
+                services.AddSingleton<SchoolManager.API.Identity.IUsuarioActualService, UsuarioActualControlado>();
             });
+        }
+    }
+
+    private sealed class UsuarioActualControlado
+        : SchoolManager.API.Identity.IUsuarioActualService
+    {
+        public Task<SchoolManager.API.Identity.UsuarioActual> ObtenerAsync(
+            ClaimsPrincipal principal,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new SchoolManager.API.Identity.UsuarioActual(
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                [],
+                []
+            ));
         }
     }
 
